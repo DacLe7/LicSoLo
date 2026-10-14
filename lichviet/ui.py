@@ -57,7 +57,7 @@ textarea::placeholder{color:var(--mut)}
 .banner .x{flex:1}.banner button{border:1px solid currentColor;background:transparent;color:inherit;border-radius:10px;padding:6px 12px;font-family:inherit;font-weight:600;font-size:13px;cursor:pointer}
 /* ---- lịch ---- */
 .sec{display:flex;align-items:baseline;justify-content:space-between;margin:28px 4px 8px}
-.sec h2{font:700 18px/1.2 Georgia,serif;margin:0}
+.sec h2{font-weight:700;font-size:18px;line-height:1.2;margin:0}
 .sec span{font-size:13px;color:var(--mut)}
 #list{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:6px 18px;box-shadow:var(--sh)}
 .day{display:flex;align-items:baseline;gap:8px;padding:14px 0 6px;font-weight:700;font-size:14px}
@@ -113,7 +113,7 @@ const ICO={cal:svg('<rect x="3" y="4" width="18" height="17" rx="3"/><path d="M8
 function toast(m){$('toast').textContent=m||'';}
 /* ---- đầu trang: hôm nay ---- */
 (async()=>{const t=new Date();$('dnum').textContent=p(t.getDate());$('dwd').textContent=WD[t.getDay()];$('dmo').textContent='Tháng '+(t.getMonth()+1)+', '+t.getFullYear();
-  try{const x=await j('/today');$('lday').textContent=p(x.lunar_day)+'/'+p(x.lunar_month)+(x.leap?' (nhuận)':'');$('lyear').textContent='Năm '+x.year_name;}catch(e){}})();
+  try{const x=await j('/today');$('lday').textContent=p(x.lunar_day)+'/'+p(x.lunar_month);$('lyear').textContent='Năm '+x.year_name+(x.leap?' · tháng nhuận':'');}catch(e){}})();
 /* ---- giọng nói: chừa sẵn chỗ. Sau này chỉ cần thay Voice.start() bằng bộ nhận giọng thật,
    gọi Voice.onText(câu) khi có kết quả: câu sẽ được điền vào ô và phân tích như gõ tay. ---- */
 const Voice={ready:false,
