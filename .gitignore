@@ -1,0 +1,17 @@
+# Dữ liệu người dùng và database
+data/
+*.db
+
+# Secret
+.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# File tạm
+*.tmp
+*.log
+.DS_Store
+Thumbs.db
