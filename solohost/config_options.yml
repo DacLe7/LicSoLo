@@ -86,3 +86,18 @@ fields:
         label: 16 luồng
       - value: '24'
         label: 24 luồng
+
+  - name: PANEL_PORT
+    label: Cổng truy cập app
+    type: select
+    default: '18763'
+    help: Cổng trên máy này để mở app. Chỉ đổi khi cổng mặc định đang bị chương trình khác dùng.
+    options:
+      - value: '18763'
+        label: 18763 (mặc định)
+      - value: '18764'
+        label: 18764
+      - value: '18765'
+        label: 18765
+      - value: '28763'
+        label: 28763

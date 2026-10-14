@@ -2,14 +2,14 @@
 # Script kiểm tra máy + chọn model được nhúng thẳng vào service llm (không cần file ngoài).
 services:
   app:
-    image: ghcr.io/dacle7/licsolo:0.1.2
+    image: ghcr.io/dacle7/licsolo:0.2.0
     container_name: LacVietNode-Lich
     labels:
       pi.ui.primary: "true"
     restart: unless-stopped
     user: "${UID:-0}"
     ports:
-      - '127.0.0.1:18763:8080'
+      - "127.0.0.1:${PANEL_PORT:-18763}:8080"
     environment:
       LICHVIET_LLM_URL: http://llm:8080
       LICHVIET_AI: "${AI_MODE:-off}"
