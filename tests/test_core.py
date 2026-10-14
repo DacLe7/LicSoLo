@@ -137,3 +137,10 @@ class TestHttp(unittest.TestCase):
             self.assertTrue(json.loads(urllib.request.urlopen(d).read())["deleted"])
         finally:
             srv.shutdown()
+
+
+class TestToday(unittest.TestCase):
+    def test_today_info_tet_2026(self):
+        from lichviet.api import today_info
+        r = today_info(datetime(2026, 2, 17, 9, 0))  # mùng 1 Tết Bính Ngọ
+        self.assertEqual((r["lunar_day"], r["lunar_month"], r["year_name"]), (1, 1, "Bính Ngọ"))

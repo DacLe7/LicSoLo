@@ -2,75 +2,194 @@ PAGE = r"""<!doctype html>
 <html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Trợ lý thời gian</title>
 <style>
-:root{--bg:#f6f7f9;--card:#fff;--tx:#1a2230;--mut:#6b7686;--pri:#0f766e;--bd:#e3e7ed;--warn:#b45309}
-@media(prefers-color-scheme:dark){:root{--bg:#10151c;--card:#18202b;--tx:#e8edf3;--mut:#93a0b1;--pri:#2dd4bf;--bd:#27313f;--warn:#fbbf24}}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif}
-main{max-width:720px;margin:0 auto;padding:16px}
-h1{font-size:20px;margin:8px 0 14px}h2{font-size:15px;margin:0 0 8px;color:var(--mut);font-weight:600}
-.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px;margin-bottom:14px}
-textarea{width:100%;min-height:64px;padding:10px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx);font:inherit;resize:vertical}
-button{border:0;border-radius:8px;padding:8px 14px;font:inherit;cursor:pointer;background:var(--pri);color:#fff}
-button:disabled{opacity:.5;cursor:default}
-button.ghost{background:transparent;color:var(--mut);border:1px solid var(--bd)}
-.row{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
-.ev{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--bd)}
-.ev:first-child{border-top:0}.t{color:var(--mut);font-size:13px}.warn{color:var(--warn)}
-.banner{background:#fef3c7;color:#78350f;border-radius:10px;padding:10px 14px;margin-bottom:14px}
-.empty{color:var(--mut)}
+:root{--bg:#f3f1ec;--card:#fffdf9;--tx:#1d1b18;--mut:#78716c;--line:#e7e2d9;--acc:#c2410c;--acc2:#ea580c;--accsoft:#fff1e7;--ink:#14231f;--ink2:#1f3a33;--gold:#f5c26b;--warn:#9a3412;--warnbg:#ffedd5;--ok:#166534;--okbg:#e3f5e8;--sh:0 1px 2px rgba(28,25,23,.04),0 10px 30px -12px rgba(28,25,23,.18)}
+@media(prefers-color-scheme:dark){:root{--bg:#121110;--card:#1c1a18;--tx:#f2eee8;--mut:#a8a29e;--line:#2e2a26;--acc:#fb923c;--acc2:#fdba74;--accsoft:#2d1d12;--ink:#0d1a17;--ink2:#17322b;--warn:#fdba74;--warnbg:#3a2412;--ok:#86efac;--okbg:#12291b;--sh:none}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.55 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+main{max-width:720px;margin:0 auto;padding:20px 16px 56px}
+/* ---- tờ lịch hôm nay ---- */
+.hero{border:1px solid rgba(255,255,255,.06);position:relative;overflow:hidden;border-radius:22px;padding:22px 24px 36px;color:#f8f4ec;background:radial-gradient(120% 140% at 100% 0%,var(--ink2) 0%,var(--ink) 60%);box-shadow:var(--sh);display:flex;align-items:center;gap:22px}
+.hero:after{content:"";position:absolute;right:-60px;top:-60px;width:220px;height:220px;border-radius:50%;background:radial-gradient(circle,rgba(245,194,107,.28),transparent 65%)}
+.big{font:700 64px/1 Georgia,"Times New Roman",serif;color:var(--gold);letter-spacing:-2px}
+.hero .wd{font-size:20px;font-weight:600}
+.hero .mo{opacity:.75;font-size:14px}
+.lunar{margin-left:auto;text-align:right;position:relative;z-index:1;padding-left:18px;border-left:1px solid rgba(255,255,255,.15)}
+.lunar .l1{font-size:12px;letter-spacing:.12em;text-transform:uppercase;opacity:.6}
+.lunar .l2{font:600 22px/1.2 Georgia,serif;color:var(--gold)}
+.lunar .l3{font-size:13px;opacity:.75}
+/* ---- ô nhập ---- */
+.composer{margin-top:-14px;position:relative;z-index:2;background:var(--card);border:1px solid var(--line);border-radius:20px;padding:10px 10px 10px 16px;box-shadow:var(--sh);display:flex;align-items:flex-end;gap:8px;margin-left:12px;margin-right:12px}
+textarea{flex:1;border:0;outline:none;resize:none;background:transparent;color:var(--tx);font:inherit;font-size:16px;line-height:1.5;padding:8px 0;min-height:40px;max-height:160px}
+textarea::placeholder{color:var(--mut)}
+.ib{flex:none;width:44px;height:44px;border-radius:14px;border:0;display:grid;place-items:center;cursor:pointer;transition:transform .08s,filter .15s,background .15s}
+.ib svg{width:20px;height:20px}
+.ib:active{transform:scale(.95)}
+#mic{background:var(--accsoft);color:var(--acc)}
+#mic[data-soon]{opacity:.55}
+#go{background:linear-gradient(135deg,var(--acc2),var(--acc));color:#fff}
+#go:disabled{filter:grayscale(.5);opacity:.7;cursor:default}
+#go.busy svg{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:12px 12px 2px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;font-family:inherit;font-weight:500;font-size:13px;line-height:1;padding:8px 12px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--tx);cursor:pointer}
+.chip:hover{border-color:var(--acc);color:var(--acc)}
+.toast{font-size:13px;color:var(--mut);padding:6px 14px 0}.toast:empty{display:none}
+/* ---- bản nháp ---- */
+.draft{margin:14px 0 0;background:var(--card);border:1px solid var(--line);border-left:4px solid var(--acc);border-radius:16px;padding:16px 18px;box-shadow:var(--sh);animation:up .25s ease}
+@keyframes up{from{opacity:0;transform:translateY(6px)}}
+.who{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--acc);font-weight:700;margin-bottom:6px}
+.dt{font-size:20px;font-weight:700;margin:0 0 10px}
+.facts{display:grid;gap:6px}
+.fact{display:flex;align-items:center;gap:10px;font-size:14.5px}
+.fact svg{width:18px;height:18px;color:var(--mut);flex:none}
+.tags{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+.tag{font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--accsoft);color:var(--acc)}
+.note{background:var(--warnbg);color:var(--warn);border-radius:12px;padding:9px 12px;margin-top:10px;font-size:14px}
+.saved{background:var(--okbg);color:var(--ok);border-radius:12px;padding:10px 14px;font-size:14.5px}
+.ai{font-size:12.5px;color:var(--mut);margin-top:10px}
+.actions{display:flex;gap:8px;margin-top:14px}
+.btn{border:0;border-radius:12px;padding:10px 22px;font-family:inherit;font-weight:600;font-size:15px;cursor:pointer;background:var(--tx);color:var(--bg)}
+.btn.ghost{background:transparent;color:var(--mut);border:1px solid var(--line);font-weight:500}
+.btn:disabled{opacity:.5}
+/* ---- nhắc ---- */
+.banner svg{width:20px;height:20px;flex:none}.banner{display:flex;align-items:center;gap:12px;background:var(--warnbg);color:var(--warn);border-radius:16px;padding:12px 14px;margin:14px 0 0}
+.banner .x{flex:1}.banner button{border:1px solid currentColor;background:transparent;color:inherit;border-radius:10px;padding:6px 12px;font-family:inherit;font-weight:600;font-size:13px;cursor:pointer}
+/* ---- lịch ---- */
+.sec{display:flex;align-items:baseline;justify-content:space-between;margin:28px 4px 8px}
+.sec h2{font:700 18px/1.2 Georgia,serif;margin:0}
+.sec span{font-size:13px;color:var(--mut)}
+#list{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:6px 18px;box-shadow:var(--sh)}
+.day{display:flex;align-items:baseline;gap:8px;padding:14px 0 6px;font-weight:700;font-size:14px}
+.day small{color:var(--mut);font-weight:500}
+.day.today{color:var(--acc)}
+.ev{display:flex;align-items:center;gap:14px;padding:10px 0;border-bottom:1px solid var(--line)}
+.ev:last-child{border-bottom:0}
+.time{flex:none;width:58px;font-family:inherit;font-weight:700;font-size:15px;font-variant-numeric:tabular-nums}
+.time.all{font-size:12px;color:var(--mut);font-weight:600}
+.bar{flex:none;width:4px;align-self:stretch;border-radius:4px;background:var(--acc)}
+.bar.lunar{background:var(--gold)}.bar.rep{background:#0d9488}
+.ev .body{flex:1;min-width:0}.ev b{display:block;font-weight:600;overflow-wrap:anywhere}
+.ev .t{color:var(--mut);font-size:13px}
+.del{flex:none;border:0;background:transparent;color:var(--mut);cursor:pointer;width:34px;height:34px;border-radius:10px;display:grid;place-items:center;opacity:.6}
+.del:hover{background:var(--warnbg);color:var(--warn);opacity:1}
+.del svg{width:17px;height:17px}
+.empty{color:var(--mut);text-align:center;padding:26px 0}
+@media(max-width:480px){.hero{padding:18px}.big{font-size:52px}.lunar .l2{font-size:18px}.composer{margin-left:4px;margin-right:4px}}
 </style></head><body><main>
-<h1>Trợ lý thời gian</h1>
+<section class="hero"><div class="big" id="dnum"></div><div><div class="wd" id="dwd"></div><div class="mo" id="dmo"></div></div>
+<div class="lunar"><div class="l1">Âm lịch</div><div class="l2" id="lday">&nbsp;</div><div class="l3" id="lyear"></div></div></section>
+<div class="composer">
+<textarea id="q" rows="1" placeholder="Nói hoặc gõ việc cần nhớ…"></textarea>
+<button class="ib" id="mic" type="button" title="Nói (sắp có)" aria-label="Nói" data-soon><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v4"/></svg></button>
+<button class="ib" id="go" type="button" title="Hiểu câu này (Enter)" aria-label="Hiểu câu này"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+</div>
+<div class="chips" id="chips"></div>
+<div class="toast" id="toast"></div>
 <div id="due"></div>
-<div class="card"><h2>Gõ việc cần nhớ</h2>
-<textarea id="q" placeholder="Ví dụ: họp với anh Nam 3h chiều mai, nhắc trước 10 phút"></textarea>
-<div class="row"><button id="go">Hiểu câu này</button></div><div id="draft"></div></div>
-<div class="card"><h2>Lịch 7 ngày tới</h2><div id="list"></div></div>
+<div id="draft" hidden></div>
+<div class="sec"><h2>Sắp tới</h2><span>7 ngày</span></div>
+<div id="list"></div>
 </main>
 <script>
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const j=async(u,o)=>{const r=await fetch(u,o);return r.json()};
 const p=n=>String(n).padStart(2,'0');
+const WD=['Chủ nhật','Thứ hai','Thứ ba','Thứ tư','Thứ năm','Thứ sáu','Thứ bảy'];
 const fmtD=iso=>{const d=new Date(iso);return p(d.getDate())+'/'+p(d.getMonth()+1)+(d.getFullYear()!==new Date().getFullYear()?'/'+d.getFullYear():'')};
 const fmtT=iso=>{const d=new Date(iso);return p(d.getHours())+':'+p(d.getMinutes())};
 const fmt=iso=>fmtD(iso)+' '+fmtT(iso);
 const when=(iso,allDay)=>allDay?fmtD(iso)+' cả ngày':fmt(iso);
+const whenLong=(iso,allDay)=>{const d=new Date(iso);return WD[d.getDay()]+', '+fmtD(iso)+(allDay?' · cả ngày':' · '+fmtT(iso))};
 const local=d=>d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T00:00:00';
 const REP={daily:'mỗi ngày',weekly:'mỗi tuần',monthly:'mỗi tháng',lunar_yearly:'hằng năm'};
 const repText=(rep,ld,lm)=>!rep?'':rep==='lunar_yearly'?' · âm lịch '+(ld&&lm?p(ld)+'/'+p(lm)+', ':'')+'hằng năm':' · '+(REP[rep]||rep);
+const svg=d=>'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+d+'</svg>';
+const ICO={cal:svg('<rect x="3" y="4" width="18" height="17" rx="3"/><path d="M8 2v4M16 2v4M3 10h18"/>'),
+ rep:svg('<path d="M17 2l4 4-4 4M3 11V9a3 3 0 013-3h15M7 22l-4-4 4-4M21 13v2a3 3 0 01-3 3H3"/>'),
+ bell:svg('<path d="M6 8a6 6 0 0112 0c0 7 3 9 3 9H3s3-2 3-9M10 21a2 2 0 004 0"/>'),
+ x:svg('<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>')};
+function toast(m){$('toast').textContent=m||'';}
+/* ---- đầu trang: hôm nay ---- */
+(async()=>{const t=new Date();$('dnum').textContent=p(t.getDate());$('dwd').textContent=WD[t.getDay()];$('dmo').textContent='Tháng '+(t.getMonth()+1)+', '+t.getFullYear();
+  try{const x=await j('/today');$('lday').textContent=p(x.lunar_day)+'/'+p(x.lunar_month)+(x.leap?' (nhuận)':'');$('lyear').textContent='Năm '+x.year_name;}catch(e){}})();
+/* ---- giọng nói: chừa sẵn chỗ. Sau này chỉ cần thay Voice.start() bằng bộ nhận giọng thật,
+   gọi Voice.onText(câu) khi có kết quả: câu sẽ được điền vào ô và phân tích như gõ tay. ---- */
+const Voice={ready:false,
+  start(){toast('Nhập bằng giọng nói sẽ có ở bản sau. Hiện bạn gõ giúp mình nhé.');},
+  onText(text){$('q').value=text;grow();$('go').click();}};
+$('mic').onclick=()=>Voice.start();
+/* ---- ô nhập ---- */
+const grow=()=>{const q=$('q');q.style.height='auto';q.style.height=Math.min(q.scrollHeight,160)+'px';};
+$('q').addEventListener('input',grow);
+$('q').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();$('go').click();}});
+const SAMPLES=['họp với anh Nam 3h chiều mai','uống thuốc 7h tối mỗi ngày','giỗ ông nội 15/8 âm lịch','đi khám thứ năm tuần sau 9h'];
+$('chips').innerHTML=SAMPLES.map(s=>'<button type="button" class="chip">'+esc(s)+'</button>').join('');
+document.querySelectorAll('.chip').forEach(c=>c.onclick=()=>{$('q').value=c.textContent;grow();$('q').focus();});
+/* ---- lịch ---- */
+function dayHead(key){
+  const d=new Date(key+'T00:00:00'),t=new Date();t.setHours(0,0,0,0);
+  const diff=Math.round((d-t)/864e5),base=WD[d.getDay()]+', '+p(d.getDate())+'/'+p(d.getMonth()+1);
+  return '<div class="day'+(diff===0?' today':'')+'">'+(diff===0?'Hôm nay <small>'+base+'</small>':diff===1?'Ngày mai <small>'+base+'</small>':base)+'</div>';
+}
 async function refresh(){
   const a=new Date(),b=new Date();b.setDate(b.getDate()+7);
   const ev=await j('/events?from='+local(a)+'&to='+local(b));
-  $('list').innerHTML=ev.length?ev.map(e=>'<div class="ev"><div><b>'+esc(e.title)+'</b><div class="t">'+when(e.occurrence,e.all_day)+repText(e.repeat,e.lunar_day,e.lunar_month)+'</div></div><button class="ghost" data-id="'+e.id+'" data-rep="'+(e.repeat||'')+'">Xóa</button></div>').join(''):'<div class="empty">Chưa có lịch nào.</div>';
-  document.querySelectorAll('#list button').forEach(btn=>btn.onclick=async()=>{
+  if(!ev.length){$('list').innerHTML='<div class="empty">Chưa có việc nào trong 7 ngày tới.</div>';return;}
+  ev.sort((x,y)=>x.occurrence<y.occurrence?-1:1);
+  let html='',cur='';
+  ev.forEach(e=>{
+    const k=e.occurrence.slice(0,10);
+    if(k!==cur){cur=k;html+=dayHead(k);}
+    const rep=repText(e.repeat,e.lunar_day,e.lunar_month).replace(/^ · /,'');
+    html+='<div class="ev"><div class="time'+(e.all_day?' all':'')+'">'+(e.all_day?'Cả ngày':fmtT(e.occurrence))+'</div>'
+      +'<div class="bar'+(e.repeat==='lunar_yearly'?' lunar':e.repeat?' rep':'')+'"></div>'
+      +'<div class="body"><b>'+esc(e.title)+'</b>'+(rep?'<span class="t">'+esc(rep)+'</span>':'')+'</div>'
+      +'<button class="del" title="Xóa" aria-label="Xóa" data-id="'+e.id+'" data-rep="'+(e.repeat||'')+'">'+ICO.x+'</button></div>';
+  });
+  $('list').innerHTML=html;
+  document.querySelectorAll('#list .del').forEach(btn=>btn.onclick=async()=>{
     if(!confirm(btn.dataset.rep?'Xóa toàn bộ chuỗi lịch lặp này?':'Xóa lịch này?'))return;
     await fetch('/events/'+btn.dataset.id,{method:'DELETE'});refresh();});
 }
 async function due(){
   const d=await j('/reminders/due');
   const soon=x=>x.kind&&x.kind!=='on_time';
-  $('due').innerHTML=d.map(x=>'<div class="banner">'+(soon(x)?'Sắp tới (còn '+x.days_left+' ngày): ':'Nhắc: ')+'<b>'+esc(x.title)+'</b> '+(soon(x)?'ngày ':'lúc ')+when(x.occurrence,x.all_day)+' <button class="ghost" data-e="'+x.event_id+'" data-o="'+esc(x.key||x.occurrence)+'">Đã biết</button></div>').join('');
+  $('due').innerHTML=d.map(x=>'<div class="banner">'+ICO.bell+'<div class="x">'+(soon(x)?'Còn '+x.days_left+' ngày: ':'Đến giờ: ')+'<b>'+esc(x.title)+'</b> · '+when(x.occurrence,x.all_day)+'</div><button data-e="'+x.event_id+'" data-o="'+esc(x.key||x.occurrence)+'">Đã biết</button></div>').join('');
   document.querySelectorAll('#due button').forEach(btn=>btn.onclick=async()=>{
     await fetch('/reminders/fired',{method:'POST',body:JSON.stringify({event_id:+btn.dataset.e,occurrence:btn.dataset.o})});due();});
 }
+/* ---- hiểu câu + lưu ---- */
+function show(html,cls){const d=$('draft');d.className=html?(cls||'draft'):'';d.innerHTML=html;d.hidden=!html;}
 $('go').onclick=async()=>{
   const text=$('q').value.trim();if(!text)return;
-  const r=await j('/parse',{method:'POST',body:JSON.stringify({text})});const d=r.draft;
+  toast('');$('go').disabled=true;$('go').classList.add('busy');
+  let r;try{r=await j('/parse',{method:'POST',body:JSON.stringify({text})});}
+  finally{$('go').disabled=false;$('go').classList.remove('busy');}
+  const d=r.draft;
   if(r.status==='need_info'){
-    $('draft').innerHTML='<p class="warn">Mình chưa hiểu đủ. Thiếu: '+r.missing.map(m=>m==='title'?'việc cần làm':'ngày giờ').join(', ')+'. Bạn thử viết rõ hơn, ví dụ "họp 3h chiều mai".</p>';return;}
-  const conf=(r.conflicts||[]).map(c=>'<p class="warn">Trùng với: '+esc(c.title)+' ('+fmt(c.occurrence)+')</p>').join('');
-  const warn=(d.warnings||[]).map(w=>'<p class="warn">'+esc(w)+'</p>').join('');
+    show('<div class="who">Trợ lý</div><div>Mình chưa hiểu đủ, còn thiếu <b>'+r.missing.map(m=>m==='title'?'việc cần làm':'ngày giờ').join(', ')+'</b>. Bạn thử nói rõ hơn, ví dụ "họp 3h chiều mai".</div>');return;}
+  const conf=(r.conflicts||[]).map(c=>'<div class="note">Trùng giờ với <b>'+esc(c.title)+'</b> ('+fmt(c.occurrence)+')</div>').join('');
+  const warn=(d.warnings||[]).map(w=>'<div class="note">'+esc(w)+'</div>').join('');
   const AIL={ok:'AI đã trả lời',error:'AI lỗi',not_better:'AI trả lời nhưng chưa giúp được',off:'AI tắt',busy:'AI đang bận',paused:'AI tạm nghỉ'};
-  const ainote=d.ai?'<p class="t">'+esc(AIL[d.ai.status]||d.ai.status)+(d.ai.detail?' · '+esc(d.ai.detail):'')+(d.ai.raw&&d.ai.status!=='ok'?' · '+esc(d.ai.raw):'')+'</p>':'';
-  $('draft').innerHTML='<p style="margin:10px 0 4px"><b>'+esc(d.title)+'</b></p><div class="t">'+when(d.start,d.all_day)+repText(d.repeat,d.lunar&&d.lunar[0],d.lunar&&d.lunar[1])+(d.remind_before_min?' · nhắc trước '+d.remind_before_min+' phút':'')+(d.used_ai?' · (AI hỗ trợ)':'')+(d.memory?' · (theo cách nói đã nhớ)':'')+'</div>'+conf+warn+ainote+'<div class="row"><button id="ok">Lưu</button><button class="ghost" id="no">Bỏ qua</button></div>';
-  $('no').onclick=()=>{$('draft').innerHTML=''};
+  const ainote=d.ai?'<div class="ai">'+esc(AIL[d.ai.status]||d.ai.status)+(d.ai.detail?' · '+esc(d.ai.detail):'')+(d.ai.raw&&d.ai.status!=='ok'?' · '+esc(d.ai.raw):'')+'</div>':'';
+  const rep=repText(d.repeat,d.lunar&&d.lunar[0],d.lunar&&d.lunar[1]).replace(/^ · /,'');
+  const facts='<div class="fact">'+ICO.cal+'<span>'+whenLong(d.start,d.all_day)+'</span></div>'
+    +(rep?'<div class="fact">'+ICO.rep+'<span>'+esc(rep)+'</span></div>':'')
+    +(d.remind_before_min?'<div class="fact">'+ICO.bell+'<span>Nhắc trước '+d.remind_before_min+' phút</span></div>':'');
+  const tags=(d.used_ai?'<span class="tag">AI hỗ trợ</span>':'')+(d.memory?'<span class="tag">theo cách nói đã nhớ</span>':'');
+  show('<div class="who">Trợ lý hiểu là</div><p class="dt">'+esc(d.title)+'</p><div class="facts">'+facts+'</div>'+(tags?'<div class="tags">'+tags+'</div>':'')+conf+warn+ainote
+    +'<div class="actions"><button class="btn" id="ok">Lưu</button><button class="btn ghost" id="no">Bỏ qua</button></div>');
+  $('no').onclick=()=>show('');
   $('ok').onclick=async()=>{
     $('ok').disabled=true;
     const r2=await j('/parse',{method:'POST',body:JSON.stringify({text,save:true})});
     const ev=r2.event;
-    if(!ev){$('draft').innerHTML='<p class="warn">Chưa lưu được, bạn thử lại.</p>';return;}
+    if(!ev){show('<div class="note">Chưa lưu được, bạn thử lại.</div>');return;}
     const far=(new Date(ev.start)-new Date())>7*864e5;
-    $('q').value='';
-    $('draft').innerHTML='<p class="t">'+(ev.duplicate?'Việc này đã có trong lịch, mình không lưu thêm.':'Đã lưu.')+(far?' Lần tới vào '+when(ev.start,ev.all_day)+', xa hơn 7 ngày nên chưa hiện trong danh sách bên dưới.':'')+'</p>';
+    $('q').value='';grow();
+    show('<div class="saved">'+(ev.duplicate?'Việc này đã có trong lịch, mình không lưu thêm.':'Đã lưu.')+(far?' Lần tới vào '+when(ev.start,ev.all_day)+', xa hơn 7 ngày nên chưa hiện trong danh sách bên dưới.':'')+'</div>','draft');
     refresh();due();};
 };
 refresh();due();setInterval(due,30000);

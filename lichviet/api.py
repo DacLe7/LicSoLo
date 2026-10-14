@@ -5,6 +5,18 @@ from urllib.parse import urlparse, parse_qs
 
 from .service import Service
 from .ui import PAGE
+from .lunar import solar_to_lunar
+
+CAN = ["Canh", "Tân", "Nhâm", "Quý", "Giáp", "Ất", "Bính", "Đinh", "Mậu", "Kỷ"]
+CHI = ["Thân", "Dậu", "Tuất", "Hợi", "Tý", "Sửu", "Dần", "Mão", "Thìn", "Tỵ", "Ngọ", "Mùi"]
+
+
+def today_info(now):
+    """Hôm nay theo giờ người dùng: dương lịch + âm lịch + năm can chi (cho phần đầu trang)."""
+    ld, lm, ly, leap = solar_to_lunar(now.date())
+    return {"date": now.date().isoformat(), "lunar_day": ld, "lunar_month": lm, "lunar_year": ly,
+            "leap": bool(leap), "year_name": CAN[ly % 10] + " " + CHI[ly % 12]}
+
 
 
 def make_handler(svc: Service):
@@ -40,6 +52,8 @@ def make_handler(svc: Service):
                 self.end_headers()
                 self.wfile.write(b)
                 return
+            if u.path == "/today":
+                return self._run(lambda: today_info(svc.clock()))
             if u.path == "/health":
                 return self._send(200, {"ok": True})
             if u.path == "/events":
