@@ -75,13 +75,20 @@ textarea::placeholder{color:var(--mut)}
 .del:hover{background:var(--warnbg);color:var(--warn);opacity:1}
 .del svg{width:17px;height:17px}
 .empty{color:var(--mut);text-align:center;padding:26px 0}
+details.more{margin-top:22px;background:var(--card);border:1px solid var(--line);border-radius:20px;padding:4px 18px;box-shadow:var(--sh)}
+details.more summary{cursor:pointer;padding:14px 0;font-weight:700;font-size:15px}
+details.more .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:6px 0 14px}
+details.more p{color:var(--mut);font-size:13px;margin:0 0 10px}
+.ph{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line);font-size:14px}
+.ph .x{flex:1;min-width:0;overflow-wrap:anywhere}.ph small{color:var(--mut)}
+.mic-on{background:var(--warn)!important;color:#fff!important}
 @media(max-width:480px){.hero{padding:18px}.big{font-size:52px}.lunar .l2{font-size:18px}.composer{margin-left:4px;margin-right:4px}}
 </style></head><body><main>
 <section class="hero"><div class="big" id="dnum"></div><div><div class="wd" id="dwd"></div><div class="mo" id="dmo"></div></div>
 <div class="lunar"><div class="l1">Âm lịch</div><div class="l2" id="lday">&nbsp;</div><div class="l3" id="lyear"></div></div></section>
 <div class="composer">
 <textarea id="q" rows="1" placeholder="Nói hoặc gõ việc cần nhớ…"></textarea>
-<button class="ib" id="mic" type="button" title="Nói (sắp có)" aria-label="Nói" data-soon><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v4"/></svg></button>
+<button class="ib" id="mic" type="button" title="Nói" aria-label="Nói"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v4"/></svg></button>
 <button class="ib" id="go" type="button" title="Hiểu câu này (Enter)" aria-label="Hiểu câu này"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
 </div>
 <div class="chips" id="chips"></div>
@@ -90,6 +97,12 @@ textarea::placeholder{color:var(--mut)}
 <div id="draft" hidden></div>
 <div class="sec"><h2>Sắp tới</h2><span>7 ngày</span></div>
 <div id="list"></div>
+<details class="more" id="more"><summary>Sao lưu và cụm từ đã học</summary>
+<p>Gỡ app khỏi Pi Desktop sẽ xóa dữ liệu. Hãy tải bản sao lưu trước khi gỡ, rồi khôi phục sau khi cài lại.</p>
+<div class="row"><a class="btn" id="bk" href="/export" download="lichviet-saoluu.json" style="text-decoration:none">Tải bản sao lưu</a>
+<label class="btn ghost" style="cursor:pointer">Khôi phục từ tệp<input type="file" id="rs" accept="application/json,.json" hidden></label><span id="bkmsg" style="font-size:13px;color:var(--mut)"></span></div>
+<p>Cụm từ app đã học từ các lần bạn xác nhận. Xóa cụm nào thì app sẽ hỏi AI lại như lần đầu.</p>
+<div id="phl"></div></details>
 </main>
 <script>
 const $=id=>document.getElementById(id);
@@ -112,12 +125,27 @@ const ICO={cal:svg('<rect x="3" y="4" width="18" height="17" rx="3"/><path d="M8
  x:svg('<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>')};
 function toast(m){$('toast').textContent=m||'';}
 /* ---- đầu trang: hôm nay ---- */
-(async()=>{const t=new Date();$('dnum').textContent=p(t.getDate());$('dwd').textContent=WD[t.getDay()];$('dmo').textContent='Tháng '+(t.getMonth()+1)+', '+t.getFullYear();
+let TODAY=null;   // ngày hôm nay theo máy chủ (múi giờ người dùng), không theo đồng hồ trình duyệt
+(async()=>{let t=new Date();
+  try{const x=await j('/today');TODAY=x.date;t=new Date(x.date+'T00:00:00');}catch(e){}
+  $('dnum').textContent=p(t.getDate());$('dwd').textContent=WD[t.getDay()];$('dmo').textContent='Tháng '+(t.getMonth()+1)+', '+t.getFullYear();
   try{const x=await j('/today');$('lday').textContent=p(x.lunar_day)+'/'+p(x.lunar_month);$('lyear').textContent='Năm '+x.year_name+(x.leap?' · tháng nhuận':'');}catch(e){}})();
 /* ---- giọng nói: chừa sẵn chỗ. Sau này chỉ cần thay Voice.start() bằng bộ nhận giọng thật,
    gọi Voice.onText(câu) khi có kết quả: câu sẽ được điền vào ô và phân tích như gõ tay. ---- */
-const Voice={ready:false,
-  start(){toast('Nhập bằng giọng nói sẽ có ở bản sau. Hiện bạn gõ giúp mình nhé.');},
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+const Voice={ready:!!SR,rec:null,on:false,
+  start(){
+    if(!SR){toast('Cửa sổ này chưa hỗ trợ nhận giọng nói. Bạn gõ giúp mình nhé.');return;}
+    if(this.on){this.rec.stop();return;}
+    const r=this.rec=new SR();r.lang='vi-VN';r.interimResults=true;r.continuous=false;
+    let last='';
+    r.onstart=()=>{this.on=true;$('mic').classList.add('mic-on');toast('Đang nghe… nói xong bạn đợi một chút.');};
+    r.onresult=e=>{last=Array.from(e.results).map(x=>x[0].transcript).join(' ');$('q').value=last;grow();};
+    r.onerror=e=>{const m={'not-allowed':'Chưa được cấp quyền micro.','service-not-allowed':'Cửa sổ này không cho dùng nhận giọng nói.','no-speech':'Không nghe thấy gì.','audio-capture':'Không tìm thấy micro.','network':'Nhận giọng nói cần mạng và không kết nối được.'};
+      toast((m[e.error]||'Không nhận được giọng nói')+' ('+e.error+')');};
+    r.onend=()=>{this.on=false;$('mic').classList.remove('mic-on');if(last.trim()){toast('');this.onText(last.trim());}};
+    try{r.start();}catch(e){toast('Không bật được micro: '+e.message);}
+  },
   onText(text){$('q').value=text;grow();$('go').click();}};
 $('mic').onclick=()=>Voice.start();
 /* ---- ô nhập ---- */
@@ -129,12 +157,13 @@ $('chips').innerHTML=SAMPLES.map(s=>'<button type="button" class="chip">'+esc(s)
 document.querySelectorAll('.chip').forEach(c=>c.onclick=()=>{$('q').value=c.textContent;grow();$('q').focus();});
 /* ---- lịch ---- */
 function dayHead(key){
-  const d=new Date(key+'T00:00:00'),t=new Date();t.setHours(0,0,0,0);
+  const d=new Date(key+'T00:00:00'),t=TODAY?new Date(TODAY+'T00:00:00'):new Date();t.setHours(0,0,0,0);
   const diff=Math.round((d-t)/864e5),base=WD[d.getDay()]+', '+p(d.getDate())+'/'+p(d.getMonth()+1);
   return '<div class="day'+(diff===0?' today':'')+'">'+(diff===0?'Hôm nay <small>'+base+'</small>':diff===1?'Ngày mai <small>'+base+'</small>':base)+'</div>';
 }
 async function refresh(){
-  const a=new Date(),b=new Date();b.setDate(b.getDate()+7);
+  if(!TODAY){try{TODAY=(await j('/today')).date}catch(e){}}
+  const a=TODAY?new Date(TODAY+'T00:00:00'):new Date(),b=new Date(a);b.setDate(b.getDate()+7);
   const ev=await j('/events?from='+local(a)+'&to='+local(b));
   if(!ev.length){$('list').innerHTML='<div class="empty">Chưa có việc nào trong 7 ngày tới.</div>';return;}
   ev.sort((x,y)=>x.occurrence<y.occurrence?-1:1);
@@ -193,4 +222,18 @@ $('go').onclick=async()=>{
     refresh();due();};
 };
 refresh();due();setInterval(due,30000);
+
+/* ---- sao lưu và cụm từ đã học ---- */
+async function phr(){
+  const l=await j('/phrases');
+  $('phl').innerHTML=l.length?l.map(x=>'<div class="ph"><div class="x"><b>'+esc(x.src)+'</b> → '+esc(x.dst)+'<br><small>xác nhận '+x.hits+' lần, đã dùng '+x.uses+' lần'+(x.hits>=2?'':' (chưa đủ để áp dụng)')+'</small></div><button class="del" title="Quên cụm này" aria-label="Quên" data-s="'+esc(x.src)+'">'+ICO.x+'</button></div>').join(''):'<p>Chưa có cụm nào.</p>';
+  document.querySelectorAll('#phl .del').forEach(b=>b.onclick=async()=>{await fetch('/phrases/'+encodeURIComponent(b.dataset.s),{method:'DELETE'});phr();});
+}
+$('more').addEventListener('toggle',()=>{if($('more').open)phr();});
+$('rs').onchange=async e=>{
+  const f=e.target.files[0];if(!f)return;
+  try{const r=await fetch('/import',{method:'POST',body:await f.text()});const x=await r.json();
+    $('bkmsg').textContent=r.ok?('Đã nhập '+x.added+' việc, bỏ qua '+x.skipped+' việc trùng, '+x.phrases+' cụm từ.'):(x.error||'Không nhập được');
+    refresh();phr();}catch(err){$('bkmsg').textContent='Tệp không đọc được.';}
+  e.target.value='';};
 </script></body></html>"""

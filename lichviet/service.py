@@ -290,6 +290,59 @@ class Service:
                 self._learn(text, ex, r)   # người dùng đã xác nhận: ghi nhớ cách nói này
         return res
 
+    # ---------- sao lưu / khôi phục ----------
+    def export_all(self) -> dict:
+        """Toàn bộ dữ liệu người dùng (việc, cụm từ đã học) để lưu thành tệp. Gỡ app là mất volume, nên cần cái này."""
+        evs = [dict(r) for r in self.con.execute("SELECT * FROM events ORDER BY id")]
+        fired = [dict(r) for r in self.con.execute("SELECT * FROM fired")]
+        return {"format": "lichviet-backup", "version": 1, "exported": store.fmt(self.clock()),
+                "events": evs, "fired": fired, "phrases": self.phrases()}
+
+    def import_all(self, data: dict) -> dict:
+        """Nhập lại từ tệp sao lưu. Gộp thêm, không xóa gì: việc trùng (cùng tên, giờ, kiểu lặp) bị bỏ qua."""
+        if not isinstance(data, dict) or data.get("format") != "lichviet-backup":
+            raise ValueError("đây không phải tệp sao lưu của Trợ lý thời gian")
+        added = skipped = 0
+        idmap = {}
+        for e in data.get("events", []):
+            title = (e.get("title") or "").strip()
+            start = e.get("start")
+            if not title or not start:
+                skipped += 1
+                continue
+            store.parse(start)   # sai định dạng thì báo lỗi, không nhập nửa chừng
+            rep = e.get("repeat") or None
+            if rep not in REPEATS:
+                skipped += 1
+                continue
+            dup = [r for r in self.con.execute("SELECT id,title FROM events WHERE start=? AND COALESCE(repeat,'')=?",
+                                               (start, rep or "")) if r["title"].casefold() == title.casefold()]
+            if dup:
+                idmap[e.get("id")] = dup[0]["id"]
+                skipped += 1
+                continue
+            now = store.fmt(self.clock())
+            cur = self.con.execute(
+                "INSERT INTO events(title,start,duration_min,all_day,repeat,remind_before_min,notes,created,updated,"
+                "lunar_day,lunar_month) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                (title, start, e.get("duration_min"), int(bool(e.get("all_day"))), rep, e.get("remind_before_min"),
+                 e.get("notes"), e.get("created") or now, now, e.get("lunar_day"), e.get("lunar_month")))
+            idmap[e.get("id")] = cur.lastrowid
+            added += 1
+        for f in data.get("fired", []):
+            if f.get("event_id") in idmap:   # lần nhắc đã gửi: giữ nguyên để không nhắc lại
+                self.con.execute("INSERT OR IGNORE INTO fired VALUES(?,?)", (idmap[f["event_id"]], f["occ_start"]))
+        learned = 0
+        for ph in data.get("phrases", []):
+            if ph.get("src") and ph.get("dst"):
+                t = store.fmt(self.clock())
+                cur = self.con.execute("INSERT OR IGNORE INTO phrases(src,dst,hits,uses,created,updated) VALUES(?,?,?,?,?,?)",
+                                       (ph["src"], ph["dst"], int(ph.get("hits") or 0), int(ph.get("uses") or 0),
+                                        ph.get("created") or t, t))
+                learned += cur.rowcount
+        self.con.commit()
+        return {"added": added, "skipped": skipped, "phrases": learned}
+
     # ---------- nhắc việc ----------
     def _stages(self, ev: dict) -> list:
         """Các mốc nhắc của một việc: (hậu tố khóa, nhắc trước bao lâu, loại)."""
