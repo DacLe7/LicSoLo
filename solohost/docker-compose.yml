@@ -2,7 +2,7 @@
 # Script kiểm tra máy + chọn model được nhúng thẳng vào service llm (không cần file ngoài).
 services:
   app:
-    image: ghcr.io/dacle7/licsolo:0.1.0
+    image: ghcr.io/dacle7/licsolo:0.1.1
     container_name: LacVietNode-Lich
     labels:
       pi.ui.primary: "true"
