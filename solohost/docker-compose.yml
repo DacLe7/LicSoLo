@@ -1,0 +1,147 @@
+# docker-compose.yml — Pi Desktop chỉ kéo image có sẵn, không build.
+# Script kiểm tra máy + chọn model được nhúng thẳng vào service llm (không cần file ngoài).
+services:
+  app:
+    image: lichviet:test
+    container_name: LacVietNode-Lich
+    labels:
+      pi.ui.primary: "true"
+    restart: unless-stopped
+    user: "${UID:-0}"
+    ports:
+      - '127.0.0.1:18763:8080'
+    environment:
+      LICHVIET_LLM_URL: http://llm:8080
+      LICHVIET_AI: "${AI_MODE:-off}"
+      LICHVIET_TZ: Asia/Ho_Chi_Minh        # giờ người dùng, không phụ thuộc giờ máy chủ (UTC)
+    volumes:
+      - ./data:/data
+      - lichviet-models:/ai-models
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 128
+
+  llm:
+    profiles: ["ai"]
+    image: ghcr.io/ggml-org/llama.cpp:server
+    restart: unless-stopped
+    environment:
+      LLAMA_CACHE: /models
+      AI_TIER: "${AI_TIER:-auto}"
+      AI_THREADS: "${AI_THREADS:-auto}"
+    volumes:
+      - lichviet-models:/models
+    mem_limit: ${AI_MEMORY:-48g}
+    memswap_limit: ${AI_MEMORY:-48g}
+    cpu_shares: 128
+    pids_limit: 256
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30m
+      retries: 3
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -eu
+        MODELS_DIR="$${LLAMA_CACHE:-/models}"
+        STATUS_FILE="$$MODELS_DIR/ai-status.json"
+        DOWNGRADE_FILE="$$MODELS_DIR/downgrade"   # app ghi số bậc cần hạ nếu model chạy quá chậm
+        log() { echo "[pick-model] $$*"; }
+        mem_avail_kb=$$(awk '/MemAvailable/ {print $$2}' /proc/meminfo)
+        mem_avail_gb=$$(awk -v k="$$mem_avail_kb" 'BEGIN{printf "%d", k/1048576}')
+        cg_gb=""
+        if [ -r /sys/fs/cgroup/memory.max ]; then                       # cgroup v2
+          v=$$(cat /sys/fs/cgroup/memory.max)
+          [ "$$v" != "max" ] && cg_gb=$$(awk -v b="$$v" 'BEGIN{printf "%d", b/1073741824}')
+        elif [ -r /sys/fs/cgroup/memory/memory.limit_in_bytes ]; then   # cgroup v1
+          v=$$(cat /sys/fs/cgroup/memory/memory.limit_in_bytes)
+          cg_gb=$$(awk -v b="$$v" 'BEGIN{ g=b/1073741824; if (g<100000) printf "%d", g }')
+        fi
+        ram_gb=$$mem_avail_gb
+        if [ -n "$$cg_gb" ] && [ "$$cg_gb" -lt "$$ram_gb" ]; then ram_gb=$$cg_gb; fi
+        ram_gb=$$((ram_gb - 2))          # chừa 2 GB cho context + hệ thống
+        [ "$$ram_gb" -lt 0 ] && ram_gb=0
+        cpus=$$(nproc)
+        has_avx2=0;   grep -qw avx2    /proc/cpuinfo && has_avx2=1
+        has_avx512=0; grep -qw avx512f /proc/cpuinfo && has_avx512=1
+        mkdir -p "$$MODELS_DIR"
+        touch "$$DOWNGRADE_FILE"; chmod 666 "$$DOWNGRADE_FILE"   # để app (không phải root) ghi được yêu cầu hạ bậc
+        disk_gb=$$(df -Pk "$$MODELS_DIR" | awk 'NR==2 {printf "%d", $$4/1048576}')
+        tier_line() {
+          case "$$1" in
+            xlarge) echo "xlarge Qwen/Qwen3-30B-A3B-GGUF:Q8_0   33 46 16384" ;;
+            large)  echo "large  Qwen/Qwen3-30B-A3B-GGUF:Q4_K_M 19 22 8192"  ;;
+            medium) echo "medium Qwen/Qwen3-8B-GGUF:Q4_K_M      5  9  8192"  ;;
+            light)  echo "light  Qwen/Qwen3-4B-GGUF:Q4_K_M      3  5  4096"  ;;
+            tiny)   echo "tiny   Qwen/Qwen3-1.7B-GGUF:Q8_0      2  3  4096"  ;;
+          esac
+        }
+        ORDER="xlarge large medium light tiny"
+        max_start=xlarge
+        [ "$$has_avx2" -eq 0 ] && max_start=light
+        downgrade=0
+        [ -r "$$DOWNGRADE_FILE" ] && downgrade=$$(cat "$$DOWNGRADE_FILE" 2>/dev/null | tr -cd '0-9')
+        downgrade=$${downgrade:-0}
+        chosen=""
+        forced=0
+        if [ -n "$${AI_TIER:-}" ] && [ "$$AI_TIER" != "auto" ]; then
+          chosen="$$AI_TIER"; forced=1
+          log "Ép bậc theo AI_TIER=$$AI_TIER"
+        else
+          started=0
+          for t in $$ORDER; do
+            [ "$$t" = "$$max_start" ] && started=1
+            [ "$$started" -eq 0 ] && continue
+            set -- $$(tier_line "$$t")
+            size=$$3; need=$$4
+            if [ "$$ram_gb" -ge "$$need" ] && [ "$$disk_gb" -ge $$((size + 2)) ]; then
+              chosen=$$t; break
+            fi
+            if [ "$$ram_gb" -ge "$$need" ] && ls "$$MODELS_DIR" 2>/dev/null | grep -qi "$$(echo "$$2" | sed 's#.*/##; s#-GGUF:.*##')"; then
+              chosen=$$t; break
+            fi
+          done
+          [ -z "$$chosen" ] && chosen=tiny
+          i=0
+          while [ "$$i" -lt "$$downgrade" ] && [ "$$chosen" != "tiny" ]; do
+            found=0
+            for t in $$ORDER; do
+              if [ "$$found" -eq 1 ]; then chosen=$$t; break; fi
+              [ "$$t" = "$$chosen" ] && found=1
+            done
+            i=$$((i + 1))
+          done
+        fi
+        set -- $$(tier_line "$$chosen")
+        tier=$$1; hf=$$2; ctx=$$5
+        threads="$${AI_THREADS:-}"
+        [ "$$threads" = "auto" ] && threads=""
+        if [ -z "$$threads" ]; then
+          threads=$$((cpus / 2))            # xấp xỉ số nhân thật (bỏ hyper-threading)
+          [ "$$threads" -lt 2 ]  && threads=2
+          [ "$$threads" -gt 24 ] && threads=24
+        fi
+        cat > "$$STATUS_FILE" <<EOF
+        {"tier":"$$tier","model":"$$hf","ctx":$$ctx,"threads":$$threads,
+         "ram_gb_usable":$$ram_gb,"cpus":$$cpus,"avx2":$$has_avx2,"avx512":$$has_avx512,
+         "disk_free_gb":$$disk_gb,"downgrade":$$downgrade,"forced":$$forced}
+        EOF
+        log "RAM dùng được=$${ram_gb}GB, CPU=$${cpus}, AVX2=$${has_avx2}, AVX512=$${has_avx512}, ổ trống=$${disk_gb}GB"
+        log "Chọn bậc=$$tier, model=$$hf, ctx=$$ctx, threads=$$threads"
+        # Theo dõi file hạ bậc: app ghi số lớn hơn khi AI quá chậm -> dừng server, Docker tự bật lại bằng bậc nhẹ hơn
+        ( while sleep 20; do
+            c=$$(tr -cd '0-9' < "$$DOWNGRADE_FILE" 2>/dev/null); c=$${c:-0}
+            if [ "$$c" -gt "$$downgrade" ]; then log "App xin hạ bậc ($$downgrade -> $$c), khởi động lại"; kill -TERM 1; fi
+          done ) &
+        BIN=/app/llama-server
+        [ -x "$$BIN" ] || BIN=$$(command -v llama-server)
+        exec "$$BIN" -hf "$$hf" \
+          --host 0.0.0.0 --port 8080 \
+          -t "$$threads" -c "$$ctx" -np 1 \
+          --alias lichviet-ai \
+          $${AI_EXTRA_ARGS:---jinja --reasoning-budget 0}
+
+volumes:
+  lichviet-models:

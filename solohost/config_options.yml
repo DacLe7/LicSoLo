@@ -1,0 +1,88 @@
+# config_options.yml — form cài đặt Pi Desktop hiển thị. Tên mỗi trường = khóa .env được ghi khi cài.
+title: Trợ lý thời gian của bạn
+description: Lịch và nhắc việc tiếng Việt chạy cục bộ. Trợ lý AI là tùy chọn và mặc định tắt; khi tắt, lịch và nhắc việc vẫn hoạt động đầy đủ.
+output_file: .env
+
+fixed_values:
+  - name: UID
+    detect: uid
+
+fields:
+  - name: AI_MODE
+    label: Trợ lý AI (tùy chọn)
+    type: select
+    default: off
+    help: Tắt là lựa chọn nhẹ nhất. Khi bật, app tự kiểm tra máy và chọn mô hình phù hợp; lần đầu sẽ tải mô hình từ 2 đến 33 GB tùy cấu hình.
+    options:
+      - value: off
+        label: Tắt (khuyến nghị)
+      - value: on
+        label: Bật AI cục bộ
+        set:
+          COMPOSE_PROFILES: ai
+
+  - name: AI_TIER
+    label: Mức mô hình AI
+    type: select
+    default: auto
+    help: Để Tự động thì app đo RAM, CPU, ổ đĩa rồi chọn mô hình mạnh nhất máy chạy được. Chỉ chọn tay khi cần ép một mức cụ thể.
+    visible_if:
+      field: AI_MODE
+      in: [on]
+    options:
+      - value: auto
+        label: Tự động theo cấu hình máy (khuyến nghị)
+      - value: tiny
+        label: Rất nhẹ – Qwen3 1.7B (cần ~3 GB RAM)
+      - value: light
+        label: Nhẹ – Qwen3 4B (cần ~5 GB RAM)
+      - value: medium
+        label: Trung bình – Qwen3 8B (cần ~9 GB RAM)
+      - value: large
+        label: Lớn – Qwen3 30B-A3B Q4 (cần ~22 GB RAM)
+      - value: xlarge
+        label: Rất lớn – Qwen3 30B-A3B Q8 (cần ~46 GB RAM)
+
+  - name: AI_MEMORY
+    label: RAM tối đa cho AI
+    type: select
+    default: 48g
+    help: Đây là mức trần. App sẽ chọn mô hình vừa với mức này. Nên để máy còn trống ít nhất 4–6 GB cho Windows.
+    visible_if:
+      field: AI_MODE
+      in: [on]
+    options:
+      - value: 4g
+        label: 4 GB
+      - value: 8g
+        label: 8 GB
+      - value: 12g
+        label: 12 GB
+      - value: 16g
+        label: 16 GB
+      - value: 24g
+        label: 24 GB
+      - value: 48g
+        label: 48 GB (mặc định, đủ cho mức lớn nhất)
+      - value: 96g
+        label: 96 GB
+
+  - name: AI_THREADS
+    label: Số luồng CPU cho AI
+    type: select
+    default: auto
+    help: Tự động dùng khoảng số nhân thật của máy, tối đa 24.
+    visible_if:
+      field: AI_MODE
+      in: [on]
+    options:
+      - value: auto
+        label: Tự động (khuyến nghị)
+      - value: '4'
+        label: 4 luồng
+      - value: '8'
+        label: 8 luồng
+      - value: '16'
+        label: 16 luồng
+      - value: '24'
+        label: 24 luồng
