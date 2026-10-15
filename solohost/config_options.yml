@@ -11,12 +11,12 @@ fields:
   - name: AI_MODE
     label: Trợ lý AI (tùy chọn)
     type: select
-    default: off
+    default: 'off'
     help: Tắt là lựa chọn nhẹ nhất. Khi bật, app tự kiểm tra máy và chọn mô hình phù hợp; lần đầu sẽ tải mô hình từ 2 đến 33 GB tùy cấu hình.
     options:
-      - value: off
+      - value: 'off'
         label: Tắt (khuyến nghị)
-      - value: on
+      - value: 'on'
         label: Bật AI cục bộ
         set:
           COMPOSE_PROFILES: ai
@@ -28,7 +28,7 @@ fields:
     help: Để Tự động thì app đo RAM, CPU, ổ đĩa rồi chọn mô hình mạnh nhất máy chạy được. Chỉ chọn tay khi cần ép một mức cụ thể.
     visible_if:
       field: AI_MODE
-      in: [on]
+      in: ['on']
     options:
       - value: auto
         label: Tự động theo cấu hình máy (khuyến nghị)
@@ -50,7 +50,7 @@ fields:
     help: Đây là mức trần. App sẽ chọn mô hình vừa với mức này. Nên để máy còn trống ít nhất 4–6 GB cho Windows.
     visible_if:
       field: AI_MODE
-      in: [on]
+      in: ['on']
     options:
       - value: 4g
         label: 4 GB
@@ -74,7 +74,7 @@ fields:
     help: Tự động dùng khoảng số nhân thật của máy, tối đa 24.
     visible_if:
       field: AI_MODE
-      in: [on]
+      in: ['on']
     options:
       - value: auto
         label: Tự động (khuyến nghị)
@@ -94,10 +94,10 @@ fields:
     help: Cổng trên máy này để mở app. Chỉ đổi khi cổng mặc định đang bị chương trình khác dùng.
     options:
       - value: '18763'
-        label: 18763 (mặc định)
+        label: "Cổng 18763 (mặc định)"
       - value: '18764'
-        label: 18764
+        label: "Cổng 18764"
       - value: '18765'
-        label: 18765
+        label: "Cổng 18765"
       - value: '28763'
-        label: 28763
+        label: "Cổng 28763"
