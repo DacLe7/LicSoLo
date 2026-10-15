@@ -15,3 +15,7 @@ __pycache__/
 *.log
 .DS_Store
 Thumbs.db
+
+# Gói phát hành và ghi chú nội bộ
+*.zip
+PROMPT_*.md
