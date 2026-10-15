@@ -9,6 +9,7 @@ from .lunar import solar_to_lunar
 from .tz import get_tz
 
 API_VERSION = 1
+MAX_AUDIO = 8 * 1024 * 1024
 
 CAN = ["Canh", "Tân", "Nhâm", "Quý", "Giáp", "Ất", "Bính", "Đinh", "Mậu", "Kỷ"]
 CHI = ["Thân", "Dậu", "Tuất", "Hợi", "Tý", "Sửu", "Dần", "Mão", "Thìn", "Tỵ", "Ngọ", "Mùi"]
@@ -50,6 +51,8 @@ def make_handler(svc: Service):
                 self._send(404, {"error": "không tìm thấy"})
             except (ValueError, json.JSONDecodeError) as e:
                 self._send(400, {"error": str(e)})
+            except RuntimeError as e:   # giọng nói tắt hoặc chưa sẵn sàng
+                self._send(503, {"error": str(e)})
 
         def do_GET(self):
             u = self._url()
@@ -72,6 +75,8 @@ def make_handler(svc: Service):
                 return self._run(svc.export_all)
             if u.path == "/phrases":
                 return self._run(svc.phrases)
+            if u.path == "/stt/status":
+                return self._run(svc.stt.status)
             if u.path == "/health":
                 return self._send(200, {"ok": True})
             if u.path == "/events":
@@ -85,6 +90,11 @@ def make_handler(svc: Service):
 
         def do_POST(self):
             u = self._url()
+            if u.path == "/stt":
+                n = int(self.headers.get("Content-Length") or 0)
+                if n <= 0 or n > MAX_AUDIO:
+                    return self._send(400, {"error": "âm thanh rỗng hoặc quá dài"})
+                return self._run(lambda: {"text": svc.stt.transcribe(self.rfile.read(n))})
             if u.path == "/import":
                 return self._run(lambda: svc.import_all(self._body()))
             if u.path == "/parse":

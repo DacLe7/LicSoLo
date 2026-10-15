@@ -18,6 +18,7 @@ from .parser import parse_vi, fold
 from .lunar import lunar_to_solar
 from .tz import local_now
 from .ai import LLMClient
+from .stt import STTClient
 
 REPEATS = (None, "daily", "weekly", "monthly", "lunar_yearly")
 
@@ -29,10 +30,12 @@ def _add_months(dt: datetime, n: int) -> datetime:
 
 
 class Service:
-    def __init__(self, db_path: str = ":memory:", clock=local_now, llm: Optional[LLMClient] = None):
+    def __init__(self, db_path: str = ":memory:", clock=local_now, llm: Optional[LLMClient] = None,
+                 stt: Optional[STTClient] = None):
         self.con = store.connect(db_path)
         self.clock = clock
         self.llm = llm if llm is not None else LLMClient()
+        self.stt = stt if stt is not None else STTClient()
         # sổ cụm từ đã học: một cụm chỉ được dùng sau khi người dùng xác nhận (bấm Lưu) từng đó lần
         self.learn_min = int(os.environ.get("LICHVIET_LEARN_MIN", "2"))
         self._ai_cache = {}   # câu -> kết quả AI, để bấm Lưu không phải hỏi AI lần nữa

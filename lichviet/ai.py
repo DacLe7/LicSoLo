@@ -39,7 +39,7 @@ SCHEMA = {"type": "object",
 class LLMClient:
     def __init__(self, base_url=None, timeout=45.0, max_fail=3, cooldown=60.0, slow_s=30.0, slow_limit=3):
         if base_url is None:   # chỉ bật khi LICHVIET_AI=on (nếu có đặt) và có địa chỉ
-            on = os.environ.get("LICHVIET_AI", "on") == "on"
+            on = os.environ.get("LICHVIET_AI", "on") in ("on", "ai", "both")
             base_url = os.environ.get("LICHVIET_LLM_URL", "") if on else ""
         self.base_url = base_url.rstrip("/")
         self.timeout, self.max_fail, self.cooldown = timeout, max_fail, cooldown

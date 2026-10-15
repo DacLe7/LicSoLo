@@ -132,19 +132,53 @@ let TODAY=null;   // ngày hôm nay theo máy chủ (múi giờ người dùng),
   try{const x=await j('/today');$('lday').textContent=p(x.lunar_day)+'/'+p(x.lunar_month);$('lyear').textContent='Năm '+x.year_name+(x.leap?' · tháng nhuận':'');}catch(e){}})();
 /* ---- giọng nói: chừa sẵn chỗ. Sau này chỉ cần thay Voice.start() bằng bộ nhận giọng thật,
    gọi Voice.onText(câu) khi có kết quả: câu sẽ được điền vào ô và phân tích như gõ tay. ---- */
-const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-const Voice={ready:!!SR,rec:null,on:false,
-  start(){
-    if(!SR){toast('Cửa sổ này chưa hỗ trợ nhận giọng nói. Bạn gõ giúp mình nhé.');return;}
-    if(this.on){this.rec.stop();return;}
-    const r=this.rec=new SR();r.lang='vi-VN';r.interimResults=true;r.continuous=false;
-    let last='';
-    r.onstart=()=>{this.on=true;$('mic').classList.add('mic-on');toast('Đang nghe… nói xong bạn đợi một chút.');};
-    r.onresult=e=>{last=Array.from(e.results).map(x=>x[0].transcript).join(' ');$('q').value=last;grow();};
-    r.onerror=e=>{const m={'not-allowed':'Chưa được cấp quyền micro.','service-not-allowed':'Cửa sổ này không cho dùng nhận giọng nói.','no-speech':'Không nghe thấy gì.','audio-capture':'Không tìm thấy micro.','network':'Nhận giọng nói cần mạng và không kết nối được.'};
-      toast((m[e.error]||'Không nhận được giọng nói')+' ('+e.error+')');};
-    r.onend=()=>{this.on=false;$('mic').classList.remove('mic-on');if(last.trim()){toast('');this.onText(last.trim());}};
-    try{r.start();}catch(e){toast('Không bật được micro: '+e.message);}
+/* Ghi âm -> WAV 16 kHz mono -> /stt (whisper chạy cục bộ) -> chữ điền vào ô, phân tích như gõ tay. */
+const Voice={rec:null,chunks:[],stream:null,on:false,timer:null,
+  async start(){
+    if(this.on){this.stop();return;}
+    let st={};try{st=await j('/stt/status');}catch(e){}
+    if(!st.enabled){toast('Nhập bằng giọng nói chưa bật. Vào Config của app, chọn "Nhập bằng giọng nói" rồi lưu.');return;}
+    if(!st.ready){toast('Mô hình giọng nói đang tải (lần đầu mất vài phút). Bạn gõ tạm nhé.');return;}
+    if(!navigator.mediaDevices||!window.MediaRecorder){toast('Cửa sổ này không hỗ trợ ghi âm.');return;}
+    try{this.stream=await navigator.mediaDevices.getUserMedia({audio:true});}
+    catch(e){toast(e.name==='NotFoundError'?'Chưa thấy micro trên máy này.':'Chưa được cấp quyền micro.');return;}
+    this.chunks=[];const r=this.rec=new MediaRecorder(this.stream);
+    r.ondataavailable=e=>{if(e.data.size)this.chunks.push(e.data);};
+    r.onstop=()=>this.done();
+    r.start();this.on=true;$('mic').classList.add('mic-on');
+    toast('Đang nghe… bấm mic lần nữa khi nói xong.');
+    this.timer=setTimeout(()=>this.stop(),20000);
+  },
+  stop(){clearTimeout(this.timer);if(this.rec&&this.rec.state!=='inactive')this.rec.stop();},
+  async done(){
+    this.on=false;$('mic').classList.remove('mic-on');
+    this.stream.getTracks().forEach(t=>t.stop());
+    const blob=new Blob(this.chunks,{type:this.rec.mimeType});
+    if(blob.size<2000){toast('Không nghe thấy gì.');return;}
+    toast('Đang chuyển thành chữ…');
+    try{
+      const wav=await Voice.toWav(blob);
+      const r=await fetch('/stt',{method:'POST',body:wav,headers:{'Content-Type':'audio/wav'}});
+      const x=await r.json();
+      if(!r.ok){toast(x.error||'Nhận giọng nói gặp lỗi.');return;}
+      if(!x.text){toast('Không nghe rõ, bạn nói lại giúp mình nhé.');return;}
+      toast('');this.onText(x.text);
+    }catch(e){toast('Nhận giọng nói gặp lỗi.');}
+  },
+  async toWav(blob){
+    const ac=new (window.AudioContext||window.webkitAudioContext)();
+    const buf=await ac.decodeAudioData(await blob.arrayBuffer());ac.close();
+    const n=Math.max(1,Math.ceil(buf.duration*16000));
+    const oc=new OfflineAudioContext(1,n,16000),src=oc.createBufferSource();
+    src.buffer=buf;src.connect(oc.destination);src.start();
+    const pcm=(await oc.startRendering()).getChannelData(0);
+    const out=new DataView(new ArrayBuffer(44+pcm.length*2));
+    const w=(o,t)=>{for(let i=0;i<t.length;i++)out.setUint8(o+i,t.charCodeAt(i));};
+    w(0,'RIFF');out.setUint32(4,36+pcm.length*2,true);w(8,'WAVEfmt ');out.setUint32(16,16,true);
+    out.setUint16(20,1,true);out.setUint16(22,1,true);out.setUint32(24,16000,true);out.setUint32(28,32000,true);
+    out.setUint16(32,2,true);out.setUint16(34,16,true);w(36,'data');out.setUint32(40,pcm.length*2,true);
+    for(let i=0;i<pcm.length;i++){const v=Math.max(-1,Math.min(1,pcm[i]));out.setInt16(44+i*2,v<0?v*32768:v*32767,true);}
+    return out.buffer;
   },
   onText(text){$('q').value=text;grow();$('go').click();}};
 $('mic').onclick=()=>Voice.start();
