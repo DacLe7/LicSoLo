@@ -180,7 +180,8 @@ const Voice={rec:null,chunks:[],stream:null,on:false,timer:null,
     for(let i=0;i<pcm.length;i++){const v=Math.max(-1,Math.min(1,pcm[i]));out.setInt16(44+i*2,v<0?v*32768:v*32767,true);}
     return out.buffer;
   },
-  onText(text){$('q').value=text;grow();$('go').click();}};
+  last:null,
+  onText(text){this.last=text;$('q').value=text;grow();$('go').click();}};
 $('mic').onclick=()=>Voice.start();
 /* ---- ô nhập ---- */
 const grow=()=>{const q=$('q');q.style.height='auto';q.style.height=Math.min(q.scrollHeight,160)+'px';};
@@ -227,6 +228,7 @@ async function due(){
 function show(html,cls){const d=$('draft');d.className=html?(cls||'draft'):'';d.innerHTML=html;d.hidden=!html;}
 $('go').onclick=async()=>{
   const text=$('q').value.trim();if(!text)return;
+  if(Voice.last&&text!==Voice.last){fetch('/stt/learn',{method:'POST',body:JSON.stringify({heard:Voice.last,fixed:text})}).catch(()=>{});Voice.last=null;}
   toast('');$('go').disabled=true;$('go').classList.add('busy');
   let r;try{r=await j('/parse',{method:'POST',body:JSON.stringify({text})});}
   finally{$('go').disabled=false;$('go').classList.remove('busy');}
@@ -251,7 +253,7 @@ $('go').onclick=async()=>{
     const ev=r2.event;
     if(!ev){show('<div class="note">Chưa lưu được, bạn thử lại.</div>');return;}
     const far=(new Date(ev.start)-new Date())>7*864e5;
-    $('q').value='';grow();
+    $('q').value='';grow();Voice.last=null;
     show('<div class="saved">'+(ev.duplicate?'Việc này đã có trong lịch, mình không lưu thêm.':'Đã lưu.')+(far?' Lần tới vào '+when(ev.start,ev.all_day)+', xa hơn 7 ngày nên chưa hiện trong danh sách bên dưới.':'')+'</div>','draft');
     refresh();due();};
 };

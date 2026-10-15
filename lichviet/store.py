@@ -30,6 +30,14 @@ CREATE TABLE IF NOT EXISTS phrases(
   created TEXT NOT NULL,
   updated TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS heard(
+  src TEXT PRIMARY KEY,
+  dst TEXT NOT NULL,
+  hits INTEGER NOT NULL DEFAULT 0,
+  uses INTEGER NOT NULL DEFAULT 0,
+  created TEXT NOT NULL,
+  updated TEXT NOT NULL
+);
 """
 
 ISO = "%Y-%m-%dT%H:%M:%S"

@@ -249,6 +249,71 @@ class Service:
         except Exception:
             pass   # học hỏi chỉ là phần thêm, không bao giờ được làm hỏng việc lưu
 
+    # ---------- học cách nghe của giọng người dùng ----------
+    def _apply_heard(self, text: str) -> str:
+        """Sửa chữ nhận giọng bằng các lỗi nghe đã được người dùng sửa đủ số lần (cùng ngưỡng với cụm từ)."""
+        rows = self.con.execute("SELECT src,dst FROM heard WHERE hits>=? ORDER BY length(src) DESC",
+                                (self.learn_min,)).fetchall()
+        for row in rows:
+            toks = text.split()
+            ft = [fold(t).strip(",.;:!?") for t in toks]
+            sw = row["src"].split()
+            n = len(sw)
+            for i in range(len(toks) - n + 1):
+                if ft[i:i + n] == sw:
+                    tail = toks[i + n - 1][len(toks[i + n - 1].rstrip(",.;:!?")):]
+                    toks[i:i + n] = [row["dst"] + tail]
+                    text = " ".join(toks)
+                    self.con.execute("UPDATE heard SET uses=uses+1 WHERE src=?", (row["src"],))
+                    self.con.commit()
+                    break
+        return text
+
+    def transcribe(self, wav: bytes) -> str:
+        return self._apply_heard(self.stt.transcribe(wav))
+
+    def learn_heard(self, heard: str, fixed: str) -> int:
+        """Người dùng sửa chữ nhận giọng rồi mới gửi: nhớ cặp "nghe ra X nhưng ý là Y".
+        Chỉ học thay thế ngắn (1 đến 3 từ), phía nghe sai không chứa số; thay đổi nội dung (đổi giờ, đổi tên) thì bỏ qua."""
+        a = [w for w in (heard or "").split()]
+        b = [w for w in (fixed or "").split()]
+        fa = [w.lower().strip(",.;:!?") for w in a]   # giữ dấu: "tạng" và "tăng" khác nhau, khác với cách so khớp
+        fb = [w.lower().strip(",.;:!?") for w in b]
+        ops = [o for o in difflib.SequenceMatcher(None, fa, fb).get_opcodes() if o[0] != "equal"]
+        if not ops or len(ops) > 2:
+            return 0
+        t = store.fmt(self.clock())
+        learned = 0
+        for tag, i1, i2, j1, j2 in ops:
+            if tag != "replace" or not 1 <= i2 - i1 <= 3 or not 1 <= j2 - j1 <= 3:
+                continue
+            raw_src = " ".join(fa[i1:i2])
+            src = fold(raw_src)
+            dst = " ".join(b[j1:j2]).strip(",.;:!?")
+            if not src or any(c.isdigit() for c in src) or raw_src == dst.lower():
+                continue
+            if not any(c.isdigit() for c in dst):   # sửa chữ thành chữ: chỉ học khi hai bên đọc gần giống nhau
+                if difflib.SequenceMatcher(None, src, fold(dst)).ratio() < 0.5:
+                    continue
+            row = self.con.execute("SELECT dst FROM heard WHERE src=?", (src,)).fetchone()
+            if row is None:
+                self.con.execute("INSERT INTO heard(src,dst,hits,created,updated) VALUES(?,?,1,?,?)", (src, dst, t, t))
+            elif fold(row["dst"]) == fold(dst):
+                self.con.execute("UPDATE heard SET hits=hits+1, updated=? WHERE src=?", (t, src))
+            else:
+                self.con.execute("UPDATE heard SET dst=?, hits=1, updated=? WHERE src=?", (dst, t, src))
+            learned += 1
+        self.con.commit()
+        return learned
+
+    def heard_list(self) -> list:
+        return [dict(r) for r in self.con.execute("SELECT * FROM heard ORDER BY hits DESC, uses DESC")]
+
+    def forget_heard(self, src: str) -> bool:
+        cur = self.con.execute("DELETE FROM heard WHERE src=?", (fold(src).strip(),))
+        self.con.commit()
+        return cur.rowcount > 0
+
     def phrases(self) -> list:
         """Sổ cụm từ đã học (để xem hoặc kiểm tra)."""
         return [dict(r) for r in self.con.execute("SELECT * FROM phrases ORDER BY hits DESC, uses DESC")]
@@ -299,7 +364,7 @@ class Service:
         evs = [dict(r) for r in self.con.execute("SELECT * FROM events ORDER BY id")]
         fired = [dict(r) for r in self.con.execute("SELECT * FROM fired")]
         return {"format": "lichviet-backup", "version": 1, "exported": store.fmt(self.clock()),
-                "events": evs, "fired": fired, "phrases": self.phrases()}
+                "events": evs, "fired": fired, "phrases": self.phrases(), "heard": self.heard_list()}
 
     def import_all(self, data: dict) -> dict:
         """Nhập lại từ tệp sao lưu. Gộp thêm, không xóa gì: việc trùng (cùng tên, giờ, kiểu lặp) bị bỏ qua."""
@@ -343,6 +408,12 @@ class Service:
                                        (ph["src"], ph["dst"], int(ph.get("hits") or 0), int(ph.get("uses") or 0),
                                         ph.get("created") or t, t))
                 learned += cur.rowcount
+        for h in data.get("heard", []):
+            if h.get("src") and h.get("dst"):
+                t = store.fmt(self.clock())
+                self.con.execute("INSERT OR IGNORE INTO heard(src,dst,hits,uses,created,updated) VALUES(?,?,?,?,?,?)",
+                                 (h["src"], h["dst"], int(h.get("hits") or 0), int(h.get("uses") or 0),
+                                  h.get("created") or t, t))
         self.con.commit()
         return {"added": added, "skipped": skipped, "phrases": learned}
 

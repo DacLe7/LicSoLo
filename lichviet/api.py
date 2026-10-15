@@ -75,6 +75,8 @@ def make_handler(svc: Service):
                 return self._run(svc.export_all)
             if u.path == "/phrases":
                 return self._run(svc.phrases)
+            if u.path == "/heard":
+                return self._run(svc.heard_list)
             if u.path == "/stt/status":
                 return self._run(svc.stt.status)
             if u.path == "/health":
@@ -94,7 +96,10 @@ def make_handler(svc: Service):
                 n = int(self.headers.get("Content-Length") or 0)
                 if n <= 0 or n > MAX_AUDIO:
                     return self._send(400, {"error": "âm thanh rỗng hoặc quá dài"})
-                return self._run(lambda: {"text": svc.stt.transcribe(self.rfile.read(n))})
+                return self._run(lambda: {"text": svc.transcribe(self.rfile.read(n))})
+            if u.path == "/stt/learn":
+                b = self._body()
+                return self._run(lambda: {"learned": svc.learn_heard(str(b.get("heard", "")), str(b.get("fixed", "")))})
             if u.path == "/import":
                 return self._run(lambda: svc.import_all(self._body()))
             if u.path == "/parse":
@@ -118,6 +123,8 @@ def make_handler(svc: Service):
 
         def do_DELETE(self):
             u = self._url()
+            if u.path.startswith("/heard/"):
+                return self._run(lambda: {"deleted": svc.forget_heard(unquote(u.path.split("/", 2)[2]))})
             if u.path.startswith("/phrases/"):
                 return self._run(lambda: {"deleted": svc.forget_phrase(unquote(u.path.split("/", 2)[2]))})
             if u.path.startswith("/events/"):
