@@ -7,6 +7,8 @@ import os
 import urllib.error
 import urllib.request
 
+from .speech import digits_from_words
+
 MAX_BYTES = 8 * 1024 * 1024   # khoảng 4 phút WAV 16 kHz mono, quá đủ cho một câu lệnh
 
 
@@ -42,7 +44,7 @@ class STTClient:
                                      headers={"Content-Type": "audio/wav"})
         try:
             with urllib.request.urlopen(req, timeout=self.timeout) as r:
-                return (json.loads(r.read()).get("text") or "").strip()
+                return digits_from_words((json.loads(r.read()).get("text") or "").strip())
         except urllib.error.HTTPError as e:
             if e.code == 503:
                 raise RuntimeError("Mô hình giọng nói đang tải, vài phút nữa thử lại")
