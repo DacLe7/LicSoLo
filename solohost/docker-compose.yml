@@ -27,11 +27,11 @@ services:
     image: ghcr.io/dacle7/licsolo-stt:0.3.3
     restart: unless-stopped
     environment:
-      STT_MODEL: "${VOICE_MODEL:-small}"
+      STT_MODEL: "${VOICE_MODEL:-medium}"
       HF_HOME: /models
     volumes:
       - lichviet-stt:/models
-    mem_limit: 4g
+    mem_limit: 6g
     cpus: 4
     pids_limit: 128
     healthcheck:
