@@ -105,7 +105,7 @@ def _parse_core(text: str, now: datetime) -> ParseResult:
             if m:
                 r.repeat = "weekly"
             else:
-                m = take(r"\bmoi\s+(?:thu\s+(hai|ba|tu|nam|sau|bay|[2-7])|(chu\s+nhat))\b")
+                m = take(r"\bmoi\s+(?:thu\s+(hai|bay|ba|tu|nam|sau|[2-7])|(chu\s+nhat))\b")
                 if m:
                     r.repeat = "weekly"
                     day = WEEKDAYS["cn" if m.group(2) else m.group(1)]
@@ -171,7 +171,7 @@ def _parse_core(text: str, now: datetime) -> ParseResult:
                 else:
                     d = (base + timedelta(days=32)).replace(day=1) - timedelta(days=1)
     if d is None and not r.warnings:
-        m = take(r"\b(?:thu\s+(hai|ba|tu|nam|sau|bay|[2-7])|(chu\s+nhat))\s*(tuan\s+(?:sau|toi|nay))?")
+        m = take(r"\b(?:thu\s+(hai|bay|ba|tu|nam|sau|[2-7])|(chu\s+nhat))\s*(tuan\s+(?:sau|toi|nay))?")
         if m or day is not None:
             wd = day if m is None else WEEKDAYS["cn" if m.group(2) else m.group(1)]
             q = (m.group(3) or "") if m else ""
