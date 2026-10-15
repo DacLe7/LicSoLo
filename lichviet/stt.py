@@ -46,6 +46,10 @@ class STTClient:
         except urllib.error.HTTPError as e:
             if e.code == 503:
                 raise RuntimeError("Mô hình giọng nói đang tải, vài phút nữa thử lại")
-            raise RuntimeError("Nhận giọng nói gặp lỗi")
+            try:   # nói rõ nguyên nhân thay vì báo lỗi chung
+                why = json.loads(e.read()).get("error", "")
+            except Exception:
+                why = ""
+            raise RuntimeError("Nhận giọng nói gặp lỗi" + (": " + why if why else ""))
         except Exception:
             raise RuntimeError("Không nối được máy chủ giọng nói")

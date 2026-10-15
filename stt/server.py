@@ -8,6 +8,7 @@ import io
 import json
 import os
 import threading
+import wave
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 MODEL = os.environ.get("STT_MODEL", "small")
@@ -45,9 +46,24 @@ def clean(text: str) -> str:
     return t.rstrip(".,;")
 
 
+def pcm_from_wav(wav: bytes):
+    """Đọc WAV 16 kHz mono 16-bit thành mảng float32. Tự đọc, không qua PyAV (bản PyAV mới làm hỏng decode_audio của faster-whisper)."""
+    import numpy as np
+    try:
+        with wave.open(io.BytesIO(wav), "rb") as w:
+            ch, width, rate, n = w.getnchannels(), w.getsampwidth(), w.getframerate(), w.getnframes()
+            raw = w.readframes(n)
+    except wave.Error:
+        raise ValueError("không đọc được tệp WAV")
+    if (ch, width, rate) != (1, 2, 16000):
+        raise ValueError("cần WAV 16 kHz, mono, 16-bit")
+    return np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768.0
+
+
 def transcribe(wav: bytes) -> str:
+    audio = pcm_from_wav(wav)
     with _lock:   # mỗi lần một yêu cầu
-        segs, _ = _model.transcribe(io.BytesIO(wav), language=LANG, beam_size=1, vad_filter=True,
+        segs, _ = _model.transcribe(audio, language=LANG, beam_size=1, vad_filter=True,
                                     condition_on_previous_text=False, initial_prompt=HINT)
         return clean(" ".join(s.text for s in segs))
 
@@ -76,6 +92,8 @@ class H(BaseHTTPRequestHandler):
             return self._send(400, {"error": "âm thanh rỗng hoặc quá dài"})
         try:
             self._send(200, {"text": transcribe(self.rfile.read(n))})
+        except ValueError as e:
+            self._send(400, {"error": str(e)})
         except Exception as e:
             self._send(500, {"error": str(e)[:300]})
 
