@@ -7,7 +7,7 @@ Vì vậy "thứ ba", "thứ năm", "năm sau", "ngày mốt", "ba mẹ" đượ
 from .parser import fold
 
 _UNIT = {"mot": 1, "hai": 2, "ba": 3, "bon": 4, "nam": 5, "sau": 6, "bay": 7, "tam": 8, "chin": 9}
-_AFTER_TENS = {**_UNIT, "tu": 4, "lam": 5}
+_AFTER_TENS = {**_UNIT, "tu": 4, "lam": 5, "nham": 5}
 _NEXT_OK = {"gio", "h", "phut", "thang", "ngay"}
 _PREV_OK = {"ngay", "thang", "mung", "mong", "gio"}
 _NUMWORDS = set(_UNIT) | {"muoi", "tu", "lam", "linh", "le"}
@@ -37,26 +37,69 @@ def _read_number(toks, i):
 
 # Giọng địa phương hay bị nghe lệch: "năm giờ" -> "nêm/nem/nềm giờ", "bốn mươi lăm" -> "bốn mưu lem".
 # Chỉ sửa khi ngữ cảnh gần như chắc chắn (nêm/nem đứng ngay trước "giờ"; mưu/mưi đứng sau số).
-_NAM_VARIANTS = {"nem", "nham"}
 _MUOI_VARIANTS = {"muu", "mui", "muoi"}
 _LAM_VARIANTS = {"lem", "lam", "nem", "nham"}
 
 
+_TAIL = ",.;:!?"
+_DAYPART = {"ngày", "bữa", "sáng", "trưa", "chiều", "tối", "đêm"}
+
+
+def _punct(t: str) -> str:
+    return t[len(t.rstrip(_TAIL)):]
+
+
 def dialect_fix(text: str) -> str:
+    """Sửa các chỗ nghe lệch do giọng địa phương, chỉ khi ngữ cảnh gần như chắc chắn.
+    Không sửa mù các từ thật (nêm, nem, chưa, tấm...): luôn dựa vào từ đứng cạnh (giờ, mươi, ngày...)."""
     toks = text.split()
-    f = [fold(_clean(t)) for t in toks]
+    out = []
     for i, t in enumerate(toks):
-        nxt = f[i + 1] if i + 1 < len(toks) else ""
-        if f[i] in _NAM_VARIANTS and nxt == "gio":
-            toks[i] = "năm" + t[len(t.rstrip(",.;:!?")):]
-            f[i] = "nam"
+        raw = _clean(t).lower()
+        f = fold(raw)
+        p = _punct(t)
+        prev = _clean(toks[i - 1]).lower() if i else ""
+        pf = fold(prev)
+        nf = fold(_clean(toks[i + 1])) if i + 1 < len(toks) else ""
+        # "nêm/nem/nhăm/lăm giờ" -> "năm giờ" (lăm sau mười/mươi là đúng nên giữ)
+        if nf == "gio" and (f in ("nem", "nham") or (f == "lam" and pf != "muoi")):
+            out.append("năm" + p)
+        elif nf == "gio" and f == "xau":
+            out.append("sáu" + p)
+        elif nf == "gio" and f == "trin":
+            out.append("chín" + p)
+        # "hăm" = hai mươi (hăm lăm, hăm mốt), "nhăm" = lăm sau hàng chục
+        elif raw == "hăm" and (nf in _AFTER_TENS or nf in _NEXT_OK or pf in _PREV_OK):
+            out.extend(["hai", "mươi" + p])
+        elif raw == "nhăm" and pf == "muoi":
+            out.append("lăm" + p)
+        # từ chỉ ngày của Nam Bộ
+        elif raw == "mơi":
+            out.append("mai" + p)
+        elif raw == "mốt" and prev in _DAYPART:      # "ngày mốt", "bữa mốt", "chiều mốt" = ngày kia
+            if prev == "ngày":
+                out.append("kia" + p)
+            elif prev == "bữa":
+                out[-1:] = ["ngày", "kia" + p]
+            else:
+                out[-1:] = ["ngày", "kia", toks[i - 1] + p]
+        elif raw in ("này", "nay") and prev == "bữa":
+            out[-1] = "hôm"
+            out.append("nay" + p)
+        # dạng viết tắt: T2..T7, CN
+        elif len(raw) == 2 and raw[0] == "t" and raw[1] in "234567":
+            out.extend(["thứ", raw[1] + p])
+        elif raw == "cn":
+            out.extend(["chủ", "nhật" + p])
+        else:
+            out.append(t)
+    toks = out
+    f = [fold(_clean(t)) for t in toks]
     for i in range(1, len(toks) - 1):   # [số] mưu/mưi [lem/nem]: "4 mưu lem" -> "4 mươi lăm"
         if f[i] in _MUOI_VARIANTS and (f[i - 1].isdigit() or f[i - 1] in _UNIT) and f[i - 1] not in ("0", "1"):
             toks[i] = "mươi"
-            if f[i + 1] in _LAM_VARIANTS or f[i + 1] in _UNIT:
-                tail = toks[i + 1][len(toks[i + 1].rstrip(",.;:!?")):]
-                if f[i + 1] in _LAM_VARIANTS:
-                    toks[i + 1] = "lăm" + tail
+            if f[i + 1] in _LAM_VARIANTS:
+                toks[i + 1] = "lăm" + _punct(toks[i + 1])
     return " ".join(toks)
 
 

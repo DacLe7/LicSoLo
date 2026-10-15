@@ -22,7 +22,7 @@ class SpeechTest(unittest.TestCase):
 
     def test_giu_nguyen_khi_khong_phai_so(self):
         for s in ["họp thứ ba lúc hai giờ rưỡi".replace("hai giờ", "hai giờ"), "đi khám thứ năm tuần sau",
-                  "ngày mốt đi chơi", "năm sau đi du lịch", "chuyển cho ba mẹ"]:
+                  "mùng mốt đi chơi", "năm sau đi du lịch", "chuyển cho ba mẹ"]:
             if "hai giờ" in s:
                 continue
             self.assertEqual(d(s), s)
@@ -61,3 +61,33 @@ class DialectTest(unittest.TestCase):
         from lichviet.speech import digits_from_words as d
         self.assertEqual(d("nấu nem rán"), "nấu nem rán")
         self.assertEqual(d("thứ năm"), "thứ năm")
+
+
+class DialectTest2(unittest.TestCase):
+    def d(self, t):
+        from lichviet.speech import digits_from_words
+        return digits_from_words(t)
+
+    def test_ham_nham(self):
+        self.assertEqual(self.d("ngày hăm lăm tháng tám"), "ngày 25 tháng 8")
+        self.assertEqual(self.d("ngày hăm mốt"), "ngày 21")
+        self.assertEqual(self.d("lúc hai mươi nhăm phút"), "lúc 25 phút")
+
+    def test_nam_bo_ngay(self):
+        self.assertEqual(self.d("họp bữa nay"), "họp hôm nay")
+        self.assertEqual(self.d("họp ngày mơi"), "họp ngày mai")
+        self.assertEqual(self.d("họp ngày mốt"), "họp ngày kia")
+        self.assertEqual(self.d("họp bữa mốt"), "họp ngày kia")
+        self.assertEqual(self.d("họp chiều mốt"), "họp ngày kia chiều")
+
+    def test_viet_tat(self):
+        self.assertEqual(self.d("họp T2"), "họp thứ 2")
+        self.assertEqual(self.d("họp CN"), "họp chủ nhật")
+
+    def test_khong_sua_nham_2(self):
+        self.assertEqual(self.d("ngày hai mươi mốt"), "ngày 21")
+        self.assertEqual(self.d("mùng mốt"), "mùng mốt")
+        self.assertEqual(self.d("mười lăm giờ"), "15 giờ")
+        self.assertEqual(self.d("xáu giờ"), "6 giờ")
+        self.assertEqual(self.d("trín giờ"), "9 giờ")
+        self.assertEqual(self.d("lăm giờ"), "5 giờ")
