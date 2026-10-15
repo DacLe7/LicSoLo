@@ -15,8 +15,8 @@ MODEL = os.environ.get("STT_MODEL", "small")
 THREADS = int(os.environ.get("STT_THREADS", "0") or 0)
 LANG = os.environ.get("STT_LANG", "vi")
 MAX_BYTES = 16 * 1024 * 1024
-# gợi ý ngữ cảnh: giúp nhận đúng cách nói về giờ giấc, ngày tháng
-HINT = "Họp với anh Nam lúc 3 giờ chiều mai. Nhắc uống thuốc 7 giờ tối. Giỗ ông nội ngày 15 tháng 8 âm lịch."
+# Gợi ý ngữ cảnh (không bắt buộc, mặc định để trống). Đừng dùng cả câu mẫu: khi âm thanh yếu, Whisper hay chép lại đúng câu gợi ý.
+HINT = os.environ.get("STT_HINT", "").strip()
 # những câu Whisper hay "bịa" khi gặp im lặng hoặc tiếng ồn
 JUNK = ("đăng ký kênh", "ghiền mì gõ", "subscribe", "cảm ơn các bạn đã theo dõi", "hẹn gặp lại các bạn")
 
@@ -64,7 +64,8 @@ def transcribe(wav: bytes) -> str:
     audio = pcm_from_wav(wav)
     with _lock:   # mỗi lần một yêu cầu
         segs, _ = _model.transcribe(audio, language=LANG, beam_size=1, vad_filter=True,
-                                    condition_on_previous_text=False, initial_prompt=HINT)
+                                    condition_on_previous_text=False,
+                                    initial_prompt=HINT or None)
         return clean(" ".join(s.text for s in segs))
 
 
