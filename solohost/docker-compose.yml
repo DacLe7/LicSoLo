@@ -2,7 +2,7 @@
 # Script kiểm tra máy + chọn model được nhúng thẳng vào service llm (không cần file ngoài).
 services:
   app:
-    image: ghcr.io/dacle7/licsolo:0.3.4
+    image: ghcr.io/dacle7/licsolo:0.3.5
     container_name: LacVietNode-Lich
     labels:
       pi.ui.primary: "true"
@@ -24,14 +24,14 @@ services:
 
   stt:
     profiles: ["voice"]
-    image: ghcr.io/dacle7/licsolo-stt:0.3.4
+    image: ghcr.io/dacle7/licsolo-stt:0.3.5
     restart: unless-stopped
     environment:
-      STT_MODEL: "${VOICE_MODEL:-medium}"
+      STT_MODEL: "${VOICE_MODEL:-turbo}"
       HF_HOME: /models
     volumes:
       - lichviet-stt:/models
-    mem_limit: 6g
+    mem_limit: 8g
     cpus: 4
     pids_limit: 128
     healthcheck:

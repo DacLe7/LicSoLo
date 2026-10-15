@@ -32,8 +32,8 @@ fields:
   - name: VOICE_MODEL
     label: Độ chính xác giọng nói
     type: select
-    default: medium
-    help: Mô hình lớn nhận tiếng Việt đúng hơn nhưng chậm hơn và tốn RAM hơn. Mức Chính xác (khuyến nghị) là điểm cân bằng; mức nhẹ hơn dễ nghe sai.
+    default: turbo
+    help: Mô hình lớn nhận tiếng Việt đúng hơn nhưng chậm hơn và tốn RAM hơn. Mặc định là mức chính xác nhất; máy yếu thì chọn mức thấp hơn. Đổi mức sẽ tải lại mô hình.
     visible_if:
       field: AI_MODE
       in: [voice, both]
@@ -41,9 +41,11 @@ fields:
       - value: small
         label: "Nhẹ (nhanh, hay nghe sai tiếng Việt)"
       - value: medium
-        label: "Chính xác (khuyến nghị, tải ~1,5 GB, cần ~3 GB RAM)"
+        label: "Cân bằng (tải ~1,5 GB, cần ~3 GB RAM)"
       - value: turbo
-        label: "Chính xác nhất (tải ~1,6 GB, cần ~4 GB RAM)"
+        label: "Chính xác nhất (khuyến nghị, tải ~1,6 GB, cần ~4 GB RAM)"
+      - value: kiendt/PhoWhisper-large-ct2
+        label: "Thử nghiệm: PhoWhisper, tối ưu cho tiếng Việt (tải ~3 GB, cần ~6 GB RAM)"
 
   - name: AI_TIER
     label: Mức mô hình AI
