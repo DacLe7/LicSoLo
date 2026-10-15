@@ -22,12 +22,28 @@ Các biến được đặt trong `config_options.yml` và truyền qua compose:
 
 | Biến | Giá trị | Ý nghĩa |
 |---|---|---|
-| `AI_MODE` | `off` / `on` | Bật trợ lý AI. Mặc định `off`. |
+| `AI_MODE` | `off` / `voice` / `ai` / `both` | Chọn tính năng bật. Mặc định `off`. |
+| `VOICE_MODEL` | `base`, `small`, `medium` | Độ chính xác nhập giọng nói. Mặc định `small`. |
 | `AI_TIER` | `auto`, `tiny`, `light`, `medium`, `large`, `xlarge` | Cỡ model. `auto` chọn theo máy. |
 | `AI_MEMORY` | `4g` … `96g` | Bộ nhớ dành cho model. |
 | `AI_THREADS` | `auto`, `4`, `8`, `16`, `24` | Số luồng CPU cho model. |
 
-Khi bật AI, compose chạy thêm service `llm` (profile `ai`).
+`AI_MODE` ánh xạ sang profile compose:
+
+- `off`: chỉ chạy app. Lịch và nhắc việc vẫn đầy đủ.
+- `voice`: thêm service `stt` (profile `voice`).
+- `ai`: thêm service `llm` (profile `ai`).
+- `both`: thêm cả `stt` và `llm`.
+
+`VOICE_MODEL` và `AI_TIER`, `AI_MEMORY`, `AI_THREADS` chỉ hiện trong form cài đặt khi `AI_MODE` tương ứng.
+
+## Nhập bằng giọng nói
+
+Nhập bằng giọng nói chạy hoàn toàn trên máy, không gửi âm thanh ra ngoài. Service `stt` dùng whisper (image `ghcr.io/dacle7/licsolo-stt`). App gọi nó qua `LICHVIET_STT_URL`.
+
+- Bật qua mục **Tính năng nâng cao** trong form cài đặt, chọn "Nhập bằng giọng nói" hoặc "Cả giọng nói và Trợ lý AI".
+- **Lần đầu chạy** service sẽ tải mô hình whisper khoảng 0,5 GB (`small`) vào volume `lichviet-stt`. Cần mạng trong lần này. Các lần sau dùng bản đã tải.
+- `VOICE_MODEL` đổi độ chính xác: `base` nhanh và nhẹ, `small` cân bằng (mặc định), `medium` chính xác hơn nhưng chậm và cần khoảng 3 GB RAM.
 
 ## Múi giờ
 Đặt `LICHVIET_TZ` (mặc định `Asia/Ho_Chi_Minh`), ví dụ `Asia/Bangkok`. Giờ hiển thị theo múi giờ này, không theo giờ của máy chủ (UTC).
