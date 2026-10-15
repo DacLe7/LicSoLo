@@ -2,7 +2,7 @@
 # Script kiểm tra máy + chọn model được nhúng thẳng vào service llm (không cần file ngoài).
 services:
   app:
-    image: ghcr.io/dacle7/licsolo:0.2.0
+    image: ghcr.io/dacle7/licsolo:0.3.0
     container_name: LacVietNode-Lich
     labels:
       pi.ui.primary: "true"
@@ -12,6 +12,7 @@ services:
       - "127.0.0.1:${PANEL_PORT:-18763}:8080"
     environment:
       LICHVIET_LLM_URL: http://llm:8080
+      LICHVIET_STT_URL: http://stt:8080
       LICHVIET_AI: "${AI_MODE:-off}"
       LICHVIET_TZ: Asia/Ho_Chi_Minh        # giờ người dùng, không phụ thuộc giờ máy chủ (UTC)
     volumes:
@@ -20,6 +21,25 @@ services:
     mem_limit: 256m
     cpus: 0.5
     pids_limit: 128
+
+  stt:
+    profiles: ["voice"]
+    image: ghcr.io/dacle7/licsolo-stt:0.3.0
+    restart: unless-stopped
+    environment:
+      STT_MODEL: "${VOICE_MODEL:-small}"
+      HF_HOME: /models
+    volumes:
+      - lichviet-stt:/models
+    mem_limit: 4g
+    cpus: 4
+    pids_limit: 128
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:8080/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10m
+      retries: 3
 
   llm:
     profiles: ["ai"]
@@ -145,3 +165,4 @@ services:
 
 volumes:
   lichviet-models:
+  lichviet-stt:

@@ -9,17 +9,41 @@ fixed_values:
 
 fields:
   - name: AI_MODE
-    label: Trợ lý AI (tùy chọn)
+    label: Tính năng nâng cao (tùy chọn)
     type: select
     default: 'off'
-    help: Tắt là lựa chọn nhẹ nhất. Khi bật, app tự kiểm tra máy và chọn mô hình phù hợp; lần đầu sẽ tải mô hình từ 2 đến 33 GB tùy cấu hình.
+    help: Tắt hết là lựa chọn nhẹ nhất; lịch và nhắc việc vẫn đầy đủ. Trợ lý AI giúp hiểu câu khó. Nhập bằng giọng nói cho phép nói thay vì gõ, chạy hoàn toàn trên máy (lần đầu tải mô hình khoảng 0,5 GB).
     options:
       - value: 'off'
-        label: Tắt (khuyến nghị)
-      - value: 'on'
-        label: Bật AI cục bộ
+        label: "Tắt hết (khuyến nghị)"
+      - value: voice
+        label: "Nhập bằng giọng nói"
+        set:
+          COMPOSE_PROFILES: voice
+      - value: ai
+        label: "Trợ lý AI"
         set:
           COMPOSE_PROFILES: ai
+      - value: both
+        label: "Cả giọng nói và Trợ lý AI"
+        set:
+          COMPOSE_PROFILES: "ai,voice"
+
+  - name: VOICE_MODEL
+    label: Độ chính xác giọng nói
+    type: select
+    default: small
+    help: Mô hình lớn nhận đúng hơn nhưng chậm hơn và tốn RAM hơn. Nên bắt đầu với Cân bằng, thấy sai nhiều mới đổi.
+    visible_if:
+      field: AI_MODE
+      in: [voice, both]
+    options:
+      - value: base
+        label: "Nhanh, nhẹ (hơi kém chính xác)"
+      - value: small
+        label: "Cân bằng (khuyến nghị)"
+      - value: medium
+        label: "Chính xác hơn (chậm, cần ~3 GB RAM)"
 
   - name: AI_TIER
     label: Mức mô hình AI
@@ -28,7 +52,7 @@ fields:
     help: Để Tự động thì app đo RAM, CPU, ổ đĩa rồi chọn mô hình mạnh nhất máy chạy được. Chỉ chọn tay khi cần ép một mức cụ thể.
     visible_if:
       field: AI_MODE
-      in: ['on']
+      in: [ai, both]
     options:
       - value: auto
         label: Tự động theo cấu hình máy (khuyến nghị)
@@ -50,7 +74,7 @@ fields:
     help: Đây là mức trần. App sẽ chọn mô hình vừa với mức này. Nên để máy còn trống ít nhất 4–6 GB cho Windows.
     visible_if:
       field: AI_MODE
-      in: ['on']
+      in: [ai, both]
     options:
       - value: 4g
         label: 4 GB
@@ -74,7 +98,7 @@ fields:
     help: Tự động dùng khoảng số nhân thật của máy, tối đa 24.
     visible_if:
       field: AI_MODE
-      in: ['on']
+      in: [ai, both]
     options:
       - value: auto
         label: Tự động (khuyến nghị)
