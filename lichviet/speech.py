@@ -35,7 +35,33 @@ def _read_number(toks, i):
     return None
 
 
+# Giọng địa phương hay bị nghe lệch: "năm giờ" -> "nêm/nem/nềm giờ", "bốn mươi lăm" -> "bốn mưu lem".
+# Chỉ sửa khi ngữ cảnh gần như chắc chắn (nêm/nem đứng ngay trước "giờ"; mưu/mưi đứng sau số).
+_NAM_VARIANTS = {"nem", "nham"}
+_MUOI_VARIANTS = {"muu", "mui", "muoi"}
+_LAM_VARIANTS = {"lem", "lam", "nem", "nham"}
+
+
+def dialect_fix(text: str) -> str:
+    toks = text.split()
+    f = [fold(_clean(t)) for t in toks]
+    for i, t in enumerate(toks):
+        nxt = f[i + 1] if i + 1 < len(toks) else ""
+        if f[i] in _NAM_VARIANTS and nxt == "gio":
+            toks[i] = "năm" + t[len(t.rstrip(",.;:!?")):]
+            f[i] = "nam"
+    for i in range(1, len(toks) - 1):   # [số] mưu/mưi [lem/nem]: "4 mưu lem" -> "4 mươi lăm"
+        if f[i] in _MUOI_VARIANTS and (f[i - 1].isdigit() or f[i - 1] in _UNIT) and f[i - 1] not in ("0", "1"):
+            toks[i] = "mươi"
+            if f[i + 1] in _LAM_VARIANTS or f[i + 1] in _UNIT:
+                tail = toks[i + 1][len(toks[i + 1].rstrip(",.;:!?")):]
+                if f[i + 1] in _LAM_VARIANTS:
+                    toks[i + 1] = "lăm" + tail
+    return " ".join(toks)
+
+
 def digits_from_words(text: str) -> str:
+    text = dialect_fix(text)
     toks = text.split()
     out, i = [], 0
     while i < len(toks):
@@ -44,6 +70,14 @@ def digits_from_words(text: str) -> str:
             tail = toks[i]                                  # "tháng tư" = tháng 4
             out.append("4" + tail[len(tail.rstrip(",.;:!?")):])
             i += 1
+            continue
+        if f.isdigit() and 2 <= int(f) <= 9 and i + 1 < len(toks) and fold(_clean(toks[i + 1])) == "muoi":
+            val, used = int(f) * 10, 2                       # "4 mươi lăm" -> 45
+            if i + 2 < len(toks) and fold(_clean(toks[i + 2])) in _AFTER_TENS:
+                val, used = val + _AFTER_TENS[fold(_clean(toks[i + 2]))], 3
+            tail = toks[i + used - 1]
+            out.append(str(val) + tail[len(tail.rstrip(",.;:!?")):])
+            i += used
             continue
         if f in _NUMWORDS and f not in ("tu", "lam", "linh", "le"):
             got = _read_number(toks, i)

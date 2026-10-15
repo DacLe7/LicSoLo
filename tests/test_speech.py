@@ -44,3 +44,20 @@ class SpeechTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DialectTest(unittest.TestCase):
+    def test_nam_gio(self):
+        from lichviet.speech import digits_from_words as d
+        self.assertEqual(d("Nêm giờ 45"), "5 giờ 45")
+        self.assertEqual(d("nêm giờ tăng ca"), "5 giờ tăng ca")
+        self.assertEqual(d("nềm giờ bốn mươi nèm"), "5 giờ 45")
+
+    def test_muu_lem(self):
+        from lichviet.speech import digits_from_words as d
+        self.assertEqual(d("5 giờ 4 mưu lem"), "5 giờ 45")
+
+    def test_khong_sua_nham(self):
+        from lichviet.speech import digits_from_words as d
+        self.assertEqual(d("nấu nem rán"), "nấu nem rán")
+        self.assertEqual(d("thứ năm"), "thứ năm")
