@@ -12,7 +12,7 @@ fields:
     label: Tính năng nâng cao (tùy chọn)
     type: select
     default: 'off'
-    help: Tắt hết là lựa chọn nhẹ nhất; lịch và nhắc việc vẫn đầy đủ. Trợ lý AI giúp hiểu câu khó. Nhập bằng giọng nói cho phép nói thay vì gõ, chạy hoàn toàn trên máy (lần đầu tải mô hình khoảng 0,5 GB).
+    help: Tắt hết là lựa chọn nhẹ nhất; lịch và nhắc việc vẫn đầy đủ. Trợ lý AI giúp hiểu câu khó. Nhập bằng giọng nói cho phép nói thay vì gõ, chạy hoàn toàn trên máy (lần đầu tải mô hình giọng nói khoảng 1,6 GB, cần khoảng 4 GB RAM).
     options:
       - value: 'off'
         label: "Tắt hết (khuyến nghị)"
@@ -28,24 +28,6 @@ fields:
         label: "Cả giọng nói và Trợ lý AI"
         set:
           COMPOSE_PROFILES: "ai,voice"
-
-  - name: VOICE_MODEL
-    label: Độ chính xác giọng nói
-    type: select
-    default: turbo
-    help: Mô hình lớn nhận tiếng Việt đúng hơn nhưng chậm hơn và tốn RAM hơn. Mặc định là mức chính xác nhất; máy yếu thì chọn mức thấp hơn. Đổi mức sẽ tải lại mô hình.
-    visible_if:
-      field: AI_MODE
-      in: [voice, both]
-    options:
-      - value: small
-        label: "Nhẹ (nhanh, hay nghe sai tiếng Việt)"
-      - value: medium
-        label: "Cân bằng (tải ~1,5 GB, cần ~3 GB RAM)"
-      - value: turbo
-        label: "Chính xác nhất (khuyến nghị, tải ~1,6 GB, cần ~4 GB RAM)"
-      - value: kiendt/PhoWhisper-large-ct2
-        label: "Thử nghiệm: PhoWhisper, tối ưu cho tiếng Việt (tải ~3 GB, cần ~6 GB RAM)"
 
   - name: AI_TIER
     label: Mức mô hình AI
