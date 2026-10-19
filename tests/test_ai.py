@@ -53,7 +53,7 @@ class T(unittest.TestCase):
     def test_ai_normalizes_odd_date(self):
         REPLY["v"] = '{"title": "Khám răng", "when": "ngày kia 9 giờ sáng"}'
         try:
-            r = self.svc(self.url).from_text("đi khám răng ngày mốt lúc 9 giờ sáng")
+            r = self.svc(self.url).from_text("đi khám răng mùng 5 lúc 9 giờ sáng")
             self.assertTrue(r["draft"]["used_ai"])
             self.assertEqual(r["draft"]["start"], "2026-10-15T09:00:00")
             self.assertEqual(r["draft"]["title"], "Khám răng")
@@ -62,7 +62,7 @@ class T(unittest.TestCase):
 
     def test_odd_date_without_ai_keeps_warning(self):
         s = Service(":memory:", clock=lambda: NOW, llm=LLMClient(""))
-        r = s.from_text("đi khám răng ngày mốt lúc 9 giờ sáng")
+        r = s.from_text("đi khám răng mùng 5 lúc 9 giờ sáng")
         self.assertFalse(r["draft"]["used_ai"])
         self.assertTrue(r["draft"]["warnings"])
 
@@ -100,8 +100,8 @@ class TestEnv(unittest.TestCase):
 class TestStatus(unittest.TestCase):
     def test_status_reported(self):
         s = Service(":memory:", clock=lambda: NOW, llm=LLMClient("http://127.0.0.1:1", timeout=1))
-        d = s.from_text("đi khám ngày mốt lúc 9 giờ sáng")["draft"]
+        d = s.from_text("đi khám mùng 5 lúc 9 giờ sáng")["draft"]
         self.assertEqual(d["ai"]["status"], "error")
         s2 = Service(":memory:", clock=lambda: NOW, llm=LLMClient(""))
-        self.assertEqual(s2.from_text("đi khám ngày mốt lúc 9 giờ sáng")["draft"]["ai"]["status"], "off")
+        self.assertEqual(s2.from_text("đi khám mùng 5 lúc 9 giờ sáng")["draft"]["ai"]["status"], "off")
         self.assertIsNone(s2.from_text("họp 3h chiều mai")["draft"]["ai"])

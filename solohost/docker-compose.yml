@@ -14,13 +14,17 @@ services:
       LICHVIET_LLM_URL: http://llm:8080
       LICHVIET_STT_URL: http://stt:8080
       LICHVIET_AI: "${AI_MODE:-off}"
-      LICHVIET_TZ: Asia/Ho_Chi_Minh        # giờ người dùng, không phụ thuộc giờ máy chủ (UTC)
+      LICHVIET_TZ: "${LICHVIET_TZ:-Asia/Ho_Chi_Minh}"   # giờ người dùng, không phụ thuộc giờ máy chủ (UTC); hệ sinh thái có thể đặt theo tài khoản
+      LICHVIET_USER_ID: "${LICHVIET_USER_ID:-default}"
+      LICHVIET_ALLOWED_HOSTS: "${LICHVIET_ALLOWED_HOSTS:-}"   # host khác được gọi API (cách nhau dấu phẩy); mặc định chỉ máy này và tên service Docker
     volumes:
       - ./data:/data
       - lichviet-models:/ai-models
     mem_limit: 256m
     cpus: 0.5
     pids_limit: 128
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
 
   stt:
     profiles: ["voice"]
@@ -34,6 +38,8 @@ services:
     mem_limit: 8g
     cpus: 4
     pids_limit: 128
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:8080/health', timeout=3)"]
       interval: 30s
@@ -43,7 +49,8 @@ services:
 
   llm:
     profiles: ["ai"]
-    image: ghcr.io/ggml-org/llama.cpp:server
+    # Tag "server" luôn trôi theo bản mới nhất. Để cố định: đặt LLM_IMAGE=ghcr.io/ggml-org/llama.cpp@sha256:<digest> trong .env
+    image: ${LLM_IMAGE:-ghcr.io/ggml-org/llama.cpp:server}
     restart: unless-stopped
     environment:
       LLAMA_CACHE: /models
@@ -87,7 +94,9 @@ services:
         has_avx2=0;   grep -qw avx2    /proc/cpuinfo && has_avx2=1
         has_avx512=0; grep -qw avx512f /proc/cpuinfo && has_avx512=1
         mkdir -p "$$MODELS_DIR"
-        touch "$$DOWNGRADE_FILE"; chmod 666 "$$DOWNGRADE_FILE"   # để app (không phải root) ghi được yêu cầu hạ bậc
+        [ -e "$$DOWNGRADE_FILE" ] || echo 0 > "$$DOWNGRADE_FILE"   # không touch lại: mtime = lần app xin hạ bậc gần nhất
+        chmod 666 "$$DOWNGRADE_FILE"   # để app (không phải root) ghi được yêu cầu hạ bậc
+        RETRY_MIN=$$(( $${AI_RETRY_DAYS:-7} * 1440 ))   # sau chừng này ngày không bị xin hạ thêm: thử lại bậc cao hơn
         disk_gb=$$(df -Pk "$$MODELS_DIR" | awk 'NR==2 {printf "%d", $$4/1048576}')
         tier_line() {
           case "$$1" in
@@ -154,6 +163,9 @@ services:
         ( while sleep 20; do
             c=$$(tr -cd '0-9' < "$$DOWNGRADE_FILE" 2>/dev/null); c=$${c:-0}
             if [ "$$c" -gt "$$downgrade" ]; then log "App xin hạ bậc ($$downgrade -> $$c), khởi động lại"; kill -TERM 1; fi
+            if [ "$$c" -gt 0 ] && [ -n "$$(find "$$DOWNGRADE_FILE" -mmin +$$RETRY_MIN 2>/dev/null)" ]; then
+              echo 0 > "$$DOWNGRADE_FILE"; log "Đã lâu không bị xin hạ bậc, thử lại bậc cao hơn"; kill -TERM 1
+            fi
           done ) &
         BIN=/app/llama-server
         [ -x "$$BIN" ] || BIN=$$(command -v llama-server)

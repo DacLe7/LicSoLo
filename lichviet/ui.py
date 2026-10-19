@@ -117,7 +117,7 @@ const when=(iso,allDay)=>allDay?fmtD(iso)+' cả ngày':fmt(iso);
 const whenLong=(iso,allDay)=>{const d=new Date(iso);return WD[d.getDay()]+', '+fmtD(iso)+(allDay?' · cả ngày':' · '+fmtT(iso))};
 const local=d=>d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T00:00:00';
 const REP={daily:'mỗi ngày',weekly:'mỗi tuần',monthly:'mỗi tháng',lunar_yearly:'hằng năm'};
-const repText=(rep,ld,lm)=>!rep?'':rep==='lunar_yearly'?' · âm lịch '+(ld&&lm?p(ld)+'/'+p(lm)+', ':'')+'hằng năm':' · '+(REP[rep]||rep);
+const repText=(rep,ld,lm)=>!rep?'':rep==='lunar_yearly'?' · âm lịch '+(ld&&lm?p(ld)+'/'+p(lm)+', ':'')+'hằng năm':rep==='lunar_monthly'?' · âm lịch ngày '+(ld||'')+' hằng tháng':' · '+(REP[rep]||rep);
 const svg=d=>'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+d+'</svg>';
 const ICO={cal:svg('<rect x="3" y="4" width="18" height="17" rx="3"/><path d="M8 2v4M16 2v4M3 10h18"/>'),
  rep:svg('<path d="M17 2l4 4-4 4M3 11V9a3 3 0 013-3h15M7 22l-4-4 4-4M21 13v2a3 3 0 01-3 3H3"/>'),
@@ -208,7 +208,7 @@ async function refresh(){
     if(k!==cur){cur=k;html+=dayHead(k);}
     const rep=repText(e.repeat,e.lunar_day,e.lunar_month).replace(/^ · /,'');
     html+='<div class="ev"><div class="time'+(e.all_day?' all':'')+'">'+(e.all_day?'Cả ngày':fmtT(e.occurrence))+'</div>'
-      +'<div class="bar'+(e.repeat==='lunar_yearly'?' lunar':e.repeat?' rep':'')+'"></div>'
+      +'<div class="bar'+((e.repeat==='lunar_yearly'||e.repeat==='lunar_monthly')?' lunar':e.repeat?' rep':'')+'"></div>'
       +'<div class="body"><b>'+esc(e.title)+'</b>'+(rep?'<span class="t">'+esc(rep)+'</span>':'')+'</div>'
       +'<button class="del" title="Xóa" aria-label="Xóa" data-id="'+e.id+'" data-rep="'+(e.repeat||'')+'">'+ICO.x+'</button></div>';
   });
@@ -218,11 +218,11 @@ async function refresh(){
     await fetch('/events/'+btn.dataset.id,{method:'DELETE'});refresh();});
 }
 async function due(){
-  const d=await j('/reminders/due');
+  const d=await j('/reminders/due?channel=ui');
   const soon=x=>x.kind&&x.kind!=='on_time';
   $('due').innerHTML=d.map(x=>'<div class="banner">'+ICO.bell+'<div class="x">'+(soon(x)?'Còn '+x.days_left+' ngày: ':'Đến giờ: ')+'<b>'+esc(x.title)+'</b> · '+when(x.occurrence,x.all_day)+'</div><button data-e="'+x.event_id+'" data-o="'+esc(x.key||x.occurrence)+'">Đã biết</button></div>').join('');
   document.querySelectorAll('#due button').forEach(btn=>btn.onclick=async()=>{
-    await fetch('/reminders/fired',{method:'POST',body:JSON.stringify({event_id:+btn.dataset.e,occurrence:btn.dataset.o})});due();});
+    await fetch('/reminders/ack',{method:'POST',body:JSON.stringify({event_id:+btn.dataset.e,occurrence:btn.dataset.o})});due();});
 }
 /* ---- hiểu câu + lưu ---- */
 function show(html,cls){const d=$('draft');d.className=html?(cls||'draft'):'';d.innerHTML=html;d.hidden=!html;}

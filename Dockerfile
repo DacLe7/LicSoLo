@@ -1,5 +1,5 @@
 FROM python:3.13-slim
-ENV PYTHONUNBUFFERED=1 LICHVIET_HOST=0.0.0.0
+ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 LICHVIET_HOST=0.0.0.0
 WORKDIR /app
 COPY lichviet /app/lichviet
 # Chạy bằng UID của người dùng máy (compose đặt "user:"), dữ liệu ở thư mục bind ./data

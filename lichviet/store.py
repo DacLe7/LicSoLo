@@ -21,6 +21,11 @@ CREATE TABLE IF NOT EXISTS fired(
   occ_start TEXT NOT NULL,
   PRIMARY KEY(event_id, occ_start)
 );
+CREATE TABLE IF NOT EXISTS acked(
+  event_id INTEGER NOT NULL,
+  occ_start TEXT NOT NULL,
+  PRIMARY KEY(event_id, occ_start)
+);
 CREATE INDEX IF NOT EXISTS idx_events_start ON events(start);
 CREATE TABLE IF NOT EXISTS phrases(
   src TEXT PRIMARY KEY,
@@ -61,8 +66,11 @@ def _migrate(con: sqlite3.Connection) -> None:
 
 
 def connect(path: str = ":memory:") -> sqlite3.Connection:
-    con = sqlite3.connect(path, check_same_thread=False)
+    con = sqlite3.connect(path, check_same_thread=False, timeout=5.0)
     con.row_factory = sqlite3.Row
+    if path != ":memory:":
+        con.execute("PRAGMA busy_timeout=5000")
+        con.execute("PRAGMA journal_mode=WAL")   # đọc và ghi không chặn nhau giữa các luồng/tiến trình
     con.executescript(SCHEMA)
     _migrate(con)
     return con
