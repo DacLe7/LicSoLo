@@ -17,11 +17,11 @@ from typing import Optional
 from . import store
 from .parser import parse_vi, fold
 from .lunar import lunar_to_solar
-from .tz import local_now
+from .tz import local_now, get_tz
 from .ai import LLMClient
 from .stt import STTClient
 
-REPEATS = (None, "daily", "weekly", "monthly", "lunar_yearly")
+REPEATS = (None, "daily", "weekly", "monthly", "lunar_yearly", "lunar_monthly")
 
 
 def _add_months(dt: datetime, n: int) -> datetime:
@@ -61,8 +61,10 @@ class Service:
             raise ValueError("thiếu tiêu đề")
         if repeat not in REPEATS:
             raise ValueError("repeat không hợp lệ")
-        if repeat == "lunar_yearly" and not lunar:
-            raise ValueError("lặp theo âm lịch cần có ngày tháng âm")
+        if repeat == "lunar_yearly" and not (lunar and lunar[0] and lunar[1]):
+            raise ValueError("lặp theo âm lịch hằng năm cần có ngày tháng âm")
+        if repeat == "lunar_monthly" and not (lunar and lunar[0]):
+            raise ValueError("lặp theo âm lịch hằng tháng cần có ngày âm")
         ld, lm = lunar if lunar else (None, None)
         title = title.strip()
         # lưu trùng (cùng tên, cùng giờ, cùng kiểu lặp) thì trả lại việc cũ, không tạo bản sao
@@ -99,12 +101,14 @@ class Service:
         if cur.rowcount == 0:
             raise KeyError(event_id)
         self.con.execute("DELETE FROM fired WHERE event_id=?", (event_id,))
+        self.con.execute("DELETE FROM acked WHERE event_id=?", (event_id,))
         self.con.commit()
         return self.get(event_id)
 
     def delete(self, event_id: int) -> bool:
         cur = self.con.execute("DELETE FROM events WHERE id=?", (event_id,))
         self.con.execute("DELETE FROM fired WHERE event_id=?", (event_id,))
+        self.con.execute("DELETE FROM acked WHERE event_id=?", (event_id,))
         self.con.commit()
         return cur.rowcount > 0
 
@@ -115,19 +119,23 @@ class Service:
 
     def _lunar_occurrences(self, ev: dict, s: datetime, lo: datetime, hi: datetime):
         d, m = ev["lunar_day"], ev["lunar_month"]
-        if not d or not m:
+        if not d or (not m and ev["repeat"] != "lunar_monthly"):
             return
+        months = [m] if m else range(1, 13)   # lunar_monthly: mọi tháng (rằm, mùng 1...), bỏ qua tháng nhuận
+        found = []
         for ly in range(lo.year - 1, hi.year + 2):
-            sd = None
-            for use in ([d, 29] if d == 30 else [d]):  # tháng thiếu không có 30 thì cúng ngày 29
-                sd = lunar_to_solar(use, m, ly)
-                if sd:
-                    break
-            if not sd or sd < s.date():
-                continue
-            o = datetime.combine(sd, s.time())
-            if lo <= o < hi:
-                yield o
+            for lm in months:
+                sd = None
+                for use in ([d, 29] if d == 30 else [d]):  # tháng thiếu không có 30 thì dùng ngày 29
+                    sd = lunar_to_solar(use, lm, ly)
+                    if sd:
+                        break
+                if not sd or sd < s.date():
+                    continue
+                o = datetime.combine(sd, s.time())
+                if lo <= o < hi:
+                    found.append(o)
+        yield from sorted(found)
 
     def _occurrences(self, ev: dict, lo: datetime, hi: datetime):
         s = store.parse(ev["start"])
@@ -136,7 +144,7 @@ class Service:
             if lo <= s < hi:
                 yield s
             return
-        if rep == "lunar_yearly":
+        if rep in ("lunar_yearly", "lunar_monthly"):
             yield from self._lunar_occurrences(ev, s, lo, hi)
             return
         step = {"daily": lambda i: s + timedelta(days=i),
@@ -379,7 +387,7 @@ class Service:
         """Toàn bộ dữ liệu người dùng (việc, cụm từ đã học) để lưu thành tệp. Gỡ app là mất volume, nên cần cái này."""
         evs = [dict(r) for r in self.con.execute("SELECT * FROM events ORDER BY id")]
         fired = [dict(r) for r in self.con.execute("SELECT * FROM fired")]
-        return {"format": "lichviet-backup", "version": 1, "exported": store.fmt(self.clock()),
+        return {"format": "lichviet-backup", "version": 1, "tz": str(get_tz()), "exported": store.fmt(self.clock()),
                 "events": evs, "fired": fired, "phrases": self.phrases(), "heard": self.heard_list()}
 
     def import_all(self, data: dict) -> dict:
@@ -412,7 +420,8 @@ class Service:
             if rep not in REPEATS:
                 skipped += 1
                 continue
-            if rep == "lunar_yearly" and not (e.get("lunar_day") and e.get("lunar_month")):
+            if (rep == "lunar_yearly" and not (e.get("lunar_day") and e.get("lunar_month"))) or \
+                    (rep == "lunar_monthly" and not e.get("lunar_day")):
                 skipped += 1
                 continue
             dup = [r for r in self.con.execute("SELECT id,title FROM events WHERE start=? AND COALESCE(repeat,'')=?",
@@ -446,7 +455,10 @@ class Service:
                 self.con.execute("INSERT OR IGNORE INTO heard(src,dst,hits,uses,created,updated) VALUES(?,?,?,?,?,?)",
                                  (h["src"], h["dst"], int(h.get("hits") or 0), int(h.get("uses") or 0),
                                   h.get("created") or t, t))
-        return {"added": added, "skipped": skipped, "phrases": learned}
+        res = {"added": added, "skipped": skipped, "phrases": learned}
+        if data.get("tz") and data["tz"] != str(get_tz()):   # giờ lưu không kèm múi giờ: báo để người dùng kiểm tra
+            res["tz_warning"] = "tệp sao lưu dùng múi giờ %s, máy này dùng %s; giờ được giữ nguyên số, không quy đổi" % (data["tz"], get_tz())
+        return res
 
     # ---------- nhắc việc ----------
     def _stages(self, ev: dict) -> list:
@@ -457,8 +469,12 @@ class Service:
                     ("#1d", timedelta(days=1), "prepare_1d"), on_time]
         return [on_time]
 
-    def due_reminders(self) -> list:
+    def due_reminders(self, channel: str = "") -> list:
         """Các lần nhắc đã đến giờ mà chưa gửi.
+
+        channel="" (mặc định, dành cho notifier của hệ sinh thái): loại các lần đã mark_fired().
+        channel="ui" (banner trong giao diện): loại các lần người dùng đã bấm "Đã biết" (ack()),
+        KHÔNG phụ thuộc notifier đã gửi hay chưa. Hai bên không giẫm lên nhau.
 
         Mỗi phần tử có "key": truyền key đó (hoặc "occurrence" với việc thường) vào
         mark_fired() sau khi gửi. Việc thường nhắc đúng giờ (trừ remind_before_min);
@@ -471,7 +487,7 @@ class Service:
             ev = dict(row)
             # Việc lặp ngày/tuần/tháng: chỉ nhìn lùi 1 ngày (tránh dồn hàng loạt lần nhắc cũ sau khi máy tắt lâu).
             # Việc một lần và giỗ: nhìn lùi catchup ngày để nhắc bù khi máy từng tắt.
-            back = 1 if ev["repeat"] in ("daily", "weekly", "monthly") else self.catchup_days
+            back = 1 if ev["repeat"] in ("daily", "weekly", "monthly", "lunar_monthly") else self.catchup_days
             for o in self._occurrences(ev, now - timedelta(days=back), horizon_hi):
                 base = o.replace(hour=8, minute=0) if ev["all_day"] else o
                 due = []
@@ -486,7 +502,8 @@ class Service:
                     continue
                 suffix, kind = due[-1]  # chỉ giữ mốc gần nhất đã tới, bỏ các mốc cũ hơn chưa kịp gửi
                 key = store.fmt(o) + suffix
-                sent = self.con.execute("SELECT 1 FROM fired WHERE event_id=? AND occ_start=?",
+                table = "acked" if channel == "ui" else "fired"
+                sent = self.con.execute("SELECT 1 FROM %s WHERE event_id=? AND occ_start=?" % table,
                                         (ev["id"], key)).fetchone()
                 if not sent:
                     out.append({"event_id": ev["id"], "title": ev["title"], "occurrence": store.fmt(o),
@@ -494,6 +511,11 @@ class Service:
                                 "all_day": bool(ev["all_day"]),
                                 "remind_before_min": ev["remind_before_min"] or 0})
         return sorted(out, key=lambda x: (x["occurrence"], x["key"]))
+
+    def ack(self, event_id: int, occurrence: str) -> None:
+        """Người dùng bấm "Đã biết" trên giao diện. Chỉ ẩn banner, không ảnh hưởng việc notifier gửi thông báo."""
+        self.con.execute("INSERT OR IGNORE INTO acked VALUES(?,?)", (event_id, occurrence))
+        self.con.commit()
 
     def mark_fired(self, event_id: int, occurrence: str) -> None:
         """occurrence: truyền "key" của lần nhắc (với việc thường key trùng occurrence)."""

@@ -80,6 +80,23 @@ Thời gian trả về là giờ địa phương theo `LICHVIET_TZ`, không kèm
 - API từ chối yêu cầu từ trang web khác (Origin khác Host, `Sec-Fetch-Site: cross-site`) và Host là tên miền có dấu chấm (chống DNS rebinding). Host `localhost`, `127.0.0.1`, `::1` và tên không có dấu chấm (tên service Docker) được phép. App khác gọi bằng host khác thì thêm vào `LICHVIET_ALLOWED_HOSTS` (cách nhau dấu phẩy). `/health` luôn mở.
 - Nội dung JSON tối đa 10 MB.
 
+## Lặp theo âm lịch hằng tháng
+
+Nói "cúng rằm mỗi tháng", "ăn chay mùng 1 hàng tháng" hoặc "ngày 15 âm lịch mỗi tháng" sẽ tạo việc `lunar_monthly` (rằm = ngày 15 âm). Tháng thiếu không có ngày 30 thì dùng ngày 29; tháng nhuận bị bỏ qua. Một câu chỉ nói được một ngày âm: "mùng 1 và rằm" phải tạo thành hai việc.
+
+## Nhắc việc: hai kênh độc lập
+
+- `GET /v1/reminders/due` (mặc định) và `POST /v1/reminders/fired`: dành cho notifier của hệ sinh thái.
+- `GET /v1/reminders/due?channel=ui` và `POST /v1/reminders/ack`: banner "Đã biết" trong giao diện. Bấm "Đã biết" **không** làm mất thông báo notifier phải gửi, và ngược lại.
+- Mỗi lần nhắc trả thêm `user_id` (đặt bằng `LICHVIET_USER_ID`) và `occurrence_iso` kèm độ lệch múi giờ (ví dụ `+07:00`). `/v1/events` có `start_iso`/`occurrence_iso`; `/v1/info` có `user_id`, `now_iso`. Các trường cũ không đổi.
+- Múi giờ đặt bằng `LICHVIET_TZ` (compose đọc từ `.env`). Tệp sao lưu ghi `tz`; nhập sang máy khác múi giờ thì kết quả có `tz_warning` (giờ giữ nguyên số).
+
+## Vận hành AI
+
+- Hạ bậc model khi AI quá chậm là **tạm thời**: sau `AI_RETRY_DAYS` ngày (mặc định 7) không bị xin hạ thêm, container llm tự khởi động lại và thử bậc cao hơn.
+- Muốn cố định image llama.cpp, đặt `LLM_IMAGE=ghcr.io/ggml-org/llama.cpp@sha256:<digest>` trong `.env` (lấy digest bằng `docker pull` rồi `docker inspect`). Mặc định vẫn là tag `server` trôi theo bản mới.
+- Workflow publish chạy test trước; test lỗi thì không đẩy image.
+
 ## Chạy test
     python -m unittest discover -s tests
 

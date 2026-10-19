@@ -183,3 +183,18 @@ def next_solar(lday: int, lmonth: int, today: date):
         if best:
             return best, use_day != lday
     return None, False
+
+
+def next_lunar_monthly(lday: int, today: date):
+    """Ngày dương gần nhất (từ hôm nay) ứng với ngày lday âm lịch của BẤT KỲ tháng nào (rằm, mùng 1...).
+    Tháng thiếu không có ngày 30 thì dùng ngày 29. Trả về (ngày dương, có_phải_dùng_29). Bỏ qua tháng nhuận."""
+    best, used29 = None, False
+    for ly in range(today.year - 1, today.year + 2):
+        for lm in range(1, 13):
+            for use in ([lday, 29] if lday == 30 else [lday]):
+                s = lunar_to_solar(use, lm, ly)
+                if s:
+                    if s >= today and (best is None or s < best):
+                        best, used29 = s, use != lday
+                    break
+    return best, used29

@@ -38,6 +38,21 @@ CAN = ["Canh", "Tân", "Nhâm", "Quý", "Giáp", "Ất", "Bính", "Đinh", "Mậ
 CHI = ["Thân", "Dậu", "Tuất", "Hợi", "Tý", "Sửu", "Dần", "Mão", "Thìn", "Tỵ", "Ngọ", "Mùi"]
 
 
+USER_ID = os.environ.get("LICHVIET_USER_ID", "default")   # app một người dùng; hệ sinh thái có thể đặt để định danh
+
+
+def with_iso(item: dict) -> dict:
+    """Thêm bản ISO 8601 kèm độ lệch múi giờ (+07:00) bên cạnh giờ địa phương không kèm múi giờ (giữ tương thích)."""
+    out = dict(item)
+    for k in ("start", "occurrence"):
+        if isinstance(out.get(k), str):
+            try:
+                out[k + "_iso"] = datetime.fromisoformat(out[k]).replace(tzinfo=get_tz()).isoformat()
+            except ValueError:
+                pass
+    return out
+
+
 def today_info(now):
     """Hôm nay theo giờ người dùng: dương lịch + âm lịch + năm can chi (cho phần đầu trang)."""
     ld, lm, ly, leap = solar_to_lunar(now.date())
@@ -125,6 +140,8 @@ def make_handler(svc: Service):
             if u.path == "/info":
                 return self._send(200, {"app": "lichviet", "api": API_VERSION, "tz": str(get_tz()),
                                         "now": svc.clock().isoformat(timespec="seconds"),
+                                        "user_id": USER_ID,
+                                        "now_iso": svc.clock().replace(tzinfo=get_tz()).isoformat(timespec="seconds"),
                                         "time_format": "ISO 8601, giờ địa phương của tz (không kèm độ lệch)"})
             if u.path == "/export":
                 return self._run(svc.export_all)
@@ -137,12 +154,13 @@ def make_handler(svc: Service):
             if u.path == "/health":
                 return self._send(200, {"ok": True})
             if u.path == "/events":
-                return self._run(lambda: svc.list_range(datetime.fromisoformat(q["from"]),
-                                                         datetime.fromisoformat(q["to"])))
+                return self._run(lambda: [with_iso(e) for e in svc.list_range(
+                    datetime.fromisoformat(q["from"]), datetime.fromisoformat(q["to"]))])
             if u.path == "/ai/status":
                 return self._run(svc.llm.status)
             if u.path == "/reminders/due":
-                return self._run(svc.due_reminders)
+                return self._run(lambda: [{**with_iso(d), "user_id": USER_ID}
+                                          for d in svc.due_reminders(q.get("channel", ""))])
             self._send(404, {"error": "không có đường dẫn này"})
 
         def do_POST(self):
@@ -177,6 +195,12 @@ def make_handler(svc: Service):
                     if b.get("lunar") is not None:
                         b["lunar"] = tuple(b["lunar"])
                     return svc.create(**b)
+                return self._run(go)
+            if u.path == "/reminders/ack":
+                def go():
+                    b = self._body()
+                    svc.ack(b["event_id"], b["occurrence"])
+                    return {"ok": True}
                 return self._run(go)
             if u.path == "/reminders/fired":
                 def go():

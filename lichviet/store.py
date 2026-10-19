@@ -21,6 +21,11 @@ CREATE TABLE IF NOT EXISTS fired(
   occ_start TEXT NOT NULL,
   PRIMARY KEY(event_id, occ_start)
 );
+CREATE TABLE IF NOT EXISTS acked(
+  event_id INTEGER NOT NULL,
+  occ_start TEXT NOT NULL,
+  PRIMARY KEY(event_id, occ_start)
+);
 CREATE INDEX IF NOT EXISTS idx_events_start ON events(start);
 CREATE TABLE IF NOT EXISTS phrases(
   src TEXT PRIMARY KEY,

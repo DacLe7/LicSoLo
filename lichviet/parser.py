@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, date, time
 from typing import Optional
 
-from .lunar import lunar_to_solar, next_solar
+from .lunar import lunar_to_solar, next_solar, next_lunar_monthly
 
 
 def fold(s: str) -> str:
@@ -340,15 +340,69 @@ def _find_lunar(text: str, f: str):
     return None
 
 
+_MONTHLY = r"\b(?:moi|hang)\s+thang\b"
+
+
+def _find_lunar_monthly(text: str, f: str):
+    """"Cúng rằm mỗi tháng", "mùng 1 hàng tháng", "ngày 15 âm lịch mỗi tháng".
+    Trả về (ngày âm, [span cần xóa khỏi câu]) hoặc ("nhieu", []) nếu nói nhiều ngày; None nếu không phải kiểu này."""
+    mon = re.search(_MONTHLY, f)
+    if not mon:
+        return None
+    low = text.lower()
+    days, blank = [], [mon.span()]
+    for m in re.finditer(r"\brằm\b", low):
+        days.append(15)
+    for m in re.finditer(r"\b(?:mùng|mồng)\s*(\d{1,2}|một)\b", low):
+        days.append(1 if m.group(1) == "một" else int(m.group(1)))
+    for m in re.finditer(r"\bngay\s+(\d{1,2})\s+am(?:\s+lich)?\b", f):
+        days.append(int(m.group(1)))
+        blank.append(m.span())
+    for m in re.finditer(r"\bam\s+lich\b", f):
+        blank.append(m.span())
+    days = sorted(set(days))
+    if not days:
+        return None
+    if len(days) > 1:
+        return "nhieu", []
+    if not 1 <= days[0] <= 30:
+        return None
+    return days[0], blank
+
+
 def parse_vi(text: str, now: datetime) -> ParseResult:
     text = unicodedata.normalize("NFC", text)
     # "ngày mốt", "bữa mốt" (Nam Bộ) = ngày kia; "ngày một" (mùng 1) giữ nguyên vì có dấu khác
     text = re.sub(r"(?i)\b(?:ngày|bữa)\s+mốt\b", "ngày kia", text)
+    text = re.sub(r"(?i)\brằm\s+tháng\s+(\d{1,2})\b(?!\s*(?:âm|dương))", r"15 tháng \1 âm lịch", text)
     f = fold(text)
     if re.search(r"\bduong\b", f):  # nói rõ dương lịch: bỏ chữ đó khỏi tên việc, dùng luật thường
         for m in re.finditer(r"\bduong\s+lich\b", f):
             text = _blank(text, m.span())
         return _parse_core(text, now)
+
+    mfound = _find_lunar_monthly(text, f)
+    if mfound is not None:
+        if mfound[0] == "nhieu":   # "mùng 1 và rằm hằng tháng": chưa hỗ trợ nhiều ngày trong một câu
+            r = _parse_core(_blank(text, re.search(_MONTHLY, f).span()), now)
+            r.start, r.all_day = None, False
+            r.warnings.append("câu có nhiều ngày âm lịch, hãy tạo từng việc riêng (ví dụ một việc cho mùng 1, một việc cho rằm)")
+            return r
+        day, blank = mfound
+        cleaned = text
+        for sp in blank:
+            cleaned = _blank(cleaned, sp)
+        r = _parse_core(cleaned, now)
+        r.repeat, r.lunar = "lunar_monthly", (day, None)
+        r.unsure = False
+        r.warnings = [w for w in r.warnings if w not in ("ngày không hợp lệ", "có thể chưa hiểu cụm ngày trong câu, bạn kiểm tra lại")]
+        s, used29 = next_lunar_monthly(day, now.date())
+        has_time = r.start is not None and not r.all_day
+        r.start = datetime.combine(s, r.start.time() if has_time else time(0, 0)) if s else None
+        r.all_day = not has_time and s is not None
+        if used29:
+            r.warnings.append("tháng âm này không có ngày 30, dùng ngày 29")
+        return r
 
     found = _find_lunar(text, f)
     if found is None:
