@@ -61,8 +61,11 @@ def _migrate(con: sqlite3.Connection) -> None:
 
 
 def connect(path: str = ":memory:") -> sqlite3.Connection:
-    con = sqlite3.connect(path, check_same_thread=False)
+    con = sqlite3.connect(path, check_same_thread=False, timeout=5.0)
     con.row_factory = sqlite3.Row
+    if path != ":memory:":
+        con.execute("PRAGMA busy_timeout=5000")
+        con.execute("PRAGMA journal_mode=WAL")   # đọc và ghi không chặn nhau giữa các luồng/tiến trình
     con.executescript(SCHEMA)
     _migrate(con)
     return con

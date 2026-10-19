@@ -39,8 +39,10 @@ class TestBackup(unittest.TestCase):
         self.assertEqual(b.list_range(NOW - timedelta(days=1), NOW + timedelta(days=5)), [])
 
     def test_fired_reminder_not_repeated_after_import(self):
-        a = svc()
+        clk = [NOW - timedelta(hours=2)]   # việc được tạo TRƯỚC giờ nhắc; sau đó máy mới chạy lại lúc NOW
+        a = Service(":memory:", clock=lambda: clk[0], llm=LLMClient(""))
         ev_id = a.create("Uống thuốc", NOW - timedelta(minutes=30))
+        clk[0] = NOW
         due = a.due_reminders()
         self.assertEqual(len(due), 1)
         a.mark_fired(due[0]["event_id"], due[0]["key"])

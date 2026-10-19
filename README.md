@@ -23,7 +23,6 @@ Các biến được đặt trong `config_options.yml` và truyền qua compose:
 | Biến | Giá trị | Ý nghĩa |
 |---|---|---|
 | `AI_MODE` | `off` / `voice` / `ai` / `both` | Chọn tính năng bật. Mặc định `off`. |
-| `VOICE_MODEL` | `base`, `small`, `medium` | Độ chính xác nhập giọng nói. Mặc định `small`. |
 | `AI_TIER` | `auto`, `tiny`, `light`, `medium`, `large`, `xlarge` | Cỡ model. `auto` chọn theo máy. |
 | `AI_MEMORY` | `4g` … `96g` | Bộ nhớ dành cho model. |
 | `AI_THREADS` | `auto`, `4`, `8`, `16`, `24` | Số luồng CPU cho model. |
@@ -35,15 +34,14 @@ Các biến được đặt trong `config_options.yml` và truyền qua compose:
 - `ai`: thêm service `llm` (profile `ai`).
 - `both`: thêm cả `stt` và `llm`.
 
-`VOICE_MODEL` và `AI_TIER`, `AI_MEMORY`, `AI_THREADS` chỉ hiện trong form cài đặt khi `AI_MODE` tương ứng.
+`AI_TIER`, `AI_MEMORY`, `AI_THREADS` chỉ hiện trong form cài đặt khi `AI_MODE` tương ứng.
 
 ## Nhập bằng giọng nói
 
 Nhập bằng giọng nói chạy hoàn toàn trên máy, không gửi âm thanh ra ngoài. Service `stt` dùng whisper (image `ghcr.io/dacle7/licsolo-stt`). App gọi nó qua `LICHVIET_STT_URL`.
 
 - Bật qua mục **Tính năng nâng cao** trong form cài đặt, chọn "Nhập bằng giọng nói" hoặc "Cả giọng nói và Trợ lý AI".
-- **Lần đầu chạy** service sẽ tải mô hình whisper khoảng 0,5 GB (`small`) vào volume `lichviet-stt`. Cần mạng trong lần này. Các lần sau dùng bản đã tải.
-- `VOICE_MODEL` đổi độ chính xác: `base` nhanh và nhẹ, `small` cân bằng (mặc định), `medium` chính xác hơn nhưng chậm và cần khoảng 3 GB RAM.
+- **Lần đầu chạy** service tải mô hình whisper `turbo` (khoảng 1,6 GB) vào volume `lichviet-stt`. Cần mạng trong lần này. Các lần sau dùng bản đã tải. Mô hình cố định `turbo` trong compose (biến `STT_MODEL`).
 
 ## Múi giờ
 Đặt `LICHVIET_TZ` (mặc định `Asia/Ho_Chi_Minh`), ví dụ `Asia/Bangkok`. Giờ hiển thị theo múi giờ này, không theo giờ của máy chủ (UTC).
@@ -57,7 +55,7 @@ Dữ liệu (việc, lần nhắc đã gửi, cụm từ đã học) nằm trong
 - `export` trả về JSON có `"format": "lichviet-backup"`.
 - `import` **gộp thêm, không xóa gì**. Việc trùng (cùng tên, cùng giờ, cùng kiểu lặp) bị bỏ qua, nên nhập hai lần thì lần hai `added` = 0.
 - Việc đã nhắc xong trong tệp được giữ trạng thái đã nhắc, không nhắc lại sau khi nhập.
-- Tệp sai định dạng bị từ chối với lỗi 400, không nhập gì.
+- Tệp lỗi (giữa chừng cũng vậy) bị từ chối với lỗi 400 và **hoàn tác toàn bộ**, không nhập nửa chừng.
 
 ## API /v1
 Mọi đường dẫn dùng được cả có và không có tiền tố `/v1` (ví dụ `/v1/today` và `/today` trả cùng kết quả). Tiền tố `/v1` là hợp đồng cho các app khác trong hệ sinh thái.
@@ -74,6 +72,13 @@ Mọi đường dẫn dùng được cả có và không có tiền tố `/v1` (
 | DELETE | `/v1/phrases/<cụm>` | Quên một cụm từ đã học |
 
 Thời gian trả về là giờ địa phương theo `LICHVIET_TZ`, không kèm độ lệch múi giờ.
+
+## Nhắc việc và bảo vệ API
+
+- Việc **lưu với giờ đã qua** được cảnh báo ở bản nháp và **không** bị nhắc ngay. Một việc chỉ được nhắc nếu được tạo trước mốc nhắc.
+- Nhắc bù khi máy từng tắt: việc một lần và giỗ được nhắc bù trong `LICHVIET_CATCHUP_DAYS` ngày (mặc định 7); việc lặp ngày/tuần/tháng chỉ nhìn lùi 1 ngày.
+- API từ chối yêu cầu từ trang web khác (Origin khác Host, `Sec-Fetch-Site: cross-site`) và Host là tên miền có dấu chấm (chống DNS rebinding). Host `localhost`, `127.0.0.1`, `::1` và tên không có dấu chấm (tên service Docker) được phép. App khác gọi bằng host khác thì thêm vào `LICHVIET_ALLOWED_HOSTS` (cách nhau dấu phẩy). `/health` luôn mở.
+- Nội dung JSON tối đa 10 MB.
 
 ## Chạy test
     python -m unittest discover -s tests

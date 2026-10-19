@@ -53,9 +53,10 @@ class TestParser(unittest.TestCase):
         self.assertEqual(P("uống vitamin 7h sáng mỗi ngày").repeat, "daily")
 
     def test_unsure_date(self):
-        r = P("đi khám ngày mốt lúc 9 giờ sáng")
+        r = P("đi khám mùng 5 lúc 9 giờ sáng")
         self.assertTrue(r.unsure)
         self.assertTrue(r.warnings)
+        self.assertFalse(P("đi khám ngày mốt lúc 9 giờ sáng").unsure)   # rules now understand "ngày mốt" = ngày kia
         self.assertFalse(P("họp 3h chiều mai").unsure)
         self.assertFalse(P("báo cáo tuần 3h chiều mai").unsure is True and False)
 

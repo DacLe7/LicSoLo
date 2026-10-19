@@ -9,6 +9,7 @@ import calendar
 import difflib
 import os
 import re
+import threading
 import time
 from datetime import datetime, timedelta
 from typing import Optional
@@ -32,13 +33,25 @@ def _add_months(dt: datetime, n: int) -> datetime:
 class Service:
     def __init__(self, db_path: str = ":memory:", clock=local_now, llm: Optional[LLMClient] = None,
                  stt: Optional[STTClient] = None):
-        self.con = store.connect(db_path)
+        self._db_path = db_path
+        self._local = threading.local()   # mỗi luồng HTTP một kết nối: transaction không lẫn giữa các yêu cầu
+        self._shared = store.connect(db_path) if db_path == ":memory:" else None
         self.clock = clock
         self.llm = llm if llm is not None else LLMClient()
         self.stt = stt if stt is not None else STTClient()
         # sổ cụm từ đã học: một cụm chỉ được dùng sau khi người dùng xác nhận (bấm Lưu) từng đó lần
         self.learn_min = int(os.environ.get("LICHVIET_LEARN_MIN", "2"))
+        self.catchup_days = int(os.environ.get("LICHVIET_CATCHUP_DAYS", "7"))   # nhắc bù khi máy từng tắt
         self._ai_cache = {}   # câu -> kết quả AI, để bấm Lưu không phải hỏi AI lần nữa
+
+    @property
+    def con(self):
+        if self._shared is not None:
+            return self._shared
+        c = getattr(self._local, "con", None)
+        if c is None:
+            c = self._local.con = store.connect(self._db_path)
+        return c
 
     # ---------- ghi ----------
     def create(self, title: str, start: datetime, *, duration_min=None, all_day=False,
@@ -348,6 +361,9 @@ class Service:
                  "lunar": list(r.lunar) if r.lunar else None, "memory": memo or None}
         if r.missing:
             return {"status": "need_info", "missing": r.missing, "draft": draft}
+        now = self.clock()
+        if r.start < (now.replace(hour=0, minute=0, second=0, microsecond=0) if r.all_day else now) and not r.repeat:
+            draft["warnings"] = list(draft["warnings"]) + ["thời điểm này đã qua, bạn kiểm tra lại ngày giờ"]
         conflicts = [] if r.all_day else self.conflicts(r.start, r.duration_min)
         res = {"status": "draft", "draft": draft, "conflicts": conflicts}
         if save:
@@ -370,9 +386,22 @@ class Service:
         """Nhập lại từ tệp sao lưu. Gộp thêm, không xóa gì: việc trùng (cùng tên, giờ, kiểu lặp) bị bỏ qua."""
         if not isinstance(data, dict) or data.get("format") != "lichviet-backup":
             raise ValueError("đây không phải tệp sao lưu của Trợ lý thời gian")
+        try:
+            res = self._import_rows(data)
+            self.con.commit()
+            return res
+        except Exception as e:
+            self.con.rollback()   # không nhập nửa chừng
+            if isinstance(e, ValueError):
+                raise
+            raise ValueError("tệp sao lưu không hợp lệ: %s" % type(e).__name__)
+
+    def _import_rows(self, data: dict) -> dict:
         added = skipped = 0
         idmap = {}
         for e in data.get("events", []):
+            if not isinstance(e, dict):
+                raise ValueError("tệp sao lưu không hợp lệ: việc không đúng dạng")
             title = (e.get("title") or "").strip()
             start = e.get("start")
             if not title or not start:
@@ -381,6 +410,9 @@ class Service:
             store.parse(start)   # sai định dạng thì báo lỗi, không nhập nửa chừng
             rep = e.get("repeat") or None
             if rep not in REPEATS:
+                skipped += 1
+                continue
+            if rep == "lunar_yearly" and not (e.get("lunar_day") and e.get("lunar_month")):
                 skipped += 1
                 continue
             dup = [r for r in self.con.execute("SELECT id,title FROM events WHERE start=? AND COALESCE(repeat,'')=?",
@@ -414,7 +446,6 @@ class Service:
                 self.con.execute("INSERT OR IGNORE INTO heard(src,dst,hits,uses,created,updated) VALUES(?,?,?,?,?,?)",
                                  (h["src"], h["dst"], int(h.get("hits") or 0), int(h.get("uses") or 0),
                                   h.get("created") or t, t))
-        self.con.commit()
         return {"added": added, "skipped": skipped, "phrases": learned}
 
     # ---------- nhắc việc ----------
@@ -435,19 +466,21 @@ class Service:
         """
         now = self.clock()
         out = []
-        horizon_lo = now - timedelta(days=1)
         horizon_hi = now + timedelta(days=8)
         for row in self.con.execute("SELECT * FROM events"):
             ev = dict(row)
-            for o in self._occurrences(ev, horizon_lo, horizon_hi):
+            # Việc lặp ngày/tuần/tháng: chỉ nhìn lùi 1 ngày (tránh dồn hàng loạt lần nhắc cũ sau khi máy tắt lâu).
+            # Việc một lần và giỗ: nhìn lùi catchup ngày để nhắc bù khi máy từng tắt.
+            back = 1 if ev["repeat"] in ("daily", "weekly", "monthly") else self.catchup_days
+            for o in self._occurrences(ev, now - timedelta(days=back), horizon_hi):
                 base = o.replace(hour=8, minute=0) if ev["all_day"] else o
                 due = []
                 for suffix, delta, kind in self._stages(ev):
                     fire_at = base - delta
                     if fire_at > now:
                         continue
-                    if suffix and ev["created"] > store.fmt(fire_at):
-                        continue  # việc tạo sau mốc này, không nhắc bù
+                    if ev["created"] > store.fmt(fire_at):
+                        continue  # việc tạo sau mốc này (kể cả việc lưu với giờ đã qua), không nhắc
                     due.append((suffix, kind))
                 if not due:
                     continue
