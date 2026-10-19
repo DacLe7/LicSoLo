@@ -80,6 +80,11 @@ Thời gian trả về là giờ địa phương theo `LICHVIET_TZ`, không kèm
 - API từ chối yêu cầu từ trang web khác (Origin khác Host, `Sec-Fetch-Site: cross-site`) và Host là tên miền có dấu chấm (chống DNS rebinding). Host `localhost`, `127.0.0.1`, `::1` và tên không có dấu chấm (tên service Docker) được phép. App khác gọi bằng host khác thì thêm vào `LICHVIET_ALLOWED_HOSTS` (cách nhau dấu phẩy). `/health` luôn mở.
 - Nội dung JSON tối đa 10 MB.
 
+## Tích hợp hệ sinh thái
+
+Hợp đồng API (khóa `X-Lacviet-Key`, nhắc có `ref`, mốc sắp tới cho thông báo cục bộ, thiết bị, đồng bộ tăng dần,
+lịch `.ics`): xem [docs/API.md](docs/API.md). Khóa do cổng hệ sinh thái cấp qua `LICHVIET_API_KEY` trong `.env`.
+
 ## Lặp theo âm lịch hằng tháng
 
 Nói "cúng rằm mỗi tháng", "ăn chay mùng 1 hàng tháng" hoặc "ngày 15 âm lịch mỗi tháng" sẽ tạo việc `lunar_monthly` (rằm = ngày 15 âm). Tháng thiếu không có ngày 30 thì dùng ngày 29; tháng nhuận bị bỏ qua. Một câu chỉ nói được một ngày âm: "mùng 1 và rằm" phải tạo thành hai việc.

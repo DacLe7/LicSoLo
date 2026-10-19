@@ -1,14 +1,17 @@
+import hmac
 import json
 import logging
 import os
-from datetime import datetime
+import time
+from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs, unquote
 
-from .service import Service
+from .service import Service, CursorTooOld
 from .ui import PAGE
 from .lunar import solar_to_lunar
 from .tz import get_tz
+from . import ics
 
 log = logging.getLogger("lichviet.api")
 MAX_BODY = 10 * 1024 * 1024   # JSON (kể cả tệp sao lưu); âm thanh có giới hạn riêng MAX_AUDIO
@@ -61,8 +64,47 @@ def today_info(now):
 
 
 
+def _key_from_env(name: str) -> str:
+    k = os.environ.get(name, "")
+    if k and len(k) < 16:
+        raise ValueError("%s quá ngắn (cần ít nhất 16 ký tự)" % name)
+    return k
+
+
 def make_handler(svc: Service):
+    api_key = _key_from_env("LICHVIET_API_KEY")   # khóa cho app/hệ sinh thái; trống = chế độ cục bộ cũ
+    ics_key = _key_from_env("LICHVIET_ICS_KEY")   # khóa chỉ đọc cho đăng ký lịch .ics qua URL (?key=)
+
     class H(BaseHTTPRequestHandler):
+        def _fail_auth(self, code, msg):
+            time.sleep(0.3)   # làm chậm dò khóa
+            self._send(code, {"error": msg})
+            return False
+
+        def _auth(self, required: bool, q=None, ics_ok: bool = False) -> bool:
+            """Kiểm tra khóa. required=True: endpoint chỉ dành cho hệ sinh thái, không cấu hình khóa thì từ chối (503).
+            required=False: endpoint cũ, chỉ kiểm tra khi đã đặt LICHVIET_API_KEY (tương thích bản trước).
+            Khóa gửi qua header X-Lacviet-Key hoặc Authorization: Bearer. ics_ok: cho phép ?key= khớp LICHVIET_ICS_KEY."""
+            given = self.headers.get("X-Lacviet-Key") or ""
+            auth = self.headers.get("Authorization") or ""
+            if not given and auth.lower().startswith("bearer "):
+                given = auth[7:].strip()
+            if ics_ok and ics_key and q and hmac.compare_digest((q.get("key") or "").encode(), ics_key.encode()):
+                return True
+            if not api_key and not (ics_ok and ics_key):
+                return True if not required else self._fail_auth(503, "chưa cấu hình LICHVIET_API_KEY")
+            if api_key and hmac.compare_digest(given.encode(), api_key.encode()):
+                return True
+            return self._fail_auth(401, "thiếu hoặc sai khóa (header X-Lacviet-Key)")
+
+        def _send_raw(self, code, body: bytes, ctype: str):
+            self.send_response(code)
+            self.send_header("Content-Type", ctype)
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(body)
+
         def _send(self, code, obj):
             b = json.dumps(obj, ensure_ascii=False).encode("utf-8")
             self.send_response(code)
@@ -116,6 +158,8 @@ def make_handler(svc: Service):
                     self._send(404, {"error": "không tìm thấy"})
             except (ValueError, TypeError, json.JSONDecodeError) as e:
                 self._send(400, {"error": str(e)})
+            except CursorTooOld as e:
+                self._send(410, {"error": str(e), "action": "resync", "since": "0"})
             except RuntimeError as e:   # giọng nói tắt hoặc chưa sẵn sàng
                 self._send(503, {"error": str(e)})
             except Exception:
@@ -141,6 +185,8 @@ def make_handler(svc: Service):
                 return self._send(200, {"app": "lichviet", "api": API_VERSION, "tz": str(get_tz()),
                                         "now": svc.clock().isoformat(timespec="seconds"),
                                         "user_id": USER_ID,
+                                        "features": ["changes", "upcoming", "devices", "delivered", "ics"],
+                                        "auth": {"header": "X-Lacviet-Key", "configured": bool(api_key)},
                                         "now_iso": svc.clock().replace(tzinfo=get_tz()).isoformat(timespec="seconds"),
                                         "time_format": "ISO 8601, giờ địa phương của tz (không kèm độ lệch)"})
             if u.path == "/export":
@@ -159,8 +205,46 @@ def make_handler(svc: Service):
             if u.path == "/ai/status":
                 return self._run(svc.llm.status)
             if u.path == "/reminders/due":
-                return self._run(lambda: [{**with_iso(d), "user_id": USER_ID}
-                                          for d in svc.due_reminders(q.get("channel", ""))])
+                ui = q.get("channel") == "ui"
+                if not ui and not self._auth(required=False):
+                    return
+                return self._run(lambda: [{**with_iso(d), "fire_at_iso": with_iso({"start": d["fire_at"]})["start_iso"],
+                                           "user_id": USER_ID}
+                                          for d in svc.due_reminders(q.get("channel", ""), q.get("device_id") or None)])
+            if u.path == "/reminders/upcoming":
+                if not self._auth(required=True):
+                    return
+                return self._run(lambda: [{**with_iso(d), "fire_at_iso": with_iso({"start": d["fire_at"]})["start_iso"],
+                                           "user_id": USER_ID}
+                                          for d in svc.upcoming_reminders(int(q.get("days", 14)), q.get("device_id") or None)])
+            if u.path == "/events/changes":
+                if not self._auth(required=True):
+                    return
+
+                def go():
+                    res = svc.changes_since(int(q.get("since", 0) or 0), int(q.get("limit", 200)))
+                    for c in res["changes"]:
+                        if c["op"] == "upsert":
+                            c["event"] = with_iso(c["event"])
+                    return {**res, "user_id": USER_ID}
+                return self._run(go)
+            if u.path == "/devices":
+                if not self._auth(required=True):
+                    return
+                return self._run(svc.list_devices)
+            if u.path == "/calendar.ics":
+                if not self._auth(required=True, q=q, ics_ok=True):
+                    return
+                try:
+                    now = svc.clock()
+                    lo = datetime.fromisoformat(q["from"]) if q.get("from") else now - timedelta(days=7)
+                    hi = datetime.fromisoformat(q["to"]) if q.get("to") else now + timedelta(days=365)
+                    if hi <= lo or (hi - lo).days > 800:
+                        raise ValueError("khoảng thời gian không hợp lệ (to sau from, tối đa 800 ngày)")
+                    body = ics.render(svc.calendar_items(lo, hi), now, get_tz()).encode("utf-8")
+                except ValueError as e:
+                    return self._send(400, {"error": str(e)})
+                return self._send_raw(200, body, "text/calendar; charset=utf-8")
             self._send(404, {"error": "không có đường dẫn này"})
 
         def do_POST(self):
@@ -202,7 +286,24 @@ def make_handler(svc: Service):
                     svc.ack(b["event_id"], b["occurrence"])
                     return {"ok": True}
                 return self._run(go)
+            if u.path == "/devices":
+                if not self._auth(required=True):
+                    return
+                def go():
+                    b = self._body()
+                    return svc.register_device(b["device_id"], b["platform"], b.get("label"))
+                return self._run(go)
+            if u.path == "/reminders/delivered":
+                if not self._auth(required=True):
+                    return
+                def go():
+                    b = self._body()
+                    svc.mark_delivered(b["device_id"], b["event_id"], b["key"])
+                    return {"ok": True}
+                return self._run(go)
             if u.path == "/reminders/fired":
+                if not self._auth(required=False):
+                    return
                 def go():
                     b = self._body()
                     svc.mark_fired(b["event_id"], b["occurrence"])
@@ -218,6 +319,10 @@ def make_handler(svc: Service):
                 return self._run(lambda: {"deleted": svc.forget_heard(unquote(u.path.split("/", 2)[2]))})
             if u.path.startswith("/phrases/"):
                 return self._run(lambda: {"deleted": svc.forget_phrase(unquote(u.path.split("/", 2)[2]))})
+            if u.path.startswith("/devices/"):
+                if not self._auth(required=True):
+                    return
+                return self._run(lambda: {"deleted": svc.remove_device(unquote(u.path.split("/", 2)[2]))})
             if u.path.startswith("/events/"):
                 return self._run(lambda: {"deleted": svc.delete(int(u.path.rsplit("/", 1)[1]))})
             self._send(404, {"error": "không có đường dẫn này"})

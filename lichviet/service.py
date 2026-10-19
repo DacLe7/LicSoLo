@@ -21,6 +21,12 @@ from .tz import local_now, get_tz
 from .ai import LLMClient
 from .stt import STTClient
 
+class CursorTooOld(Exception):
+    """Con trỏ đồng bộ cũ hơn thời hạn giữ bia mộ: app phải đồng bộ lại từ đầu (since=0)."""
+
+
+MAX_DEVICES = 20
+PLATFORMS = ("ios", "android", "other")
 REPEATS = (None, "daily", "weekly", "monthly", "lunar_yearly", "lunar_monthly")
 
 
@@ -78,8 +84,13 @@ class Service:
             "lunar_day,lunar_month) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
             (title, store.fmt(start), duration_min, int(all_day), repeat,
              remind_before_min, notes, now, now, ld, lm))
+        self._log_change(cur.lastrowid, "upsert")
         self.con.commit()
         return self.get(cur.lastrowid)
+
+    def _log_change(self, event_id: int, op: str) -> None:
+        self.con.execute("INSERT INTO changes(event_id,op,at) VALUES(?,?,?)",
+                         (event_id, op, store.fmt(self.clock())))
 
     def update(self, event_id: int, **fields) -> dict:
         allowed = {"title", "start", "duration_min", "all_day", "repeat", "remind_before_min", "notes",
@@ -102,6 +113,8 @@ class Service:
             raise KeyError(event_id)
         self.con.execute("DELETE FROM fired WHERE event_id=?", (event_id,))
         self.con.execute("DELETE FROM acked WHERE event_id=?", (event_id,))
+        self.con.execute("DELETE FROM delivered WHERE event_id=?", (event_id,))
+        self._log_change(event_id, "upsert")
         self.con.commit()
         return self.get(event_id)
 
@@ -109,6 +122,9 @@ class Service:
         cur = self.con.execute("DELETE FROM events WHERE id=?", (event_id,))
         self.con.execute("DELETE FROM fired WHERE event_id=?", (event_id,))
         self.con.execute("DELETE FROM acked WHERE event_id=?", (event_id,))
+        self.con.execute("DELETE FROM delivered WHERE event_id=?", (event_id,))
+        if cur.rowcount > 0:
+            self._log_change(event_id, "delete")
         self.con.commit()
         return cur.rowcount > 0
 
@@ -437,6 +453,7 @@ class Service:
                 (title, start, e.get("duration_min"), int(bool(e.get("all_day"))), rep, e.get("remind_before_min"),
                  e.get("notes"), e.get("created") or now, now, e.get("lunar_day"), e.get("lunar_month")))
             idmap[e.get("id")] = cur.lastrowid
+            self._log_change(cur.lastrowid, "upsert")
             added += 1
         for f in data.get("fired", []):
             if f.get("event_id") in idmap:   # lần nhắc đã gửi: giữ nguyên để không nhắc lại
@@ -469,17 +486,46 @@ class Service:
                     ("#1d", timedelta(days=1), "prepare_1d"), on_time]
         return [on_time]
 
-    def due_reminders(self, channel: str = "") -> list:
+    def _fire_points(self, ev: dict, o: datetime) -> list:
+        """Mọi mốc nhắc của một lần xảy ra: (hậu tố khóa, loại, giờ nhắc). Việc cả ngày nhắc lúc 8h sáng."""
+        base = o.replace(hour=8, minute=0) if ev["all_day"] else o
+        return [(suffix, kind, base - delta) for suffix, delta, kind in self._stages(ev)]
+
+    def _item(self, ev: dict, o: datetime, suffix: str, kind: str, fire_at: datetime, now: datetime) -> dict:
+        """Một lần nhắc đưa ra ngoài. "ref" ổn định (cùng việc + cùng lần + cùng mốc luôn cùng ref):
+        app dùng để mở đúng việc khi khách bấm thông báo và để không hẹn trùng."""
+        key = store.fmt(o) + suffix
+        notes = (ev["notes"] or "").strip()
+        return {"event_id": ev["id"], "title": ev["title"], "occurrence": store.fmt(o),
+                "key": key, "kind": kind, "days_left": (o.date() - now.date()).days,
+                "all_day": bool(ev["all_day"]), "remind_before_min": ev["remind_before_min"] or 0,
+                "fire_at": store.fmt(fire_at), "repeat": ev["repeat"],
+                "notes": notes[:200] or None,
+                "ref": "lv-%d-%s%s" % (ev["id"], o.strftime("%Y%m%d%H%M"), suffix.replace("#", "-")),
+                "event_ref": "lv-%d" % ev["id"]}
+
+    def _require_device(self, device_id: str) -> None:
+        row = self.con.execute("SELECT 1 FROM devices WHERE device_id=?", (device_id,)).fetchone()
+        if not row:
+            raise ValueError("thiết bị chưa đăng ký (POST /v1/devices)")
+        self.con.execute("UPDATE devices SET last_seen=? WHERE device_id=?",
+                         (store.fmt(self.clock()), device_id))
+        self.con.commit()
+
+    def due_reminders(self, channel: str = "", device_id: Optional[str] = None) -> list:
         """Các lần nhắc đã đến giờ mà chưa gửi.
 
-        channel="" (mặc định, dành cho notifier của hệ sinh thái): loại các lần đã mark_fired().
-        channel="ui" (banner trong giao diện): loại các lần người dùng đã bấm "Đã biết" (ack()),
-        KHÔNG phụ thuộc notifier đã gửi hay chưa. Hai bên không giẫm lên nhau.
+        Mặc định (dành cho notifier của hệ sinh thái): loại các lần đã mark_fired().
+        channel="ui" (banner trong giao diện): loại các lần người dùng đã bấm "Đã biết" (ack()).
+        device_id: loại các lần thiết bị đó đã báo hiển thị (mark_delivered()).
+        Các kênh độc lập, không giẫm lên nhau.
 
         Mỗi phần tử có "key": truyền key đó (hoặc "occurrence" với việc thường) vào
         mark_fired() sau khi gửi. Việc thường nhắc đúng giờ (trừ remind_before_min);
         việc cả ngày nhắc lúc 8h sáng; giỗ (lặp âm lịch) nhắc thêm trước 7 ngày và 1 ngày.
         """
+        if device_id:
+            self._require_device(device_id)
         now = self.clock()
         out = []
         horizon_hi = now + timedelta(days=8)
@@ -489,28 +535,53 @@ class Service:
             # Việc một lần và giỗ: nhìn lùi catchup ngày để nhắc bù khi máy từng tắt.
             back = 1 if ev["repeat"] in ("daily", "weekly", "monthly", "lunar_monthly") else self.catchup_days
             for o in self._occurrences(ev, now - timedelta(days=back), horizon_hi):
-                base = o.replace(hour=8, minute=0) if ev["all_day"] else o
                 due = []
-                for suffix, delta, kind in self._stages(ev):
-                    fire_at = base - delta
+                for suffix, kind, fire_at in self._fire_points(ev, o):
                     if fire_at > now:
                         continue
                     if ev["created"] > store.fmt(fire_at):
                         continue  # việc tạo sau mốc này (kể cả việc lưu với giờ đã qua), không nhắc
-                    due.append((suffix, kind))
+                    due.append((suffix, kind, fire_at))
                 if not due:
                     continue
-                suffix, kind = due[-1]  # chỉ giữ mốc gần nhất đã tới, bỏ các mốc cũ hơn chưa kịp gửi
+                suffix, kind, fire_at = due[-1]  # chỉ giữ mốc gần nhất đã tới, bỏ các mốc cũ hơn chưa kịp gửi
                 key = store.fmt(o) + suffix
-                table = "acked" if channel == "ui" else "fired"
-                sent = self.con.execute("SELECT 1 FROM %s WHERE event_id=? AND occ_start=?" % table,
-                                        (ev["id"], key)).fetchone()
+                if channel == "ui":
+                    sent = self.con.execute("SELECT 1 FROM acked WHERE event_id=? AND occ_start=?",
+                                            (ev["id"], key)).fetchone()
+                elif device_id:
+                    sent = self.con.execute("SELECT 1 FROM delivered WHERE device_id=? AND event_id=? AND occ_key=?",
+                                            (device_id, ev["id"], key)).fetchone()
+                else:
+                    sent = self.con.execute("SELECT 1 FROM fired WHERE event_id=? AND occ_start=?",
+                                            (ev["id"], key)).fetchone()
                 if not sent:
-                    out.append({"event_id": ev["id"], "title": ev["title"], "occurrence": store.fmt(o),
-                                "key": key, "kind": kind, "days_left": (o.date() - now.date()).days,
-                                "all_day": bool(ev["all_day"]),
-                                "remind_before_min": ev["remind_before_min"] or 0})
+                    out.append(self._item(ev, o, suffix, kind, fire_at, now))
         return sorted(out, key=lambda x: (x["occurrence"], x["key"]))
+
+    def upcoming_reminders(self, days: int = 14, device_id: Optional[str] = None) -> list:
+        """Các mốc nhắc SẮP tới (từ bây giờ đến `days` ngày, tối đa 60) để điện thoại tự hẹn thông báo cục bộ.
+        Mỗi mốc là một phần tử (giỗ có tới 3 mốc). Có device_id thì bỏ các mốc thiết bị đó đã báo hiển thị.
+        iOS chỉ giữ khoảng 64 thông báo cục bộ: app nên lấy mốc gần nhất trước (đã sắp theo fire_at)."""
+        days = max(1, min(int(days), 60))
+        if device_id:
+            self._require_device(device_id)
+        now = self.clock()
+        end = now + timedelta(days=days)
+        out = []
+        for row in self.con.execute("SELECT * FROM events"):
+            ev = dict(row)
+            for o in self._occurrences(ev, now, end + timedelta(days=8)):
+                for suffix, kind, fire_at in self._fire_points(ev, o):
+                    if not (now <= fire_at <= end):
+                        continue
+                    if device_id and self.con.execute(
+                            "SELECT 1 FROM delivered WHERE device_id=? AND event_id=? AND occ_key=?",
+                            (device_id, ev["id"], store.fmt(o) + suffix)).fetchone():
+                        continue
+                    out.append(self._item(ev, o, suffix, kind, fire_at, now))
+        out.sort(key=lambda x: (x["fire_at"], x["key"]))
+        return out[:500]
 
     def ack(self, event_id: int, occurrence: str) -> None:
         """Người dùng bấm "Đã biết" trên giao diện. Chỉ ẩn banner, không ảnh hưởng việc notifier gửi thông báo."""
@@ -521,3 +592,94 @@ class Service:
         """occurrence: truyền "key" của lần nhắc (với việc thường key trùng occurrence)."""
         self.con.execute("INSERT OR IGNORE INTO fired VALUES(?,?)", (event_id, occurrence))
         self.con.commit()
+
+    def mark_delivered(self, device_id: str, event_id: int, key: str) -> None:
+        """Thiết bị báo đã hiển thị lần nhắc `key` (lấy từ due/upcoming): tránh nhắc lặp giữa thông báo cục bộ và push."""
+        self._require_device(device_id)
+        self.con.execute("INSERT OR IGNORE INTO delivered VALUES(?,?,?,?)",
+                         (device_id, event_id, key, store.fmt(self.clock())))
+        self.con.commit()
+
+    # ---------- thiết bị ----------
+    def register_device(self, device_id: str, platform: str, label: Optional[str] = None) -> dict:
+        if not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", device_id or ""):
+            raise ValueError("device_id chỉ gồm chữ, số, _ và -, tối đa 64 ký tự")
+        if platform not in PLATFORMS:
+            raise ValueError("platform phải là một trong: %s" % ", ".join(PLATFORMS))
+        label = (label or "").strip()[:60] or None
+        now = store.fmt(self.clock())
+        exists = self.con.execute("SELECT 1 FROM devices WHERE device_id=?", (device_id,)).fetchone()
+        if not exists and self.con.execute("SELECT COUNT(*) FROM devices").fetchone()[0] >= MAX_DEVICES:
+            raise ValueError("đã đủ %d thiết bị, hãy gỡ thiết bị cũ" % MAX_DEVICES)
+        self.con.execute(
+            "INSERT INTO devices(device_id,platform,label,registered,last_seen) VALUES(?,?,?,?,?) "
+            "ON CONFLICT(device_id) DO UPDATE SET platform=excluded.platform, label=excluded.label, last_seen=excluded.last_seen",
+            (device_id, platform, label, now, now))
+        self.con.commit()
+        return dict(self.con.execute("SELECT * FROM devices WHERE device_id=?", (device_id,)).fetchone())
+
+    def list_devices(self) -> list:
+        return [dict(r) for r in self.con.execute("SELECT * FROM devices ORDER BY registered")]
+
+    def remove_device(self, device_id: str) -> bool:
+        cur = self.con.execute("DELETE FROM devices WHERE device_id=?", (device_id,))
+        self.con.execute("DELETE FROM delivered WHERE device_id=?", (device_id,))
+        self.con.commit()
+        return cur.rowcount > 0
+
+    # ---------- đồng bộ tăng dần ----------
+    def _purge_tombstones(self) -> None:
+        days = int(os.environ.get("LICHVIET_TOMBSTONE_DAYS", "90"))
+        cutoff = store.fmt(self.clock() - timedelta(days=days))
+        rows = self.con.execute("SELECT event_id, seq FROM changes WHERE op='delete' AND at<?", (cutoff,)).fetchall()
+        if not rows:
+            return
+        top = max(r["seq"] for r in rows)
+        for r in rows:
+            self.con.execute("DELETE FROM changes WHERE event_id=? AND seq<=?", (r["event_id"], r["seq"]))
+        floor = self.con.execute("SELECT value FROM meta WHERE key='changes_floor'").fetchone()
+        floor = max(int(floor["value"]) if floor else 0, top)
+        self.con.execute("INSERT INTO meta VALUES('changes_floor',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                         (str(floor),))
+        self.con.commit()
+
+    def changes_since(self, since: int = 0, limit: int = 200) -> dict:
+        """Thay đổi của các việc kể từ con trỏ `since` (0 = từ đầu, toàn bộ việc hiện có).
+        Mỗi việc chỉ xuất hiện một lần với trạng thái mới nhất: op "upsert" (kèm toàn bộ việc) hoặc "delete".
+        Trả cursor mới để lần sau truyền vào; has_more=true thì gọi tiếp ngay với cursor đó.
+        Bia mộ giữ LICHVIET_TOMBSTONE_DAYS ngày (mặc định 90); con trỏ cũ hơn thì CursorTooOld → đồng bộ lại since=0."""
+        since = int(since)
+        if since < 0:
+            raise ValueError("since phải là số nguyên không âm")
+        limit = max(1, min(int(limit), 500))
+        self._purge_tombstones()
+        floor = self.con.execute("SELECT value FROM meta WHERE key='changes_floor'").fetchone()
+        if since and floor and since < int(floor["value"]):
+            raise CursorTooOld("con trỏ quá cũ, đồng bộ lại từ since=0")
+        head = self.con.execute("SELECT COALESCE(MAX(seq),0) FROM changes").fetchone()[0]
+        rows = self.con.execute(
+            "SELECT c.seq, c.event_id, c.op FROM changes c JOIN "
+            "(SELECT event_id, MAX(seq) m FROM changes WHERE seq>? AND seq<=? GROUP BY event_id) g ON c.seq=g.m "
+            "ORDER BY c.seq LIMIT ?", (since, head, limit + 1)).fetchall()
+        has_more = len(rows) > limit
+        rows = rows[:limit]
+        changes = []
+        for r in rows:
+            ev = self.get(r["event_id"]) if r["op"] == "upsert" else None
+            if ev:
+                changes.append({"seq": r["seq"], "op": "upsert", "event": ev})
+            else:   # xóa, hoặc upsert của việc đã không còn
+                changes.append({"seq": r["seq"], "op": "delete", "event_id": r["event_id"]})
+        cursor = rows[-1]["seq"] if has_more else max(head, since)
+        return {"cursor": str(cursor), "has_more": has_more, "changes": changes}
+
+    # ---------- lịch .ics ----------
+    def calendar_items(self, lo: datetime, hi: datetime) -> list:
+        """Các lần xảy ra trong [lo, hi) kèm danh sách giờ nhắc (alarms) để xuất .ics."""
+        now = self.clock()
+        out = []
+        for e in self.list_range(lo, hi):
+            o = store.parse(e["occurrence"])
+            alarms = [fa for _, _, fa in self._fire_points(e, o) if fa > now - timedelta(days=1)]
+            out.append({**e, "alarms": alarms})
+        return out
