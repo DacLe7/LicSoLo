@@ -11,6 +11,8 @@ def main(argv):
         print(USAGE); return 1
     db, cmd, rest = argv[0], argv[1], argv[2:]
     if cmd == "serve":
+        import logging
+        logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
         from .api import serve
         serve(db, host=os.environ.get("LICHVIET_HOST", "127.0.0.1"), port=int(rest[0]) if rest else 8765); return 0
     s = Service(db)

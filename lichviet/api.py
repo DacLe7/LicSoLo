@@ -12,6 +12,7 @@ from .ui import PAGE
 from .lunar import solar_to_lunar
 from .tz import get_tz
 from . import ics
+from . import __version__
 
 log = logging.getLogger("lichviet.api")
 MAX_BODY = 10 * 1024 * 1024   # JSON (kể cả tệp sao lưu); âm thanh có giới hạn riêng MAX_AUDIO
@@ -229,7 +230,7 @@ def make_handler(svc: Service):
             if u.path == "/today":
                 return self._run(lambda: today_info(svc.clock()))
             if u.path == "/info":
-                return self._send(200, {"app": "lichviet", "api": API_VERSION, "tz": str(get_tz()),
+                return self._send(200, {"app": "lichviet", "version": __version__, "api": API_VERSION, "tz": str(get_tz()),
                                         "now": svc.clock().isoformat(timespec="seconds"),
                                         "user_id": USER_ID,
                                         "features": ["changes", "upcoming", "devices", "delivered", "ics"],
@@ -245,7 +246,13 @@ def make_handler(svc: Service):
             if u.path == "/stt/status":
                 return self._run(svc.stt.status)
             if u.path == "/health":
-                return self._send(200, {"ok": True})
+                # không cần khóa (healthcheck của Docker), nên không trả dữ liệu người dùng
+                try:
+                    svc.health()
+                except RuntimeError as e:
+                    log.error("%s", e)
+                    return self._send(503, {"ok": False, "version": __version__, "error": str(e)})
+                return self._send(200, {"ok": True, "version": __version__, "db": "ok"})
             if u.path == "/events":
                 return self._run(lambda: [with_iso(e) for e in svc.list_range(
                     datetime.fromisoformat(q["from"]), datetime.fromisoformat(q["to"]))])
@@ -358,6 +365,32 @@ def make_handler(svc: Service):
                 return self._run(go)
             self._send(404, {"error": "không có đường dẫn này"})
 
+        def do_PATCH(self):
+            if not self._guard():
+                return
+            u = self._url()
+            if u.path.startswith("/events/"):
+                def go():
+                    try:
+                        eid = int(u.path.rsplit("/", 1)[1])
+                    except ValueError:
+                        raise KeyError(0)   # 404
+                    b = self._body()
+                    bad = set(b) - EVENT_FIELDS
+                    if bad:
+                        raise ValueError("trường không hợp lệ: %s" % ", ".join(sorted(bad)))
+                    if "start" in b:
+                        b["start"] = datetime.fromisoformat(b["start"])
+                    if "lunar" in b:
+                        lun = b.pop("lunar")
+                        b["lunar_day"], b["lunar_month"] = (tuple(lun) + (None, None))[:2] if lun else (None, None)
+                    ev = svc.update(eid, **b)
+                    start = datetime.fromisoformat(ev["start"])
+                    return {**with_iso(ev), "conflicts": [] if ev["all_day"] else
+                            svc.conflicts(start, ev["duration_min"], exclude_id=eid)}
+                return self._run(go)
+            self._send(404, {"error": "không có đường dẫn này"})
+
         def do_DELETE(self):
             if not self._guard():
                 return
@@ -385,4 +418,17 @@ class Server(ThreadingHTTPServer):
 
 
 def serve(db_path="lichviet.db", host="127.0.0.1", port=8765):
-    Server((host, port), make_handler(Service(db_path))).serve_forever()
+    svc = Service(db_path)
+    try:
+        svc.health()   # báo lỗi database ngay khi khởi động, không đợi người dùng mở trang
+    except RuntimeError as e:
+        log.critical("%s. App dừng lại.", e)
+        raise SystemExit(2)
+    try:
+        srv = Server((host, port), make_handler(svc))
+    except OSError as e:
+        log.critical("Không mở được cổng %s:%s (%s). Có thể cổng đang được chương trình khác dùng. App dừng lại.",
+                     host, port, e)
+        raise SystemExit(3)
+    log.info("Lịch Việt %s đang chạy tại http://%s:%s", __version__, host, port)
+    srv.serve_forever()

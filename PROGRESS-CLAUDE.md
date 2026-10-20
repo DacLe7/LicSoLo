@@ -6,7 +6,7 @@ Chạy test: `python -m unittest discover -s tests`.
 ## Hiện trạng (khảo sát lần đầu, 2026-10-21)
 
 - Python thuần (stdlib), SQLite, giao diện một trang trong `lichviet/ui.py`, API trong `lichviet/api.py`.
-- 93 test xanh lúc bắt đầu (lần 2: 117 test).
+- 93 test xanh lúc bắt đầu (lần 2: 117 test; lần 3: 133 test).
 - Phát hiện:
   - README ghi "không đặt khóa thì các endpoint mới trả 503" nhưng code (và test `test_no_key_configured_means_open`) mở hết. README sai.
   - `solohost/README.md` ghi image 0.5.1 trong khi compose ghim 0.5.2.
@@ -22,11 +22,11 @@ Chạy test: `python -m unittest discover -s tests`.
 - [x] A2. Báo tiến độ tải mô hình giọng nói (stt `/health` có phase, MB đã tải, %), app chuyển tiếp qua `/stt/status` (`lichviet/stt.py: describe`), giao diện hiện thanh tiến độ, tự hỏi lại mỗi 3 giây.
 - [x] A3. Máy chủ giọng nói tự thử tải lại khi lỗi (mất mạng lần đầu) thay vì kẹt lỗi.
 - [x] A4. Thông báo lỗi thân thiện trong giao diện: lỗi mạng, máy chủ 500, hết thời gian; không để nút "Hiểu câu" kẹt.
-- [ ] A5. `/health` kiểm tra được database (ghi/đọc), trả phiên bản; healthcheck cho service `app` trong compose.
+- [x] A5. `/health` kiểm tra được database (ghi/đọc), trả phiên bản; healthcheck cho service `app` trong compose.
 - [ ] A6. Hướng dẫn sử dụng tiếng Việt `docs/HUONG_DAN.md` (cài, nhập câu, giọng nói, sao lưu, thông báo, câu hỏi thường gặp).
 - [ ] A7. Màn hình chào lần đầu (khi chưa có việc nào): giải thích ngắn, câu ví dụ bấm là thử được.
-- [ ] A8. Hiện phiên bản app trong giao diện và `/v1/info`.
-- [ ] A9. Lỗi không mở được database (`/data` không ghi được) báo rõ bằng tiếng Việt trong log, thoát có mã lỗi.
+- [x] A8. Hiện phiên bản app trong giao diện và `/v1/info`.
+- [x] A9. Lỗi không mở được database (`/data` không ghi được) báo rõ bằng tiếng Việt trong log, thoát có mã lỗi.
 - [ ] A10. Trợ giúp trong app: mục "Hướng dẫn nhanh" gấp/mở, liệt kê các kiểu câu hiểu được.
 
 ### B. Sửa giới hạn đã biết
@@ -34,7 +34,7 @@ Chạy test: `python -m unittest discover -s tests`.
 - [ ] B2. Lặp hằng năm theo dương lịch (`yearly`): "sinh nhật 20/11 hằng năm", "mỗi năm"; 29/2 năm không nhuận dùng 28/2; xuất .ics; form Sửa.
 - [ ] B3. "sinh nhật", "kỷ niệm ngày cưới" có ngày mà không nói lặp: mặc định lặp hằng năm (có cảnh báo để người dùng biết).
 - [ ] B4. Cảnh báo trùng giờ ngay trong form Sửa (endpoint kiểm tra trùng, gọi khi đổi ngày/giờ).
-- [ ] B5. Sửa việc đã lưu: `PATCH /v1/events/<id>`, nút Sửa trên từng việc trong danh sách.
+- [x] B5. Sửa việc đã lưu: `PATCH /v1/events/<id>`, nút Sửa trên từng việc trong danh sách.
 - [ ] B6. Thêm luật sửa lỗi nghe theo vùng miền (l/n, tr/ch, s/x, dấu hỏi/ngã, "dzờ", "giờ" đọc "dờ"...), có test.
 - [ ] B7. Thêm nhiều câu test bộ phân tích (mục tiêu ≥150 câu, phân nhóm theo hiện tượng).
 - [ ] B8. "rưỡi" sau số chữ, "kém" trong nhiều dạng, "trưa mai", "sáng sớm", "nửa đêm".
@@ -66,6 +66,9 @@ Chạy test: `python -m unittest discover -s tests`.
 - [ ] E7. Chọn khoảng "Sắp tới" 7/30 ngày.
 - [ ] E8. Kiểm tra CSP/headers bảo mật cho trang (X-Content-Type-Options, frame-ancestors).
 - [ ] E9. Tách JavaScript của trang thành các hàm thuần thử được bằng `node` (định dạng ngày, repText), thêm test chạy bằng node nếu có.
+- [ ] E11. Form sửa bản nháp (POST /events) chưa trả `conflicts`: cho `POST /events` trả kèm trùng giờ, hiện trong form (gộp với B4).
+- [ ] E12. Khi phát hành: tăng `__version__` (lichviet/__init__.py, đang 0.6.0) và tag image trong solohost/docker-comp.yml cùng lúc; thêm test so khớp hai số.
+- [ ] E13. Cửa sổ xác nhận xóa dùng `confirm()` của trình duyệt: đổi sang hộp xác nhận trong trang (đẹp hơn trên điện thoại, đọc được bằng trình đọc màn hình).
 - [ ] E10. Nút "Thử lại" trên thanh mất kết nối; tự tải lại danh sách khi nối lại được.
 
 ## Nhật ký
@@ -87,3 +90,15 @@ Chạy test: `python -m unittest discover -s tests`.
 - A4: `j()` có hạn chờ (AbortController), lỗi mạng/500/401 thành câu tiếng Việt; nút "Hiểu câu"/"Lưu" không còn treo; thanh "Mất kết nối"
   khi tải nền lỗi; toast có `aria-live`. `tests/test_ui.py` kiểm tra cú pháp JS bằng `node --check` (bỏ qua nếu không có node).
 - Lưu ý kỹ thuật: heredoc trong công cụ Bash làm hỏng chuỗi có dấu gạch ngược (ví dụ ranh giới từ trong regex) khi ghi bằng Python; sửa mã có regex thì dùng công cụ Edit.
+
+### Lần 3 — 2026-10-21
+- A5: `Service.health()` đọc + ghi một dòng nhỏ vào bảng `meta`; `/health` trả `{"ok","version","db"}`, lỗi database trả 503 kèm câu tiếng Việt
+  (không trả dữ liệu người dùng vì `/health` không cần khóa). Thêm healthcheck cho service `app` trong compose (Dockerfile vốn đã có).
+- A8: `lichviet.__version__ = "0.6.0"`, có trong `/health`, `/v1/info` và chân trang giao diện.
+- A9: `db_error_vi()` đổi lỗi SQLite thành lý do dễ hiểu (không có quyền ghi ./data, đĩa đầy, bị khóa, tệp hỏng). `serve()` kiểm tra database
+  khi khởi động: lỗi thì ghi log CRITICAL tiếng Việt và thoát mã 2; không mở được cổng thì thoát mã 3. `__main__` bật logging INFO.
+- B5: `PATCH /v1/events/<id>` (chỉ gửi trường cần đổi, `lunar` → `lunar_day/lunar_month`, trả kèm `conflicts`). `Service.update` kiểm tra
+  tiêu đề rỗng, lặp âm lịch thiếu ngày âm, việc không tồn tại (cả khi body rỗng). Giao diện: nút bút chì "Sửa" trên từng việc mở lại form sửa
+  (dùng chung `openEdit` với tham số `id`), báo trùng giờ sau khi lưu. Form sửa bản nháp chuyển sang `j()` nên lỗi mạng cũng thành câu tiếng Việt.
+- Test: `tests/test_health_edit.py` (16 test). Chạy riêng file này phải qua `discover` vì nó import `test_ecosystem`.
+- Lưu ý: ghi tệp bằng Python trên Windows (chế độ văn bản) đổi xuống dòng sang CRLF; git tự chuẩn hóa nên diff vẫn gọn.

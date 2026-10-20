@@ -11,7 +11,7 @@ Chạy, dữ liệu lưu trong thư mục `data/` cạnh lệnh:
 
     docker run --rm -p 127.0.0.1:18763:8080 -v "$PWD/data:/data" lichviet:test
 
-Mở http://127.0.0.1:18763. Kiểm tra sức khỏe: `GET /health`.
+Mở http://127.0.0.1:18763. Kiểm tra sức khỏe: `GET /health` (có kiểm tra database và trả phiên bản). Nếu thư mục dữ liệu không ghi được, app ghi lý do bằng tiếng Việt vào log và dừng với mã lỗi 2.
 
 ## Cổng truy cập (PANEL_PORT)
 Trên SoloHost, cổng trên máy là `PANEL_PORT` (mặc định `18763`), chỉ nghe `127.0.0.1`. Form cài đặt cho chọn `18763`, `18764`, `18765`, `28763`. Chỉ đổi khi cổng mặc định đang bị chương trình khác dùng.
@@ -63,9 +63,12 @@ Mọi đường dẫn dùng được cả có và không có tiền tố `/v1` (
 
 | Phương thức | Đường dẫn | Việc làm |
 |---|---|---|
-| GET | `/v1/info` | Tên app, phiên bản API, múi giờ, giờ hiện tại |
+| GET | `/health` | Kiểm tra app và database đọc/ghi được: `{"ok": true, "version": "…", "db": "ok"}`; lỗi database trả `503` kèm câu tiếng Việt |
+| GET | `/v1/info` | Tên app, phiên bản app (`version`), phiên bản API, múi giờ, giờ hiện tại |
 | GET | `/v1/today` | Ngày dương, âm lịch, năm can chi hôm nay |
 | GET | `/v1/events?from=…&to=…` | Liệt kê việc trong khoảng thời gian (ISO 8601) |
+| PATCH | `/v1/events/<id>` | Sửa việc đã lưu (chỉ gửi trường cần đổi: `title`, `start`, `all_day`, `repeat`, `remind_before_min`, `duration_min`, `notes`, `lunar`); trả việc đã sửa kèm `conflicts` (trùng giờ) |
+| DELETE | `/v1/events/<id>` | Xóa việc (cả chuỗi lặp) |
 | POST | `/v1/parse` | Phân tích câu tiếng Việt, body `{"text": "…", "save": false}` |
 | GET | `/v1/export` | Sao lưu toàn bộ dữ liệu |
 | POST | `/v1/import` | Khôi phục từ tệp sao lưu (gộp thêm) |

@@ -85,6 +85,7 @@ textarea::placeholder{color:var(--mut)}
 .ev .body{flex:1;min-width:0}.ev b{display:block;font-weight:600;overflow-wrap:anywhere}
 .ev .t{color:var(--mut);font-size:13px}
 .del{flex:none;border:0;background:transparent;color:var(--mut);cursor:pointer;width:34px;height:34px;border-radius:10px;display:grid;place-items:center;opacity:.6}
+.del.ed:hover{background:var(--line);color:var(--tx)}
 .del:hover{background:var(--warnbg);color:var(--warn);opacity:1}
 .del svg{width:17px;height:17px}
 .empty{color:var(--mut);text-align:center;padding:26px 0}
@@ -94,6 +95,7 @@ details.more .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;paddin
 details.more p{color:var(--mut);font-size:13px;margin:0 0 10px}
 .ph{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line);font-size:14px}
 .ph .x{flex:1;min-width:0;overflow-wrap:anywhere}.ph small{color:var(--mut)}
+.foot{text-align:center;color:var(--mut);font-size:12px;padding:18px 0 6px}
 .mic-on{background:var(--warn)!important;color:#fff!important}
 @media(max-width:480px){.hero{padding:18px}.big{font-size:52px}.lunar .l2{font-size:18px}.composer{margin-left:4px;margin-right:4px}}
 </style></head><body><main>
@@ -118,6 +120,7 @@ details.more p{color:var(--mut);font-size:13px;margin:0 0 10px}
 <label class="btn ghost" style="cursor:pointer">Khôi phục từ tệp<input type="file" id="rs" accept="application/json,.json" hidden></label><span id="bkmsg" style="font-size:13px;color:var(--mut)"></span></div>
 <p>Cụm từ app đã học từ các lần bạn xác nhận. Xóa cụm nào thì app sẽ hỏi AI lại như lần đầu.</p>
 <div id="phl"></div></details>
+<footer class="foot" id="ver"></footer>
 </main>
 <script>
 const $=id=>document.getElementById(id);
@@ -134,6 +137,7 @@ const j=async(u,o,ms)=>{
   return x;};
 /* Báo mất kết nối khi các lần tải nền (danh sách, nhắc việc) thất bại; tự ẩn khi nối lại được. */
 const net=ok=>{const b=$('net');if(b)b.hidden=ok;};
+(async()=>{try{const x=await j('/info');$('ver').textContent='Lịch Việt phiên bản '+x.version;}catch(e){}})();
 const p=n=>String(n).padStart(2,'0');
 const WD=['Chủ nhật','Thứ hai','Thứ ba','Thứ tư','Thứ năm','Thứ sáu','Thứ bảy'];
 const fmtD=iso=>{const d=new Date(iso);return p(d.getDate())+'/'+p(d.getMonth()+1)+(d.getFullYear()!==new Date().getFullYear()?'/'+d.getFullYear():'')};
@@ -148,7 +152,8 @@ const svg=d=>'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-
 const ICO={cal:svg('<rect x="3" y="4" width="18" height="17" rx="3"/><path d="M8 2v4M16 2v4M3 10h18"/>'),
  rep:svg('<path d="M17 2l4 4-4 4M3 11V9a3 3 0 013-3h15M7 22l-4-4 4-4M21 13v2a3 3 0 01-3 3H3"/>'),
  bell:svg('<path d="M6 8a6 6 0 0112 0c0 7 3 9 3 9H3s3-2 3-9M10 21a2 2 0 004 0"/>'),
- x:svg('<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>')};
+ x:svg('<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>'),
+ pen:svg('<path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4"/>')};
 function toast(m){$('toast').textContent=m||'';}
 /* ---- đầu trang: hôm nay ---- */
 let TODAY=null;   // ngày hôm nay theo máy chủ (múi giờ người dùng), không theo đồng hồ trình duyệt
@@ -253,10 +258,17 @@ async function refresh(){
     html+='<div class="ev"><div class="time'+(e.all_day?' all':'')+'">'+(e.all_day?'Cả ngày':fmtT(e.occurrence))+'</div>'
       +'<div class="bar'+((e.repeat==='lunar_yearly'||e.repeat==='lunar_monthly')?' lunar':e.repeat?' rep':'')+'"></div>'
       +'<div class="body"><b>'+esc(e.title)+'</b>'+(rep?'<span class="t">'+esc(rep)+'</span>':'')+'</div>'
-      +'<button class="del" title="Xóa" aria-label="Xóa" data-id="'+e.id+'" data-rep="'+(e.repeat||'')+'">'+ICO.x+'</button></div>';
+      +'<button class="del ed" title="Sửa" aria-label="Sửa '+esc(e.title)+'" data-id="'+e.id+'">'+ICO.pen+'</button>'
+      +'<button class="del" title="Xóa" aria-label="Xóa '+esc(e.title)+'" data-id="'+e.id+'" data-rep="'+(e.repeat||'')+'">'+ICO.x+'</button></div>';
   });
   $('list').innerHTML=html;
-  document.querySelectorAll('#list .del').forEach(btn=>btn.onclick=async()=>{
+  document.querySelectorAll('#list .ed').forEach(btn=>btn.onclick=()=>{
+    const e=ev.find(x=>x.id===+btn.dataset.id);if(!e)return;
+    const lun=(e.repeat==='lunar_yearly'||e.repeat==='lunar_monthly')&&e.lunar_day?[e.lunar_day,e.lunar_month]:null;
+    openEdit({title:e.title,start:e.start,all_day:!!e.all_day,repeat:e.repeat,remind_before_min:e.remind_before_min,
+      duration_min:e.duration_min,lunar:lun},()=>show(''),e.id);
+    $('draft').scrollIntoView({behavior:'smooth',block:'center'});});
+  document.querySelectorAll('#list .del:not(.ed)').forEach(btn=>btn.onclick=async()=>{
     if(!confirm(btn.dataset.rep?'Xóa toàn bộ chuỗi lịch lặp này?':'Xóa lịch này?'))return;
     try{await j('/events/'+btn.dataset.id,{method:'DELETE'});}catch(e){toast('Chưa xóa được: '+e.message);}refresh();});
 }
@@ -276,10 +288,10 @@ function showSaved(ev){
 /* ---- sửa bản nháp trước khi lưu: đi qua POST /events (cùng create() với Lưu, có kiểm tra trùng) ---- */
 const okDate=s=>{const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(s);if(!m)return false;const x=new Date(+m[1],+m[2]-1,+m[3]);return x.getMonth()===+m[2]-1&&x.getDate()===+m[3];};
 const REPOPT=[['','Không lặp'],['daily','Mỗi ngày'],['weekly','Mỗi tuần'],['monthly','Mỗi tháng']];
-function openEdit(d,back){
+function openEdit(d,back,id){   // id: sửa việc đã lưu (PATCH); không có id: sửa bản nháp trước khi lưu (POST)
   const lunar=!!d.lunar,st=d.start||'',dateV=st.slice(0,10),timeV=st.slice(11,16);
   const opts=REPOPT.map(([v,l])=>'<option value="'+v+'"'+((d.repeat||'')===v?' selected':'')+'>'+l+'</option>').join('');
-  show('<form class="edit" id="ef" novalidate><div class="who">Sửa việc trước khi lưu</div>'
+  show('<form class="edit" id="ef" novalidate><div class="who">'+(id?'Sửa việc đã lưu':'Sửa việc trước khi lưu')+'</div>'
     +'<label class="fl">Tên việc<input id="e_t" type="text" maxlength="200" value="'+esc(d.title)+'"></label>'
     +'<div class="erow">'+(lunar?'':'<label class="fl">Ngày<input id="e_d" type="date" value="'+dateV+'"></label>')
     +'<label class="fl" id="e_hw">Giờ<input id="e_h" type="time" value="'+timeV+'"></label></div>'
@@ -307,13 +319,18 @@ function openEdit(d,back){
     const body={title,start:date+'T'+time+':00',all_day:allDay,duration_min:d.duration_min||null,
       repeat:lunar?(d.repeat||null):($('e_r').value||null),remind_before_min:mins,lunar:d.lunar||null};
     btn.disabled=true;
+    if(id){
+      delete body.lunar;delete body.duration_min;if(lunar)delete body.repeat;
+      let ev;try{ev=await j('/events/'+id,{method:'PATCH',body:JSON.stringify(body)});}
+      catch(x){btn.disabled=false;return fail('Chưa lưu được: '+x.message);}
+      const c=(ev.conflicts||[]).map(c=>'<div class="note">Trùng giờ với <b>'+esc(c.title)+'</b> ('+fmt(c.occurrence)+')</div>').join('');
+      show('<div class="saved">Đã lưu thay đổi.</div>'+c,'draft');refresh();due();return;
+    }
     try{
-      const r=await fetch('/events',{method:'POST',body:JSON.stringify(body)});
-      const ev=await r.json();
-      if(!r.ok){btn.disabled=false;return fail(ev.error||'Chưa lưu được, bạn thử lại.');}
+      const ev=await j('/events',{method:'POST',body:JSON.stringify(body)});
       $('q').value='';grow();Voice.last=null;
       showSaved(ev);
-    }catch(x){btn.disabled=false;fail('Chưa lưu được, bạn thử lại.');}
+    }catch(x){btn.disabled=false;fail('Chưa lưu được: '+x.message);}
   };
   $('e_t').focus();
 }

@@ -85,6 +85,8 @@ URL có `?key=` có thể lọt vào nhật ký của proxy: dùng `LICHVIET_ICS
 
 ## Khác
 
-`GET /v1/info` (`api`, `tz`, `user_id`, `now_iso`, `features`, `auth.configured`), `GET /v1/events?from=&to=` (các lần xảy ra đã
+`GET /v1/info` (`version`, `api`, `tz`, `user_id`, `now_iso`, `features`, `auth.configured`), `GET /v1/events?from=&to=` (các lần xảy ra đã
 trải ngày, có `*_iso`), `GET /v1/export` / `POST /v1/import` (sao lưu JSON, nhập hoàn tác toàn bộ nếu lỗi, có `tz`),
-`POST /v1/parse` (hiểu câu tiếng Việt), `GET /health` (không cần khóa).
+`POST /v1/parse` (hiểu câu tiếng Việt), `PATCH /v1/events/<id>` (sửa việc đã lưu, chỉ gửi trường cần đổi, trả kèm `conflicts`;
+`404` nếu không có, `400` nếu dữ liệu sai), `DELETE /v1/events/<id>`,
+`GET /health` (không cần khóa; kiểm tra database đọc/ghi được, trả `{"ok", "version", "db"}`; lỗi database: `503` kèm `error` tiếng Việt).

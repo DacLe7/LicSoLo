@@ -36,6 +36,22 @@ def _add_months(dt: datetime, n: int) -> datetime:
     return dt.replace(year=y, month=m, day=min(dt.day, calendar.monthrange(y, m)[1]))
 
 
+def db_error_vi(path: str, err: Exception) -> str:
+    """Câu tiếng Việt dễ hiểu cho lỗi mở/ghi database (thường do thư mục dữ liệu không ghi được)."""
+    msg = str(err).lower()
+    if "readonly" in msg or "read-only" in msg or "permission" in msg or "unable to open" in msg:
+        why = "không có quyền ghi vào thư mục dữ liệu (kiểm tra quyền thư mục ./data hoặc biến UID)"
+    elif "disk" in msg and ("full" in msg or "i/o" in msg):
+        why = "ổ đĩa đầy hoặc lỗi đọc ghi"
+    elif "locked" in msg or "busy" in msg:
+        why = "database đang bị chương trình khác khóa"
+    elif "malformed" in msg or "not a database" in msg:
+        why = "tệp database bị hỏng (hãy khôi phục từ tệp sao lưu)"
+    else:
+        why = str(err)
+    return "Không dùng được database %s: %s" % (path, why)
+
+
 class Service:
     def __init__(self, db_path: str = ":memory:", clock=local_now, llm: Optional[LLMClient] = None,
                  stt: Optional[STTClient] = None):
@@ -99,9 +115,24 @@ class Service:
         if bad:
             raise ValueError("trường không hợp lệ: %s" % ", ".join(sorted(bad)))
         if not fields:
-            return self.get(event_id)
+            ev = self.get(event_id)
+            if ev is None:
+                raise KeyError(event_id)
+            return ev
         if "repeat" in fields and fields["repeat"] not in REPEATS:
             raise ValueError("repeat không hợp lệ")
+        if "title" in fields:
+            fields["title"] = str(fields["title"] or "").strip()
+            if not fields["title"]:
+                raise ValueError("thiếu tiêu đề")
+        cur_ev = self.get(event_id)
+        if cur_ev is None:
+            raise KeyError(event_id)
+        merged = {**cur_ev, **fields}
+        if merged["repeat"] == "lunar_yearly" and not (merged["lunar_day"] and merged["lunar_month"]):
+            raise ValueError("lặp theo âm lịch hằng năm cần có ngày tháng âm")
+        if merged["repeat"] == "lunar_monthly" and not merged["lunar_day"]:
+            raise ValueError("lặp theo âm lịch hằng tháng cần có ngày âm")
         if "start" in fields and isinstance(fields["start"], datetime):
             fields["start"] = store.fmt(fields["start"])
         if "all_day" in fields:
@@ -127,6 +158,21 @@ class Service:
             self._log_change(event_id, "delete")
         self.con.commit()
         return cur.rowcount > 0
+
+    def health(self) -> dict:
+        """Kiểm tra database đọc và ghi được (ghi một dòng nhỏ vào bảng meta). Lỗi thì ném RuntimeError tiếng Việt."""
+        try:
+            n = self.con.execute("SELECT COUNT(*) FROM events").fetchone()[0]
+            self.con.execute("INSERT OR REPLACE INTO meta(key,value) VALUES('health_check',?)",
+                             (store.fmt(self.clock()),))
+            self.con.commit()
+        except Exception as e:
+            try:
+                self.con.rollback()
+            except Exception:
+                pass
+            raise RuntimeError(db_error_vi(self._db_path, e)) from e
+        return {"db": "ok", "events": n}
 
     # ---------- đọc ----------
     def get(self, event_id: int) -> Optional[dict]:
