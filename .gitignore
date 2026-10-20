@@ -19,3 +19,6 @@ Thumbs.db
 # Gói phát hành và ghi chú nội bộ
 *.zip
 PROMPT_*.md
+
+# Bản vá tạm, đã nằm trong main
+*.patch
