@@ -135,6 +135,21 @@ def _parse_core(text: str, now: datetime) -> ParseResult:
             r.warnings.append("ngày không hợp lệ")
         elif not m.group(3) and d < now.date():
             d = _valid_date(yy + 1, mm, dd)
+    if d is None and not r.warnings and r.repeat == "monthly":
+        m = take(r"\b(?:ngay|mung|mong)\s+(\d{1,2})\b")
+        if m and 1 <= int(m.group(1)) <= 31:
+            dom, today = int(m.group(1)), now.date()
+            y, mo = today.year, today.month
+            for _ in range(13):   # tháng nào có ngày này thì lấy; ngày đã qua trong tháng này thì sang tháng sau
+                if not (y == today.year and mo == today.month and dom < today.day):
+                    d = _valid_date(y, mo, dom)
+                    if d:
+                        break
+                mo += 1
+                if mo > 12:
+                    y, mo = y + 1, 1
+            if d is None:
+                r.warnings.append("không tìm được tháng có ngày %d" % dom)
     if d is None and not r.warnings:
         m = re.search(r"\b(?:sang|trua|chieu|toi|dem|khuya)\s+(nay)\b", f)
         if take(r"\bhom\s+nay\b"):
@@ -147,6 +162,8 @@ def _parse_core(text: str, now: datetime) -> ParseResult:
             d = now.date() + timedelta(days=1)
         elif take(r"\bngay\s+kia\b"):
             d = now.date() + timedelta(days=2)
+        elif take(r"\bhom\s+qua\b"):
+            d = now.date() - timedelta(days=1)   # service sẽ cảnh báo "đã qua" khi lưu
     if d is None and not r.warnings:
         # cụm mơ hồ: "cuối tuần (này/sau)", "đầu tuần sau", "cuối tháng", "đầu tháng sau"
         unit = "tuan"
@@ -209,8 +226,13 @@ def _parse_core(text: str, now: datetime) -> ParseResult:
     period = None
     midnight12 = False
     ms = list(re.finditer(r"\b(sang|trua|chieu|toi|dem|khuya)\b", f))
+    # "tôi" là đại từ sau các động từ này ("gọi tôi 8h"), không phải buổi tối
+    _PRON_BEFORE = {"goi", "nhac", "bao", "cho", "hoi", "voi", "keu", "gap", "nho", "dan", "cung"}
+    ms = [x for x in ms if not (x.group(1) == "toi" and (f[:x.start()].split() or [""])[-1] in _PRON_BEFORE)]
     if tspan:  # chỉ lấy từ chỉ buổi sát cạnh giờ ("3h chiều", "tối 7h")
         ms = [x for x in ms if 0 <= x.start() - tspan[1] <= 3 or 0 <= tspan[0] - x.end() <= 3]
+        if not ms:  # "tối nay 8h", "tối mai 8h": buổi đứng cạnh từ ngày thì vẫn áp cho giờ
+            ms = list(re.finditer(r"\b(sang|trua|chieu|toi|dem|khuya)\s+(?:nay|mai|kia)\b", fold(text)))[-1:]  # "nay" đã bị che ở bước ngày
     else:
         ms = ms[-1:]
     for m in ms[:1]:
@@ -236,7 +258,9 @@ def _parse_core(text: str, now: datetime) -> ParseResult:
                 hh = 23
 
     # 7) ghép ngày giờ
-    if rel is not None:
+    if "ngày không hợp lệ" in r.warnings:   # "31/4": không đoán ngày, để thiếu ngày và hỏi lại
+        r.start, r.all_day = None, False
+    elif rel is not None:
         if rel_days and hh is not None:   # "sau 3 ngày lúc 9h": ngày theo N, giờ theo người nói
             r.start = datetime.combine(rel.date(), time(hh, mi))
         elif rel_days:
