@@ -25,7 +25,7 @@ services:
 
   stt:
     profiles: ["voice"]
-    image: ghcr.io/dacle7/licsolo-stt:0.3.6
+    image: ghcr.io/dacle7/licsolo-stt:0.5.1
     restart: unless-stopped
     environment:
       STT_MODEL: "turbo"
