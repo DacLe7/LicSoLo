@@ -6,7 +6,7 @@ Chạy test: `python -m unittest discover -s tests`.
 ## Hiện trạng (khảo sát lần đầu, 2026-10-21)
 
 - Python thuần (stdlib), SQLite, giao diện một trang trong `lichviet/ui.py`, API trong `lichviet/api.py`.
-- 93 test xanh lúc bắt đầu (lần 2: 117 test; lần 3: 133 test; lần 4: 142 test).
+- 93 test xanh lúc bắt đầu (lần 2: 117 test; lần 3: 133 test; lần 4: 139 test).
 - Phát hiện:
   - README ghi "không đặt khóa thì các endpoint mới trả 503" nhưng code (và test `test_no_key_configured_means_open`) mở hết. README sai.
   - `solohost/README.md` ghi image 0.5.1 trong khi compose ghim 0.5.2.
