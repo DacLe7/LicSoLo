@@ -71,6 +71,19 @@ class TestExamplesParse(unittest.TestCase):
             self.assertEqual(s.from_text(t)["draft"]["repeat"], rep, t)
         self.assertEqual(s.from_text("đi đám cưới chủ nhật 11h trưa, nhắc tôi trước 1 ngày")["draft"]["remind_before_min"], 1440)
 
+    def test_user_guide_examples(self):
+        """Bảng "Các kiểu câu app hiểu" trong docs/HUONG_DAN.md phải đúng với bộ hiểu câu."""
+        path = os.path.join(os.path.dirname(__file__), "..", "docs", "HUONG_DAN.md")
+        with open(path, encoding="utf-8") as f:
+            doc = f.read()
+        table = doc.split("### Các kiểu câu app hiểu", 1)[1].split("Mẹo:", 1)[0]
+        ex = []
+        for row in table.splitlines():
+            if row.startswith("| ") and "Ngày đã qua" not in row:
+                ex += [t for t in re.findall(r'"([^"]+)"', row) if t != "báo trước 30 phút"]
+        self.assertGreaterEqual(len(ex), 12)
+        self.check(ex)
+
 
 if __name__ == "__main__":
     unittest.main()

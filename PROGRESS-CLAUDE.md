@@ -6,7 +6,7 @@ Chạy test: `python -m unittest discover -s tests`.
 ## Hiện trạng (khảo sát lần đầu, 2026-10-21)
 
 - Python thuần (stdlib), SQLite, giao diện một trang trong `lichviet/ui.py`, API trong `lichviet/api.py`.
-- 93 test xanh lúc bắt đầu (lần 2: 117 test; lần 3: 133 test).
+- 93 test xanh lúc bắt đầu (lần 2: 117 test; lần 3: 133 test; lần 4: 142 test).
 - Phát hiện:
   - README ghi "không đặt khóa thì các endpoint mới trả 503" nhưng code (và test `test_no_key_configured_means_open`) mở hết. README sai.
   - `solohost/README.md` ghi image 0.5.1 trong khi compose ghim 0.5.2.
@@ -23,11 +23,14 @@ Chạy test: `python -m unittest discover -s tests`.
 - [x] A3. Máy chủ giọng nói tự thử tải lại khi lỗi (mất mạng lần đầu) thay vì kẹt lỗi.
 - [x] A4. Thông báo lỗi thân thiện trong giao diện: lỗi mạng, máy chủ 500, hết thời gian; không để nút "Hiểu câu" kẹt.
 - [x] A5. `/health` kiểm tra được database (ghi/đọc), trả phiên bản; healthcheck cho service `app` trong compose.
-- [ ] A6. Hướng dẫn sử dụng tiếng Việt `docs/HUONG_DAN.md` (cài, nhập câu, giọng nói, sao lưu, thông báo, câu hỏi thường gặp).
-- [ ] A7. Màn hình chào lần đầu (khi chưa có việc nào): giải thích ngắn, câu ví dụ bấm là thử được.
+- [x] A6. Hướng dẫn sử dụng tiếng Việt `docs/HUONG_DAN.md` (cài, nhập câu, giọng nói, sao lưu, thông báo, câu hỏi thường gặp).
+- [x] A7. Màn hình chào lần đầu (khi chưa có việc nào): giải thích ngắn, câu ví dụ bấm là thử được.
 - [x] A8. Hiện phiên bản app trong giao diện và `/v1/info`.
 - [x] A9. Lỗi không mở được database (`/data` không ghi được) báo rõ bằng tiếng Việt trong log, thoát có mã lỗi.
-- [ ] A10. Trợ giúp trong app: mục "Hướng dẫn nhanh" gấp/mở, liệt kê các kiểu câu hiểu được.
+- [x] A10. Trợ giúp trong app: mục "Hướng dẫn nhanh" gấp/mở, liệt kê các kiểu câu hiểu được.
+- [ ] A11. Khi làm xong B2/B3/C1/C2: cập nhật `docs/HUONG_DAN.md` (mục FAQ sinh nhật, thông báo hệ thống, cài PWA) và mục Hướng dẫn nhanh; test đã khóa câu ví dụ nên thêm câu mới vào bảng là được kiểm tra luôn.
+- [ ] A12. Màn hình chào: thêm một dòng "Tải bản sao lưu cũ? Khôi phục từ tệp" cho người cài lại app (mở thẳng mục Sao lưu).
+- [ ] A13. Trang báo "đang khởi động" khi `/health` trả 503 (database lỗi): hiện câu lỗi tiếng Việt từ `/health` trong thanh mất kết nối thay vì câu chung chung.
 
 ### B. Sửa giới hạn đã biết
 - [x] B1. Ngày tương đối đã qua: "hôm kia", "bữa hổm/bữa hôm/hôm bữa", "N ngày trước", "tuần trước", "thứ X tuần trước".
@@ -102,3 +105,13 @@ Chạy test: `python -m unittest discover -s tests`.
   (dùng chung `openEdit` với tham số `id`), báo trùng giờ sau khi lưu. Form sửa bản nháp chuyển sang `j()` nên lỗi mạng cũng thành câu tiếng Việt.
 - Test: `tests/test_health_edit.py` (16 test). Chạy riêng file này phải qua `discover` vì nó import `test_ecosystem`.
 - Lưu ý: ghi tệp bằng Python trên Windows (chế độ văn bản) đổi xuống dòng sang CRLF; git tự chuẩn hóa nên diff vẫn gọn.
+
+### Lần 4 — 2026-10-21
+- A7: `/v1/info` trả `events` (số việc đã lưu, `Service.event_count()`). Giao diện hiện khung chào `#welcome` khi chưa có việc nào, kèm 4 câu mẫu
+  bấm là phân tích luôn; lưu xong hoặc khôi phục được việc thì ẩn.
+- A10: mục gấp/mở "Hướng dẫn nhanh" (các kiểu câu, lặp, âm lịch, nhắc trước, mẹo). Câu ví dụ đặt trong `<q>` để test đọc ra.
+- A6: `docs/HUONG_DAN.md` (cài, lần đầu mở, kiểu câu, giọng nói, sửa/xóa, nhắc việc, sao lưu, câu hỏi thường gặp); README trỏ tới.
+  FAQ ghi rõ sinh nhật dương lịch chưa lặp hằng năm (B2) và chỉ dùng được trên máy cài (127.0.0.1).
+- Test `tests/test_welcome_help.py`: mọi câu ví dụ trong giao diện (chip, lời chào, Hướng dẫn nhanh) và bảng kiểu câu trong HUONG_DAN.md đều phải
+  ra bản nháp không cảnh báo, đúng kiểu lặp. Sửa câu ví dụ mà bộ hiểu câu không hiểu là test đỏ.
+- Phát hiện: "ăn chay mùng 1 hàng tháng" giữ "mùng 1" trong tên việc (chấp nhận được, tên vẫn có nghĩa).

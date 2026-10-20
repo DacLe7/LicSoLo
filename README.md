@@ -2,6 +2,8 @@
 
 Ứng dụng quản lý lịch và nhắc việc bằng tiếng Việt, có hiển thị âm lịch và trợ lý AI tùy chọn. Viết bằng Python thuần (package `lichviet`, chỉ dùng thư viện chuẩn, lưu bằng SQLite). Đóng gói Docker và chạy trong Pi Desktop (xem [solohost/README.md](solohost/README.md)).
 
+**Người dùng:** đọc [Hướng dẫn sử dụng](docs/HUONG_DAN.md) (cài đặt, các kiểu câu, giọng nói, sao lưu, câu hỏi thường gặp).
+
 ## Chạy thử bằng Docker
 Build image cục bộ:
 
@@ -64,7 +66,7 @@ Mọi đường dẫn dùng được cả có và không có tiền tố `/v1` (
 | Phương thức | Đường dẫn | Việc làm |
 |---|---|---|
 | GET | `/health` | Kiểm tra app và database đọc/ghi được: `{"ok": true, "version": "…", "db": "ok"}`; lỗi database trả `503` kèm câu tiếng Việt |
-| GET | `/v1/info` | Tên app, phiên bản app (`version`), phiên bản API, múi giờ, giờ hiện tại |
+| GET | `/v1/info` | Tên app, phiên bản app (`version`), phiên bản API, múi giờ, giờ hiện tại, số việc đã lưu (`events`) |
 | GET | `/v1/today` | Ngày dương, âm lịch, năm can chi hôm nay |
 | GET | `/v1/events?from=…&to=…` | Liệt kê việc trong khoảng thời gian (ISO 8601) |
 | PATCH | `/v1/events/<id>` | Sửa việc đã lưu (chỉ gửi trường cần đổi: `title`, `start`, `all_day`, `repeat`, `remind_before_min`, `duration_min`, `notes`, `lunar`); trả việc đã sửa kèm `conflicts` (trùng giờ) |
