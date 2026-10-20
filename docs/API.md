@@ -8,7 +8,7 @@ Mọi đường dẫn dùng được cả có và không có tiền tố `/v1`. 
 | Cấu hình | Hành vi |
 |---|---|
 | `LICHVIET_API_KEY` (≥16 ký tự) | **Mọi API** (trừ `/health` và giao diện đi kèm) phải gửi khóa: header `X-Lacviet-Key: <khóa>` hoặc `Authorization: Bearer <khóa>`. Sai/thiếu: `401`. |
-| không đặt khóa | Chế độ cục bộ như bản trước: endpoint cũ mở. **Endpoint mới (đánh dấu 🔒) trả `503`**, không bao giờ mở mặc định. |
+| không đặt khóa | Khóa là tùy chọn: mọi endpoint mở, như các bản trước. Cổng chỉ nghe `127.0.0.1` và chặn Host/Origin lạ. |
 | `LICHVIET_ICS_KEY` (≥16 ký tự, tùy chọn) | Khóa riêng chỉ đọc, chỉ mở `GET /v1/calendar.ics?key=...` để đăng ký lịch qua URL. Không mở endpoint nào khác. |
 
 Giao diện web đi kèm (trang `/` và các lời gọi cùng nguồn gốc từ chính trang đó, nhận biết bằng `Sec-Fetch-Site: same-origin`
@@ -22,14 +22,14 @@ Yêu cầu từ trang web khác (Origin khác Host, `Sec-Fetch-Site: cross-site`
 
 - Giờ không kèm múi giờ (`start`, `occurrence`, `fire_at`) là **giờ địa phương theo `tz`** (`GET /v1/info`).
   Mỗi trường có bản `*_iso` kèm độ lệch (ví dụ `2026-10-20T09:00:00+07:00`): dùng bản này khi cần so sánh.
-- Lỗi: `{"error": "..."}` với `400` (dữ liệu sai/thiếu trường), `401`, `403`, `404`, `410`, `503`, `500`.
+- Lỗi: `{"error": "..."}` với `400` (dữ liệu sai/thiếu trường), `401`, `403`, `404`, `410`, `500`.
 
 ## Nhắc việc
 
 **`GET /v1/reminders/due`** các lần nhắc đã đến giờ mà chưa gửi (tham số: `device_id`, `channel=ui`).
 Kênh mặc định dành cho notifier: sau khi gửi, gọi `POST /v1/reminders/fired`.
 
-**`GET /v1/reminders/upcoming?days=14&device_id=`** 🔒 các mốc nhắc **sắp tới** (tối đa 60 ngày, 500 mốc, sắp theo `fire_at`)
+**`GET /v1/reminders/upcoming?days=14&device_id=`** (khóa khi đã đặt LICHVIET_API_KEY) các mốc nhắc **sắp tới** (tối đa 60 ngày, 500 mốc, sắp theo `fire_at`)
 để điện thoại tự hẹn thông báo cục bộ. iOS chỉ giữ ~64 thông báo chờ: lấy mốc gần nhất trước.
 
 Mỗi phần tử:
@@ -45,20 +45,20 @@ Mỗi phần tử:
 | `all_day`, `repeat`, `remind_before_min`, `days_left`, `user_id` | Như tên gọi. Việc cả ngày nhắc lúc 08:00. |
 
 **`POST /v1/reminders/fired`** `{"event_id", "occurrence": <key>}`: notifier đã gửi. Idempotent.
-**`POST /v1/reminders/delivered`** 🔒 `{"device_id", "event_id", "key"}`: thiết bị đã hiển thị. Idempotent.
+**`POST /v1/reminders/delivered`** (khóa khi đã đặt LICHVIET_API_KEY) `{"device_id", "event_id", "key"}`: thiết bị đã hiển thị. Idempotent.
 Ba trạng thái "đã nhắc" (`fired` của notifier, `delivered` theo từng thiết bị, `ack` của giao diện) **độc lập**,
 không chặn nhau. Sửa một việc xóa các trạng thái đã nhắc của việc đó.
 
 Nhắc bù: việc một lần và giỗ được nhắc bù tới `LICHVIET_CATCHUP_DAYS` (mặc định 7) ngày khi máy từng tắt; việc lặp
 ngày/tuần/tháng chỉ nhìn lùi 1 ngày. Việc **lưu với giờ đã qua** không bị nhắc.
 
-## Thiết bị 🔒
+## Thiết bị (khóa khi đã đặt LICHVIET_API_KEY)
 
 `POST /v1/devices` `{"device_id": "[A-Za-z0-9_-]{1,64}", "platform": "ios|android|other", "label"?}` (đăng ký lại = cập nhật),
 `GET /v1/devices`, `DELETE /v1/devices/<device_id>` (xóa luôn các `delivered` của thiết bị). Tối đa 20 thiết bị.
 LicSoLo **không lưu token push**: token FCM/APNs do hệ sinh thái giữ.
 
-## Đồng bộ tăng dần 🔒
+## Đồng bộ tăng dần (khóa khi đã đặt LICHVIET_API_KEY)
 
 `GET /v1/events/changes?since=<cursor>&limit=200` (`since=0` hoặc bỏ trống = toàn bộ việc hiện có).
 
@@ -75,7 +75,7 @@ LicSoLo **không lưu token push**: token FCM/APNs do hệ sinh thái giữ.
 - Bản nâng cấp từ trước khi có nhật ký coi mọi việc hiện có là `upsert` nên lần đồng bộ đầu thấy đủ.
 - `event` là việc gốc (lặp âm lịch giữ `repeat` + `lunar_day`/`lunar_month`); muốn các lần đã trải ngày dùng `GET /v1/events`.
 
-## Lịch .ics 🔒
+## Lịch .ics (khóa khi đã đặt LICHVIET_API_KEY)
 
 `GET /v1/calendar.ics?from=&to=` (mặc định từ 7 ngày trước đến 365 ngày sau, tối đa 800 ngày), `text/calendar`.
 Khóa qua header hoặc `?key=<LICHVIET_ICS_KEY>`. Mỗi lần xảy ra là một `VEVENT` riêng (lặp âm lịch không có chuẩn RRULE),
