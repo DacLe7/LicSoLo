@@ -1,14 +1,17 @@
+import hmac
 import json
 import logging
 import os
-from datetime import datetime
+import time
+from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs, unquote
 
-from .service import Service
+from .service import Service, CursorTooOld
 from .ui import PAGE
 from .lunar import solar_to_lunar
 from .tz import get_tz
+from . import ics
 
 log = logging.getLogger("lichviet.api")
 MAX_BODY = 10 * 1024 * 1024   # JSON (kể cả tệp sao lưu); âm thanh có giới hạn riêng MAX_AUDIO
@@ -61,13 +64,92 @@ def today_info(now):
 
 
 
+def _key_from_env(name: str) -> str:
+    k = os.environ.get(name, "")
+    if k and len(k) < 16:
+        raise ValueError("%s quá ngắn (cần ít nhất 16 ký tự)" % name)
+    return k
+
+
 def make_handler(svc: Service):
+    api_key = _key_from_env("LICHVIET_API_KEY")   # khóa cho app/hệ sinh thái; trống = chế độ cục bộ cũ
+    ics_key = _key_from_env("LICHVIET_ICS_KEY")   # khóa chỉ đọc cho đăng ký lịch .ics qua URL (?key=)
+
     class H(BaseHTTPRequestHandler):
+        def _fail_auth(self, code, msg):
+            time.sleep(0.3)   # làm chậm dò khóa
+            self._send(code, {"error": msg})
+            return False
+
+        def _is_ui(self) -> bool:
+            """Trang giao diện đi kèm chạy trên chính máy chủ này (cùng nguồn gốc trong trình duyệt).
+            Trình duyệt đã chặn trang khác (Origin/Sec-Fetch-Site), nên ở đây được tin; client khác phải có khóa."""
+            if self.headers.get("Sec-Fetch-Site") == "same-origin":
+                return True
+            origin = self.headers.get("Origin")
+            return bool(origin) and urlparse(origin).netloc.lower() == (self.headers.get("Host") or "").strip().lower()
+
+        def _auth(self, required: bool, q=None, ics_ok: bool = False) -> bool:
+            """Kiểm tra khóa.
+            - Khi đã đặt LICHVIET_API_KEY: MỌI API (trừ /health và giao diện đi kèm) phải có khóa qua
+              header X-Lacviet-Key hoặc Authorization: Bearer; sai/thiếu → 401.
+            - Khi chưa đặt khóa: endpoint mới (required=True) trả 503 để không mở mặc định; endpoint cũ mở như bản trước.
+            - ics_ok: ?key= khớp LICHVIET_ICS_KEY cũng được (chỉ cho đăng ký lịch .ics)."""
+            if ics_ok and ics_key and q and hmac.compare_digest((q.get("key") or "").encode(), ics_key.encode()):
+                return True
+            if api_key:
+                given = self.headers.get("X-Lacviet-Key") or ""
+                auth = self.headers.get("Authorization") or ""
+                if not given and auth.lower().startswith("bearer "):
+                    given = auth[7:].strip()
+                if hmac.compare_digest(given.encode(), api_key.encode()):
+                    return True
+                if self._is_ui() and not ics_ok:
+                    return True
+                return self._fail_auth(401, "thiếu hoặc sai khóa (header X-Lacviet-Key)")
+            return True if not required else self._fail_auth(503, "chưa cấu hình LICHVIET_API_KEY")
+
+        def _send_raw(self, code, body: bytes, ctype: str):
+            self.send_response(code)
+            self.send_header("Content-Type", ctype)
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(body)
+
+        _consumed = False   # đã đọc hết thân yêu cầu chưa
+
+        def _drain(self):
+            """Đọc và bỏ phần thân yêu cầu còn lại trước khi trả lỗi.
+            Nếu đóng kết nối khi thân còn trong bộ đệm, Windows gửi RST và phía client thấy 'connection aborted'
+            thay vì nhận được mã 4xx."""
+            if self._consumed or self.command not in ("POST", "PUT", "DELETE", "PATCH"):
+                return
+            self._consumed = True
+            try:
+                n = int(self.headers.get("Content-Length") or 0)
+            except ValueError:
+                self.close_connection = True
+                return
+            cap = max(MAX_BODY, MAX_AUDIO)
+            if n > cap:
+                self.close_connection = True   # quá lớn để đọc: báo đóng kết nối, không đọc tiếp
+                return
+            left = max(n, 0)
+            while left > 0:
+                chunk = self.rfile.read(min(left, 65536))
+                if not chunk:
+                    break
+                left -= len(chunk)
+
         def _send(self, code, obj):
+            self._drain()
             b = json.dumps(obj, ensure_ascii=False).encode("utf-8")
             self.send_response(code)
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Content-Length", str(len(b)))
+            if self.close_connection:
+                self.send_header("Connection", "close")
             self.end_headers()
             self.wfile.write(b)
 
@@ -87,8 +169,10 @@ def make_handler(svc: Service):
         def _body(self):
             n = self._length()
             if n < 0 or n > MAX_BODY:
-                raise ValueError("nội dung quá lớn")
-            b = json.loads(self.rfile.read(n) or b"{}")
+                raise ValueError("nội dung quá lớn")   # chưa đọc: _send sẽ đọc bỏ (hoặc đóng kết nối nếu quá lớn)
+            raw = self.rfile.read(n)
+            self._consumed = True
+            b = json.loads(raw or b"{}")
             if not isinstance(b, dict):
                 raise ValueError("nội dung phải là đối tượng JSON")
             return b
@@ -104,7 +188,12 @@ def make_handler(svc: Service):
                     or not origin_ok(self.headers.get("Origin"), self.headers.get("Host"))):
                 self._send(403, {"error": "yêu cầu từ trang khác bị từ chối"})
                 return False
-            return True
+            u = self._url()
+            if u.path in ("/health", "/", "/index.html"):
+                return True
+            # Mọi API khác đi qua khóa (khi đã đặt LICHVIET_API_KEY). Endpoint mới vẫn tự kiểm tra thêm (503 khi chưa đặt khóa).
+            q = {k: v[0] for k, v in parse_qs(u.query).items()}
+            return self._auth(required=False, q=q, ics_ok=u.path.endswith("/calendar.ics"))
 
         def _run(self, fn):
             try:
@@ -116,6 +205,8 @@ def make_handler(svc: Service):
                     self._send(404, {"error": "không tìm thấy"})
             except (ValueError, TypeError, json.JSONDecodeError) as e:
                 self._send(400, {"error": str(e)})
+            except CursorTooOld as e:
+                self._send(410, {"error": str(e), "action": "resync", "since": "0"})
             except RuntimeError as e:   # giọng nói tắt hoặc chưa sẵn sàng
                 self._send(503, {"error": str(e)})
             except Exception:
@@ -141,6 +232,8 @@ def make_handler(svc: Service):
                 return self._send(200, {"app": "lichviet", "api": API_VERSION, "tz": str(get_tz()),
                                         "now": svc.clock().isoformat(timespec="seconds"),
                                         "user_id": USER_ID,
+                                        "features": ["changes", "upcoming", "devices", "delivered", "ics"],
+                                        "auth": {"header": "X-Lacviet-Key", "configured": bool(api_key)},
                                         "now_iso": svc.clock().replace(tzinfo=get_tz()).isoformat(timespec="seconds"),
                                         "time_format": "ISO 8601, giờ địa phương của tz (không kèm độ lệch)"})
             if u.path == "/export":
@@ -159,8 +252,45 @@ def make_handler(svc: Service):
             if u.path == "/ai/status":
                 return self._run(svc.llm.status)
             if u.path == "/reminders/due":
-                return self._run(lambda: [{**with_iso(d), "user_id": USER_ID}
-                                          for d in svc.due_reminders(q.get("channel", ""))])
+                if not self._auth(required=False):
+                    return
+                return self._run(lambda: [{**with_iso(d), "fire_at_iso": with_iso({"start": d["fire_at"]})["start_iso"],
+                                           "user_id": USER_ID}
+                                          for d in svc.due_reminders(q.get("channel", ""), q.get("device_id") or None)])
+            if u.path == "/reminders/upcoming":
+                if not self._auth(required=True):
+                    return
+                return self._run(lambda: [{**with_iso(d), "fire_at_iso": with_iso({"start": d["fire_at"]})["start_iso"],
+                                           "user_id": USER_ID}
+                                          for d in svc.upcoming_reminders(int(q.get("days", 14)), q.get("device_id") or None)])
+            if u.path == "/events/changes":
+                if not self._auth(required=True):
+                    return
+
+                def go():
+                    res = svc.changes_since(int(q.get("since", 0) or 0), int(q.get("limit", 200)))
+                    for c in res["changes"]:
+                        if c["op"] == "upsert":
+                            c["event"] = with_iso(c["event"])
+                    return {**res, "user_id": USER_ID}
+                return self._run(go)
+            if u.path == "/devices":
+                if not self._auth(required=True):
+                    return
+                return self._run(svc.list_devices)
+            if u.path == "/calendar.ics":
+                if not self._auth(required=True, q=q, ics_ok=True):
+                    return
+                try:
+                    now = svc.clock()
+                    lo = datetime.fromisoformat(q["from"]) if q.get("from") else now - timedelta(days=7)
+                    hi = datetime.fromisoformat(q["to"]) if q.get("to") else now + timedelta(days=365)
+                    if hi <= lo or (hi - lo).days > 800:
+                        raise ValueError("khoảng thời gian không hợp lệ (to sau from, tối đa 800 ngày)")
+                    body = ics.render(svc.calendar_items(lo, hi), now, get_tz()).encode("utf-8")
+                except ValueError as e:
+                    return self._send(400, {"error": str(e)})
+                return self._send_raw(200, body, "text/calendar; charset=utf-8")
             self._send(404, {"error": "không có đường dẫn này"})
 
         def do_POST(self):
@@ -174,6 +304,7 @@ def make_handler(svc: Service):
                     return self._send(400, {"error": str(e)})
                 if n <= 0 or n > MAX_AUDIO:
                     return self._send(400, {"error": "âm thanh rỗng hoặc quá dài"})
+                self._consumed = True
                 return self._run(lambda: {"text": svc.transcribe(self.rfile.read(n))})
             if u.path == "/stt/learn":
                 b = self._body()
@@ -202,7 +333,24 @@ def make_handler(svc: Service):
                     svc.ack(b["event_id"], b["occurrence"])
                     return {"ok": True}
                 return self._run(go)
+            if u.path == "/devices":
+                if not self._auth(required=True):
+                    return
+                def go():
+                    b = self._body()
+                    return svc.register_device(b["device_id"], b["platform"], b.get("label"))
+                return self._run(go)
+            if u.path == "/reminders/delivered":
+                if not self._auth(required=True):
+                    return
+                def go():
+                    b = self._body()
+                    svc.mark_delivered(b["device_id"], b["event_id"], b["key"])
+                    return {"ok": True}
+                return self._run(go)
             if u.path == "/reminders/fired":
+                if not self._auth(required=False):
+                    return
                 def go():
                     b = self._body()
                     svc.mark_fired(b["event_id"], b["occurrence"])
@@ -218,6 +366,10 @@ def make_handler(svc: Service):
                 return self._run(lambda: {"deleted": svc.forget_heard(unquote(u.path.split("/", 2)[2]))})
             if u.path.startswith("/phrases/"):
                 return self._run(lambda: {"deleted": svc.forget_phrase(unquote(u.path.split("/", 2)[2]))})
+            if u.path.startswith("/devices/"):
+                if not self._auth(required=True):
+                    return
+                return self._run(lambda: {"deleted": svc.remove_device(unquote(u.path.split("/", 2)[2]))})
             if u.path.startswith("/events/"):
                 return self._run(lambda: {"deleted": svc.delete(int(u.path.rsplit("/", 1)[1]))})
             self._send(404, {"error": "không có đường dẫn này"})

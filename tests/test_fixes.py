@@ -1,5 +1,6 @@
 """Hồi quy cho các lỗi đã sửa sau đợt khảo sát (toàn vẹn dữ liệu, parser, API, lặp âm lịch hằng tháng)."""
 import sys, os, json, threading, unittest, urllib.request, urllib.error
+from unittest import mock
 from datetime import datetime, timedelta
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from lichviet import Service
@@ -98,7 +99,10 @@ class TestApiGuard(unittest.TestCase):
             with urllib.request.urlopen(r, timeout=5) as x:
                 return x.status, json.loads(x.read())
         except urllib.error.HTTPError as e:
-            return e.code, json.loads(e.read())
+            try:
+                return e.code, json.loads(e.read())
+            finally:
+                e.close()
 
     def test_hosts_and_origins(self):
         self.assertTrue(host_ok("127.0.0.1:18763") and host_ok("app:8080") and host_ok("[::1]:8080"))
@@ -123,3 +127,39 @@ class TestApiGuard(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestErrorWithBody(unittest.TestCase):  # noqa
+    """Lỗi trả về khi thân yêu cầu chưa đọc không được làm rớt kết nối (lỗi Windows 10053 trước đây)."""
+    @classmethod
+    def setUpClass(cls):
+        cls.svc = svc(); cls.srv = Server(("127.0.0.1", 0), make_handler(cls.svc))
+        cls.port = cls.srv.server_address[1]
+        threading.Thread(target=cls.srv.serve_forever, daemon=True).start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.srv.shutdown(); cls.srv.server_close()
+
+    def test_rejected_post_with_body_gets_403_not_reset(self):
+        import http.client
+        body = json.dumps({"text": "họp 5/11 9h", "save": True}).encode()
+        for _ in range(20):   # nhiều lần, có thân lớn, để lộ lỗi đóng kết nối khi còn dữ liệu chưa đọc
+            c = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
+            c.request("POST", "/parse", body=body + b" " * 200000,
+                      headers={"Content-Type": "text/plain", "Origin": "http://evil.example"})
+            r = c.getresponse(); r.read(); self.assertEqual(r.status, 403); c.close()
+        self.assertEqual(self.svc.con.execute("select count(*) from events").fetchone()[0], 0)
+
+    def test_bad_key_with_body_gets_401(self):
+        import http.client
+        with mock.patch.dict(os.environ, {"LICHVIET_API_KEY": "k" * 20}):
+            srv = Server(("127.0.0.1", 0), make_handler(svc()))
+            threading.Thread(target=srv.serve_forever, daemon=True).start()
+            try:
+                c = http.client.HTTPConnection("127.0.0.1", srv.server_address[1], timeout=5)
+                c.request("POST", "/events", body=b'{"title":"x","start":"2026-11-01T09:00:00"}' + b" " * 100000,
+                          headers={"Content-Type": "application/json", "X-Lacviet-Key": "sai"})
+                r = c.getresponse(); r.read(); self.assertEqual(r.status, 401); c.close()
+            finally:
+                srv.shutdown(); srv.server_close()

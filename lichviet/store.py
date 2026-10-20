@@ -26,6 +26,28 @@ CREATE TABLE IF NOT EXISTS acked(
   occ_start TEXT NOT NULL,
   PRIMARY KEY(event_id, occ_start)
 );
+CREATE TABLE IF NOT EXISTS changes(
+  seq INTEGER PRIMARY KEY AUTOINCREMENT,
+  event_id INTEGER NOT NULL,
+  op TEXT NOT NULL,            -- upsert | delete (bia mộ)
+  at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_changes_event ON changes(event_id, seq);
+CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY, value TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS devices(
+  device_id TEXT PRIMARY KEY,
+  platform TEXT NOT NULL,      -- ios | android | other
+  label TEXT,
+  registered TEXT NOT NULL,
+  last_seen TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS delivered(   -- nhắc đã hiển thị trên từng thiết bị (không lưu token push)
+  device_id TEXT NOT NULL,
+  event_id INTEGER NOT NULL,
+  occ_key TEXT NOT NULL,
+  at TEXT NOT NULL,
+  PRIMARY KEY(device_id, event_id, occ_key)
+);
 CREATE INDEX IF NOT EXISTS idx_events_start ON events(start);
 CREATE TABLE IF NOT EXISTS phrases(
   src TEXT PRIMARY KEY,
@@ -73,4 +95,8 @@ def connect(path: str = ":memory:") -> sqlite3.Connection:
         con.execute("PRAGMA journal_mode=WAL")   # đọc và ghi không chặn nhau giữa các luồng/tiến trình
     con.executescript(SCHEMA)
     _migrate(con)
+    # Nâng cấp từ bản chưa có nhật ký thay đổi: coi mọi việc hiện có là "đã upsert" để đồng bộ lần đầu thấy đủ.
+    if con.execute("SELECT 1 FROM changes LIMIT 1").fetchone() is None:
+        con.execute("INSERT INTO changes(event_id,op,at) SELECT id,'upsert',updated FROM events")
+        con.commit()
     return con
