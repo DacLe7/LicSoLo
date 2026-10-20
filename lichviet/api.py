@@ -232,7 +232,7 @@ def make_handler(svc: Service):
             if u.path == "/info":
                 return self._send(200, {"app": "lichviet", "version": __version__, "api": API_VERSION, "tz": str(get_tz()),
                                         "now": svc.clock().isoformat(timespec="seconds"),
-                                        "user_id": USER_ID,
+                                        "user_id": USER_ID, "events": svc.event_count(),
                                         "features": ["changes", "upcoming", "devices", "delivered", "ics"],
                                         "auth": {"header": "X-Lacviet-Key", "configured": bool(api_key)},
                                         "now_iso": svc.clock().replace(tzinfo=get_tz()).isoformat(timespec="seconds"),

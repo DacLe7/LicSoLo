@@ -175,6 +175,10 @@ class Service:
         return {"db": "ok", "events": n}
 
     # ---------- đọc ----------
+    def event_count(self) -> int:
+        """Số việc đã lưu (để giao diện biết lần đầu mở, chưa có việc nào)."""
+        return self.con.execute("SELECT COUNT(*) FROM events").fetchone()[0]
+
     def get(self, event_id: int) -> Optional[dict]:
         row = self.con.execute("SELECT * FROM events WHERE id=?", (event_id,)).fetchone()
         return dict(row) if row else None

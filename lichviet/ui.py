@@ -93,6 +93,10 @@ details.more{margin-top:22px;background:var(--card);border:1px solid var(--line)
 details.more summary{cursor:pointer;padding:14px 0;font-weight:700;font-size:15px}
 details.more .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:6px 0 14px}
 details.more p{color:var(--mut);font-size:13px;margin:0 0 10px}
+details.more ul{margin:0 0 14px;padding-left:20px;font-size:14px}details.more li{margin:3px 0}details.more h3{font-size:14px;margin:12px 0 4px}
+.welcome{margin-top:18px;background:var(--accsoft);border:1px solid var(--line);border-radius:20px;padding:16px 18px}
+.welcome h2{font-size:17px;margin:0 0 6px}.welcome p{margin:0 0 10px;font-size:14px}
+.welcome .tries{display:flex;flex-wrap:wrap;gap:8px}.welcome .chip{background:var(--card)}
 .ph{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line);font-size:14px}
 .ph .x{flex:1;min-width:0;overflow-wrap:anywhere}.ph small{color:var(--mut)}
 .foot{text-align:center;color:var(--mut);font-size:12px;padding:18px 0 6px}
@@ -112,8 +116,23 @@ details.more p{color:var(--mut);font-size:13px;margin:0 0 10px}
 <div class="banner" id="net" hidden role="alert">⚠<div class="x">Mất kết nối với app, đang thử lại… Nếu lâu không được, kiểm tra app trong Pi Desktop.</div></div>
 <div id="due"></div>
 <div id="draft" hidden></div>
+<section class="welcome" id="welcome" hidden aria-labelledby="wh"><h2 id="wh">Chào bạn, mình là trợ lý thời gian</h2>
+<p>Bạn cứ gõ hoặc nói việc cần nhớ như nói với người nhà, có ngày giờ là được. Mình hiểu cả âm lịch và sẽ nhắc khi tới giờ. Mình luôn hỏi lại trước khi lưu.</p>
+<p>Bấm thử một câu dưới đây:</p><div class="tries" id="tries"></div></section>
 <div class="sec"><h2>Sắp tới</h2><span>7 ngày</span></div>
 <div id="list"></div>
+<details class="more" id="help"><summary>Hướng dẫn nhanh</summary>
+<p>Gõ hoặc nói một câu có việc cần làm và thời gian, bấm mũi tên (hoặc Enter). Trợ lý đưa ra bản nháp để bạn Lưu, Sửa hoặc Bỏ qua.</p>
+<h3>Giờ và ngày</h3><ul><li><q>họp 3h chiều mai</q>, <q>đón con 4h rưỡi chiều nay</q>, <q>họp 3h kém 15 chiều mai</q></li>
+<li><q>đi chợ 8h sáng thứ bảy</q>, <q>đi khám thứ năm tuần sau 9h</q>, <q>nộp báo cáo 17h ngày 25/10</q></li>
+<li><q>gọi điện cho mẹ 30 phút nữa</q>, <q>trả sách 2 ngày nữa</q>. Không nói giờ thì lưu thành việc cả ngày.</li></ul>
+<h3>Lặp lại</h3><ul><li><q>uống thuốc 7h tối mỗi ngày</q>, <q>họp nhóm 9h thứ hai hằng tuần</q>, <q>đóng tiền nhà ngày 5 mỗi tháng</q></li></ul>
+<h3>Âm lịch</h3><ul><li><q>giỗ ông nội 15/8 âm lịch</q> (lặp hằng năm theo âm lịch)</li><li><q>cúng rằm mỗi tháng</q>, <q>ăn chay mùng 1 hàng tháng</q></li></ul>
+<h3>Nhắc trước</h3><ul><li><q>đi đám cưới chủ nhật 11h trưa, nhắc tôi trước 1 ngày</q>, hoặc thêm <i>báo trước 30 phút</i> vào cuối câu</li></ul>
+<h3>Mẹo</h3><ul><li>Mỗi câu một việc. Muốn nhắc cả <i>mùng 1 và rằm</i> thì tạo thành hai việc.</li>
+<li>Nút bút chì để sửa, nút thùng rác để xóa việc đã lưu.</li>
+<li>Thông báo nhắc hiện ở đầu trang khi app đang mở. Bấm <i>Đã biết</i> để tắt.</li>
+<li>Tải bản sao lưu thường xuyên, nhất là trước khi gỡ app.</li></ul></details>
 <details class="more" id="more"><summary>Sao lưu và cụm từ đã học</summary>
 <p>Gỡ app khỏi Pi Desktop sẽ xóa dữ liệu. Hãy tải bản sao lưu trước khi gỡ, rồi khôi phục sau khi cài lại.</p>
 <div class="row"><a class="btn" id="bk" href="/export" download="lichviet-saoluu.json" style="text-decoration:none">Tải bản sao lưu</a>
@@ -137,7 +156,7 @@ const j=async(u,o,ms)=>{
   return x;};
 /* Báo mất kết nối khi các lần tải nền (danh sách, nhắc việc) thất bại; tự ẩn khi nối lại được. */
 const net=ok=>{const b=$('net');if(b)b.hidden=ok;};
-(async()=>{try{const x=await j('/info');$('ver').textContent='Lịch Việt phiên bản '+x.version;}catch(e){}})();
+(async()=>{try{const x=await j('/info');$('ver').textContent='Lịch Việt phiên bản '+x.version;if(typeof x.events==='number')welcome(x.events);}catch(e){}})();
 const p=n=>String(n).padStart(2,'0');
 const WD=['Chủ nhật','Thứ hai','Thứ ba','Thứ tư','Thứ năm','Thứ sáu','Thứ bảy'];
 const fmtD=iso=>{const d=new Date(iso);return p(d.getDate())+'/'+p(d.getMonth()+1)+(d.getFullYear()!==new Date().getFullYear()?'/'+d.getFullYear():'')};
@@ -236,7 +255,12 @@ $('q').addEventListener('input',grow);
 $('q').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();$('go').click();}});
 const SAMPLES=['họp với anh Nam 3h chiều mai','uống thuốc 7h tối mỗi ngày','giỗ ông nội 15/8 âm lịch','đi khám thứ năm tuần sau 9h'];
 $('chips').innerHTML=SAMPLES.map(s=>'<button type="button" class="chip">'+esc(s)+'</button>').join('');
-document.querySelectorAll('.chip').forEach(c=>c.onclick=()=>{$('q').value=c.textContent;grow();$('q').focus();});
+document.querySelectorAll('#chips .chip').forEach(c=>c.onclick=()=>{$('q').value=c.textContent;grow();$('q').focus();});
+/* Lần đầu mở (chưa có việc nào): lời chào kèm câu mẫu, bấm là phân tích luôn. Ẩn khi đã có việc. */
+const TRIES=['đi chợ 8h sáng thứ bảy','gọi điện cho mẹ 30 phút nữa','cúng rằm mỗi tháng','họp nhóm 9h thứ hai hằng tuần'];
+$('tries').innerHTML=TRIES.map(s=>'<button type="button" class="chip">'+esc(s)+'</button>').join('');
+document.querySelectorAll('#tries .chip').forEach(c=>c.onclick=()=>{$('q').value=c.textContent;grow();$('go').click();});
+const welcome=n=>{$('welcome').hidden=n!==0;};
 /* ---- lịch ---- */
 function dayHead(key){
   const d=new Date(key+'T00:00:00'),t=TODAY?new Date(TODAY+'T00:00:00'):new Date();t.setHours(0,0,0,0);
@@ -282,6 +306,7 @@ async function due(){
 /* ---- hiểu câu + lưu ---- */
 function show(html,cls){const d=$('draft');d.className=html?(cls||'draft'):'';d.innerHTML=html;d.hidden=!html;}
 function showSaved(ev){
+  welcome(1);
   const far=(new Date(ev.start)-new Date())>7*864e5;
   show('<div class="saved">'+(ev.duplicate?'Việc này đã có trong lịch, mình không lưu thêm.':'Đã lưu.')+(far?' Lần tới vào '+when(ev.start,ev.all_day)+', xa hơn 7 ngày nên chưa hiện trong danh sách bên dưới.':'')+'</div>','draft');
   refresh();due();}
@@ -382,6 +407,7 @@ $('rs').onchange=async e=>{
   const f=e.target.files[0];if(!f)return;
   try{const r=await fetch('/import',{method:'POST',body:await f.text()});const x=await r.json();
     $('bkmsg').textContent=r.ok?('Đã nhập '+x.added+' việc, bỏ qua '+x.skipped+' việc trùng, '+x.phrases+' cụm từ.'):(x.error||'Không nhập được');
+    if(r.ok&&x.added)welcome(1);
     refresh();phr();}catch(err){$('bkmsg').textContent='Tệp không đọc được.';}
   e.target.value='';};
 </script></body></html>"""
