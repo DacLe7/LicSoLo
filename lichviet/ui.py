@@ -35,6 +35,11 @@ textarea::placeholder{color:var(--mut)}
 .chip{flex:none;font-family:inherit;font-weight:500;font-size:13px;line-height:1;padding:8px 12px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--tx);cursor:pointer}
 .chip:hover{border-color:var(--acc);color:var(--acc)}
 .toast{font-size:13px;color:var(--mut);padding:6px 14px 0}.toast:empty{display:none}
+.vstat{margin:10px 12px 0;font-size:13px;color:var(--mut)}.vstat[hidden],.banner[hidden]{display:none}
+.pbar{height:6px;border-radius:6px;background:var(--line);overflow:hidden;margin-top:6px}
+.pbar i{display:block;height:100%;width:0;background:var(--acc);transition:width .4s}
+.pbar.wait i{width:30%!important;animation:slide 1.4s ease-in-out infinite}
+@keyframes slide{from{transform:translateX(-100%)}to{transform:translateX(340%)}}
 /* ---- bản nháp ---- */
 .draft{margin:14px 0 0;background:var(--card);border:1px solid var(--line);border-left:4px solid var(--acc);border-radius:16px;padding:16px 18px;box-shadow:var(--sh);animation:up .25s ease}
 @keyframes up{from{opacity:0;transform:translateY(6px)}}
@@ -100,7 +105,9 @@ details.more p{color:var(--mut);font-size:13px;margin:0 0 10px}
 <button class="ib" id="go" type="button" title="Hiểu câu này (Enter)" aria-label="Hiểu câu này"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
 </div>
 <div class="chips" id="chips"></div>
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div class="vstat" id="vstat" hidden role="status" aria-live="polite"><div class="vt" id="vtxt"></div><div class="pbar"><i id="vbar"></i></div></div>
+<div class="banner" id="net" hidden role="alert">⚠<div class="x">Mất kết nối với app, đang thử lại… Nếu lâu không được, kiểm tra app trong Pi Desktop.</div></div>
 <div id="due"></div>
 <div id="draft" hidden></div>
 <div class="sec"><h2>Sắp tới</h2><span>7 ngày</span></div>
@@ -115,7 +122,18 @@ details.more p{color:var(--mut);font-size:13px;margin:0 0 10px}
 <script>
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const j=async(u,o)=>{const r=await fetch(u,o);return r.json()};
+/* Gọi API. Lỗi mạng, hết thời gian, mã lỗi đều thành Error có câu tiếng Việt dễ hiểu (e.message), không bao giờ treo nút. */
+const NET='Không nối được với app. Kiểm tra app còn đang chạy trong Pi Desktop rồi thử lại.';
+const j=async(u,o,ms)=>{
+  const ac=new AbortController(),t=setTimeout(()=>ac.abort(),ms||60000);let r;
+  try{r=await fetch(u,{...(o||{}),signal:ac.signal});}
+  catch(e){throw new Error(e.name==='AbortError'?'App phản hồi quá lâu, bạn thử lại sau ít phút.':NET);}
+  finally{clearTimeout(t);}
+  let x=null;try{x=await r.json();}catch(e){}
+  if(!r.ok||x===null){const er=new Error((x&&x.error)?x.error.charAt(0).toUpperCase()+x.error.slice(1):r.status>=500?'App gặp lỗi bên trong, bạn thử lại sau ít phút.':r.status===401?'App đang bật khóa API, giao diện chưa được cấp quyền.':'Yêu cầu chưa hợp lệ (mã '+r.status+').');er.status=r.status;er.data=x;throw er;}
+  return x;};
+/* Báo mất kết nối khi các lần tải nền (danh sách, nhắc việc) thất bại; tự ẩn khi nối lại được. */
+const net=ok=>{const b=$('net');if(b)b.hidden=ok;};
 const p=n=>String(n).padStart(2,'0');
 const WD=['Chủ nhật','Thứ hai','Thứ ba','Thứ tư','Thứ năm','Thứ sáu','Thứ bảy'];
 const fmtD=iso=>{const d=new Date(iso);return p(d.getDate())+'/'+p(d.getMonth()+1)+(d.getFullYear()!==new Date().getFullYear()?'/'+d.getFullYear():'')};
@@ -144,9 +162,9 @@ let TODAY=null;   // ngày hôm nay theo máy chủ (múi giờ người dùng),
 const Voice={rec:null,chunks:[],stream:null,on:false,timer:null,
   async start(){
     if(this.on){this.stop();return;}
-    let st={};try{st=await j('/stt/status');}catch(e){}
+    let st={};try{st=await j('/stt/status');}catch(e){toast(e.message);return;}
     if(!st.enabled){toast('Nhập bằng giọng nói chưa bật. Vào Config của app, chọn "Nhập bằng giọng nói" rồi lưu.');return;}
-    if(!st.ready){toast('Mô hình giọng nói đang tải (lần đầu mất vài phút). Bạn gõ tạm nhé.');return;}
+    if(!st.ready){toast('Giọng nói chưa sẵn sàng, bạn gõ tạm nhé. Tiến độ hiện ngay bên dưới.');VStat.show(st);VStat.poll();return;}
     if(!navigator.mediaDevices||!window.MediaRecorder){toast('Cửa sổ này không hỗ trợ ghi âm.');return;}
     try{this.stream=await navigator.mediaDevices.getUserMedia({audio:true});}
     catch(e){toast(e.name==='NotFoundError'?'Chưa thấy micro trên máy này.':'Chưa được cấp quyền micro.');return;}
@@ -191,6 +209,22 @@ const Voice={rec:null,chunks:[],stream:null,on:false,timer:null,
   last:null,
   onText(text){this.last=text;$('q').value=text;grow();$('go').click();}};
 $('mic').onclick=()=>Voice.start();
+/* Tiến độ tải mô hình giọng nói lần đầu: hiện thanh tiến độ, hỏi lại mỗi 3 giây tới khi sẵn sàng. */
+const VStat={timer:null,
+  show(st){
+    const box=$('vstat'),bar=$('vbar');
+    if(!st.enabled){box.hidden=true;return;}
+    if(st.ready){$('vtxt').textContent='Giọng nói đã sẵn sàng, bấm mic để nói.';bar.parentNode.classList.remove('wait');bar.style.width='100%';
+      box.hidden=false;setTimeout(()=>{box.hidden=true;},5000);return;}
+    $('vtxt').textContent='Giọng nói: '+(st.detail||'đang chuẩn bị');
+    const known=typeof st.percent==='number'&&st.phase==='downloading';
+    bar.parentNode.classList.toggle('wait',!known);bar.style.width=known?st.percent+'%':'';
+    box.hidden=false;},
+  poll(){if(this.timer)return;
+    const tick=async()=>{let st;try{st=await j('/stt/status',null,8000);}catch(e){this.timer=setTimeout(tick,5000);return;}
+      this.show(st);this.timer=st.enabled&&!st.ready?setTimeout(tick,3000):null;};
+    this.timer=setTimeout(tick,3000);}};
+(async()=>{try{const st=await j('/stt/status',null,8000);if(st.enabled&&!st.ready){VStat.show(st);VStat.poll();}}catch(e){}})();
 /* ---- ô nhập ---- */
 const grow=()=>{const q=$('q');q.style.height='auto';q.style.height=Math.min(q.scrollHeight,160)+'px';};
 $('q').addEventListener('input',grow);
@@ -207,7 +241,8 @@ function dayHead(key){
 async function refresh(){
   if(!TODAY){try{TODAY=(await j('/today')).date}catch(e){}}
   const a=TODAY?new Date(TODAY+'T00:00:00'):new Date(),b=new Date(a);b.setDate(b.getDate()+7);
-  const ev=await j('/events?from='+local(a)+'&to='+local(b));
+  let ev;try{ev=await j('/events?from='+local(a)+'&to='+local(b));net(true);}
+  catch(e){net(false);if(!$('list').innerHTML)$('list').innerHTML='<div class="empty">Chưa tải được danh sách. '+esc(e.message)+'</div>';return;}
   if(!ev.length){$('list').innerHTML='<div class="empty">Chưa có việc nào trong 7 ngày tới.</div>';return;}
   ev.sort((x,y)=>x.occurrence<y.occurrence?-1:1);
   let html='',cur='';
@@ -223,14 +258,14 @@ async function refresh(){
   $('list').innerHTML=html;
   document.querySelectorAll('#list .del').forEach(btn=>btn.onclick=async()=>{
     if(!confirm(btn.dataset.rep?'Xóa toàn bộ chuỗi lịch lặp này?':'Xóa lịch này?'))return;
-    await fetch('/events/'+btn.dataset.id,{method:'DELETE'});refresh();});
+    try{await j('/events/'+btn.dataset.id,{method:'DELETE'});}catch(e){toast('Chưa xóa được: '+e.message);}refresh();});
 }
 async function due(){
-  const d=await j('/reminders/due?channel=ui');
+  let d;try{d=await j('/reminders/due?channel=ui',null,20000);net(true);}catch(e){net(false);return;}
   const soon=x=>x.kind&&x.kind!=='on_time';
   $('due').innerHTML=d.map(x=>'<div class="banner">'+ICO.bell+'<div class="x">'+(soon(x)?'Còn '+x.days_left+' ngày: ':'Đến giờ: ')+'<b>'+esc(x.title)+'</b> · '+when(x.occurrence,x.all_day)+'</div><button data-e="'+x.event_id+'" data-o="'+esc(x.key||x.occurrence)+'">Đã biết</button></div>').join('');
   document.querySelectorAll('#due button').forEach(btn=>btn.onclick=async()=>{
-    await fetch('/reminders/ack',{method:'POST',body:JSON.stringify({event_id:+btn.dataset.e,occurrence:btn.dataset.o})});due();});
+    btn.disabled=true;try{await j('/reminders/ack',{method:'POST',body:JSON.stringify({event_id:+btn.dataset.e,occurrence:btn.dataset.o})});}catch(e){toast(e.message);}due();});
 }
 /* ---- hiểu câu + lưu ---- */
 function show(html,cls){const d=$('draft');d.className=html?(cls||'draft'):'';d.innerHTML=html;d.hidden=!html;}
@@ -286,7 +321,8 @@ $('go').onclick=async()=>{
   const text=$('q').value.trim();if(!text)return;
   if(Voice.last&&text!==Voice.last){fetch('/stt/learn',{method:'POST',body:JSON.stringify({heard:Voice.last,fixed:text})}).catch(()=>{});Voice.last=null;}
   toast('');$('go').disabled=true;$('go').classList.add('busy');
-  let r;try{r=await j('/parse',{method:'POST',body:JSON.stringify({text})});}
+  let r;try{r=await j('/parse',{method:'POST',body:JSON.stringify({text})},90000);}
+  catch(e){show('<div class="note">'+esc(e.message)+'</div>');return;}
   finally{$('go').disabled=false;$('go').classList.remove('busy');}
   const d=r.draft;
   if(r.status==='need_info'){
@@ -307,7 +343,8 @@ $('go').onclick=async()=>{
   $('edit').onclick=()=>openEdit(d,()=>{show(card);bindCard();});
   $('ok').onclick=async()=>{
     $('ok').disabled=true;
-    const r2=await j('/parse',{method:'POST',body:JSON.stringify({text,save:true})});
+    let r2;try{r2=await j('/parse',{method:'POST',body:JSON.stringify({text,save:true})},90000);}
+    catch(e){$('ok').disabled=false;toast('Chưa lưu được: '+e.message);return;}
     const ev=r2.event;
     if(!ev){show('<div class="note">Chưa lưu được, bạn thử lại.</div>');return;}
     $('q').value='';grow();Voice.last=null;
@@ -319,9 +356,9 @@ refresh();due();setInterval(due,30000);
 
 /* ---- sao lưu và cụm từ đã học ---- */
 async function phr(){
-  const l=await j('/phrases');
+  let l;try{l=await j('/phrases');}catch(e){$('phl').innerHTML='<p>'+esc(e.message)+'</p>';return;}
   $('phl').innerHTML=l.length?l.map(x=>'<div class="ph"><div class="x"><b>'+esc(x.src)+'</b> → '+esc(x.dst)+'<br><small>xác nhận '+x.hits+' lần, đã dùng '+x.uses+' lần'+(x.hits>=2?'':' (chưa đủ để áp dụng)')+'</small></div><button class="del" title="Quên cụm này" aria-label="Quên" data-s="'+esc(x.src)+'">'+ICO.x+'</button></div>').join(''):'<p>Chưa có cụm nào.</p>';
-  document.querySelectorAll('#phl .del').forEach(b=>b.onclick=async()=>{await fetch('/phrases/'+encodeURIComponent(b.dataset.s),{method:'DELETE'});phr();});
+  document.querySelectorAll('#phl .del').forEach(b=>b.onclick=async()=>{try{await j('/phrases/'+encodeURIComponent(b.dataset.s),{method:'DELETE'});}catch(e){toast(e.message);}phr();});
 }
 $('more').addEventListener('toggle',()=>{if($('more').open)phr();});
 $('rs').onchange=async e=>{

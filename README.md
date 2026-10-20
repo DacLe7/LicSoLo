@@ -39,7 +39,8 @@ Nhập bằng giọng nói chạy hoàn toàn trên máy, không gửi âm thanh
 
 - Bật qua form cài đặt: chọn "Nhập bằng giọng nói" hoặc "Cả giọng nói và Trợ lý AI".
 - Cần trình duyệt có quyền micro. Bấm mic để bắt đầu nói, bấm lại khi nói xong.
-- Lần đầu chạy, service tải mô hình `turbo` (khoảng 1,6 GB) vào volume `lichviet-stt`. Cần mạng trong lần này.
+- Lần đầu chạy, service tải mô hình `turbo` (khoảng 1,6 GB) vào volume `lichviet-stt`. Cần mạng trong lần này. Giao diện hiện thanh tiến độ (phần trăm, số MB) dưới ô nhập; `GET /stt/status` trả `phase` (`starting`, `downloading`, `loading`, `ready`, `error`), `percent`, `downloaded_mb`, `total_mb`. Phần trăm là ước tính theo dung lượng thư mục mô hình.
+- Tải lỗi (chưa có mạng, đầy ổ đĩa): service tự thử lại sau `STT_RETRY_S` giây (mặc định 60), không cần khởi động lại.
 - Cần khoảng 4 GB RAM cho service `stt`.
 - **Tự học lỗi nghe:** khi bạn sửa một chữ mà máy nhận sai, app ghi lại cặp "nghe sai → sửa đúng" qua `POST /stt/learn`. Khi cùng một cặp được sửa đủ `LICHVIET_LEARN_MIN` lần (mặc định 2), app tự áp dụng cho các lần nhận sau.
 

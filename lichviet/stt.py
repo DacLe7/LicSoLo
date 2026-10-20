@@ -30,10 +30,10 @@ class STTClient:
         try:
             with urllib.request.urlopen(self.base_url + "/health", timeout=2) as r:
                 s = json.loads(r.read())
-            return {"enabled": True, "ready": bool(s.get("ready")), "model": s.get("model"),
-                    "detail": s.get("error") or ("sẵn sàng" if s.get("ready") else "đang tải mô hình")}
         except Exception:
-            return {"enabled": True, "ready": False, "detail": "máy chủ giọng nói chưa khởi động xong"}
+            return {"enabled": True, "ready": False, "phase": "starting",
+                    "detail": "máy chủ giọng nói chưa khởi động xong"}
+        return describe(s)
 
     def transcribe(self, wav: bytes) -> str:
         if not self.enabled:
@@ -47,7 +47,7 @@ class STTClient:
                 return digits_from_words((json.loads(r.read()).get("text") or "").strip())
         except urllib.error.HTTPError as e:
             if e.code == 503:
-                raise RuntimeError("Mô hình giọng nói đang tải, vài phút nữa thử lại")
+                raise RuntimeError("Mô hình giọng nói đang tải (lần đầu mất vài phút), bạn gõ tạm hoặc thử lại sau")
             try:   # nói rõ nguyên nhân thay vì báo lỗi chung
                 why = json.loads(e.read()).get("error", "")
             except Exception:
@@ -55,3 +55,28 @@ class STTClient:
             raise RuntimeError("Nhận giọng nói gặp lỗi" + (": " + why if why else ""))
         except Exception:
             raise RuntimeError("Không nối được máy chủ giọng nói")
+
+
+def describe(s: dict) -> dict:
+    """Đổi trạng thái thô của máy chủ giọng nói thành câu dễ hiểu cho giao diện."""
+    ready = bool(s.get("ready"))
+    phase = "ready" if ready else (s.get("phase") or ("error" if s.get("error") else "downloading"))
+    pct, got, total = s.get("percent"), s.get("downloaded_mb"), s.get("total_mb")
+    if ready:
+        detail = "sẵn sàng"
+    elif phase == "downloading":
+        detail = "đang tải mô hình giọng nói lần đầu"
+        if isinstance(got, int) and isinstance(total, int) and total:
+            detail += " (%d%%, %d/%d MB)" % (pct if isinstance(pct, int) else 0, got, total)
+        detail += ", chỉ tải một lần, có thể mất vài phút"
+    elif phase == "loading":
+        detail = "đã tải xong, đang nạp mô hình vào bộ nhớ"
+    elif phase == "error":
+        detail = "tải mô hình chưa được (kiểm tra mạng hoặc dung lượng ổ đĩa), app sẽ tự thử lại"
+    else:
+        detail = "máy chủ giọng nói đang khởi động"
+    out = {"enabled": True, "ready": ready, "model": s.get("model"), "phase": phase, "detail": detail,
+           "percent": 100 if ready else pct, "downloaded_mb": got, "total_mb": total}
+    if phase == "error" and s.get("error"):
+        out["error"] = str(s["error"])[:300]
+    return out
