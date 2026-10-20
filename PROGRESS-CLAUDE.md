@@ -6,7 +6,7 @@ Chạy test: `python -m unittest discover -s tests`.
 ## Hiện trạng (khảo sát lần đầu, 2026-10-21)
 
 - Python thuần (stdlib), SQLite, giao diện một trang trong `lichviet/ui.py`, API trong `lichviet/api.py`.
-- 93 test xanh lúc bắt đầu (lần 2: 117 test; lần 3: 133 test; lần 4: 139 test; lần 5: 162 test; lần 6: 168 test; lần 7: 181 test; lần 8: 197 test; lần 9: 218 test; lần 10: 231 test).
+- 93 test xanh lúc bắt đầu (lần 2: 117 test; lần 3: 133 test; lần 4: 139 test; lần 5: 162 test; lần 6: 168 test; lần 7: 181 test; lần 8: 197 test; lần 9: 218 test; lần 10: 231 test; lần 11: 236 test).
 - Phát hiện:
   - README ghi "không đặt khóa thì các endpoint mới trả 503" nhưng code (và test `test_no_key_configured_means_open`) mở hết. README sai.
   - `solohost/README.md` ghi image 0.5.1 trong khi compose ghim 0.5.2.
@@ -57,12 +57,12 @@ Chạy test: `python -m unittest discover -s tests`.
 - [x] C5. Cài đặt cá nhân (tên, lời chào, nhắc trước mặc định, giờ nhắc việc cả ngày) lưu trong bảng `meta` (khóa `settings`), có trong tệp sao lưu.
 - [x] C6. Lời chào theo tên và buổi trong ngày ở đầu trang, kèm số việc hôm nay.
 - [x] C7. Áp dụng "nhắc trước mặc định" khi câu không nói nhắc trước (bản nháp có `remind_default`).
-- [ ] C11. Form Sửa: ô "Nhắc trước (phút)" đổi thành chọn nhanh (5/10/15/30 phút, 1 tiếng, 1 ngày) giống Cài đặt cá nhân.
+- [x] C11. (lần 11) Form Sửa: ô "Nhắc trước (phút)" đổi thành chọn nhanh (5/10/15/30 phút, 1 tiếng, 1 ngày) giống Cài đặt cá nhân.
 - [ ] C12. Cài đặt "nhắc giỗ trước 7 ngày/1 ngày" bật/tắt được (đang cố định trong `_stages`).
 
 ### D. Android
 - [x] D1. `docs/ANDROID_PLAN.md`: USB + `adb reverse` (khuyến nghị demo), Tailscale + HTTPS, LAN HTTP (không khuyến nghị), PWA, mô hình nhỏ trên máy; bảng so sánh, đánh đổi riêng tư.
-- [ ] D2. Hướng dẫn từng bước `adb reverse` trong HUONG_DAN (bật gỡ lỗi USB, platform-tools, lệnh) — không đổi mặc định 127.0.0.1.
+- [x] D2. (lần 11) Hướng dẫn từng bước `adb reverse` trong HUONG_DAN (bật gỡ lỗi USB, platform-tools, lệnh) — không đổi mặc định 127.0.0.1.
 - [x] D3. Truy cập qua host trong `LICHVIET_ALLOWED_HOSTS` khi đã đặt `LICHVIET_API_KEY`: giao diện phải nhập khóa (không tin same-origin), có test.
 - [ ] D4. Trang không phải trang an toàn (http qua IP): mục Thông báo giải thích vì sao micro/thông báo/cài app tắt, trỏ tới ANDROID_PLAN.
 - [x] D5. Test khóa mặc định: compose chỉ mở 127.0.0.1, `serve()`/`LICHVIET_HOST` mặc định 127.0.0.1 (`tests/test_android_plan.py`).
@@ -79,7 +79,7 @@ Chạy test: `python -m unittest discover -s tests`.
 - [ ] E9. Tách JavaScript của trang thành các hàm thuần thử được bằng `node` (định dạng ngày, repText), thêm test chạy bằng node nếu có.
 - [x] E11. Form sửa bản nháp (POST /events) chưa trả `conflicts`: cho `POST /events` trả kèm trùng giờ, hiện trong form (gộp với B4).
 - [ ] E12. Khi phát hành: tăng `__version__` (lichviet/__init__.py, đang 0.6.0) và tag image trong solohost/docker-compose.yml cùng lúc; thêm test so khớp hai số.
-- [ ] E13. Cửa sổ xác nhận xóa dùng `confirm()` của trình duyệt: đổi sang hộp xác nhận trong trang (đẹp hơn trên điện thoại, đọc được bằng trình đọc màn hình).
+- [x] E13. (lần 11) Cửa sổ xác nhận xóa dùng `confirm()` của trình duyệt: đổi sang hộp xác nhận trong trang (đẹp hơn trên điện thoại, đọc được bằng trình đọc màn hình).
 - [ ] E14. Bung lịch lặp `yearly`/`monthly` đã nhảy thẳng tới gần `lo`; còn `list_range` đọc mọi dòng (xem E6).
 - [ ] E15. Kiểm tra trùng giờ chỉ xét một lần của việc đang sửa: việc lặp (mỗi ngày 9h) nên xét vài lần tới, báo "trùng vào thứ Hai 26/10".
 - [ ] B13. "sinh nhật" kèm thứ/ngày tương đối ("sinh nhật mẹ thứ bảy này") hiện không tự lặp (đúng, vì không rõ ngày cố định); cân nhắc hỏi lại.
@@ -94,6 +94,10 @@ Chạy test: `python -m unittest discover -s tests`.
 - [ ] B22. "trả tiền nhà mùng 5 hàng tháng" đang hiểu là âm lịch (do "mùng"); việc tiền bạc/hóa đơn thường là dương lịch: cân nhắc chỉ coi âm khi có rằm/cúng/chay/âm, còn lại hỏi lại hoặc cảnh báo.
 - [ ] B23. "2h đêm mai" = 2h ngày mai (theo lịch) hay đêm nay rạng sáng mai? Đang lấy 2h ngày 22; cân nhắc cảnh báo khi giờ đêm 0–4h đi với "mai/nay".
 - [ ] D6. Service worker không gửi được khóa khi mở từ máy khác: nút "Đã biết" trên thông báo nhờ trang đang mở gửi ack (đã làm); nếu không có trang nào mở thì ack bị bỏ — chấp nhận, ghi trong ANDROID_PLAN.
+- [ ] E16. Hộp `ask()` dùng lại cho các thao tác khác cần hỏi: xóa cụm từ đã học, khôi phục sao lưu (ghi đè/gộp), tắt thông báo.
+- [ ] E17. Sau khi xóa: thanh "Đã xóa … · Hoàn tác" trong vài giây (giữ bản sao việc vừa xóa ở trang, tạo lại bằng POST nếu bấm Hoàn tác).
+- [ ] C13. Cài đặt cá nhân: ô "Nhắc trước mặc định" thêm "2 ngày"/"1 tuần" cho khớp form Sửa.
+- [ ] D7. HUONG_DAN mục 8: thêm ảnh chụp/sơ đồ chữ đơn giản (không ảnh nhị phân lớn) và mục "Không thấy thiết bị trong adb devices" (cáp chỉ sạc, trình điều khiển USB trên Windows).
 - [ ] E10. Nút "Thử lại" trên thanh mất kết nối; tự tải lại danh sách khi nối lại được.
 
 ## Nhật ký
@@ -219,3 +223,14 @@ Chạy test: `python -m unittest discover -s tests`.
 - Tiếp theo nên làm: D2 (hướng dẫn adb reverse), D4, E13, C11, B7 (thêm ~40 câu).
 - Test: `tests/test_settings.py` (17), `tests/test_android_plan.py` (4).
 - Tiếp theo nên làm: B7 (thêm câu test), E13 (hộp xác nhận xóa trong trang), D2–D4, B11.
+
+### Lần 11 — 2026-10-21
+- E13: hộp xác nhận xóa trong trang (`<dialog id="ask">` + `ask(title, detail, okLabel)` trả Promise): nêu tên việc, việc lặp nói rõ xóa cả chuỗi,
+  mặc định focus nút Hủy, Esc/bấm ra ngoài = hủy, trả focus về nút cũ; trình duyệt không có `showModal` thì dùng `confirm()` dự phòng.
+  Xóa xong có toast "Đã xóa …".
+- C11: form Sửa đổi ô số phút thành ô chọn nhanh (`remOpts`: đúng giờ, 5/10/15/30 phút, 1/2 tiếng, 1/2 ngày, 1 tuần); giá trị lạ từ câu nói
+  (45 phút, 7 ngày…) vẫn giữ thành một lựa chọn riêng. Bỏ kiểm tra số phút thủ công.
+- D2: HUONG_DAN mục 8 "Dùng thử trên điện thoại Android qua cáp USB" từng bước (gỡ lỗi USB, platform-tools, `adb devices`, `adb reverse`,
+  mở `localhost`, gỡ chuyển cổng); FAQ trỏ về mục 8. Mục FAQ thành mục 9.
+- Test: `tests/test_confirm_remind.py` (4, có chạy `remOpts` bằng node), `test_android_plan` thêm kiểm tra mục hướng dẫn adb.
+- Tiếp theo nên làm: D4, E16/E17, B7 (thêm ~40 câu), E1/E2.

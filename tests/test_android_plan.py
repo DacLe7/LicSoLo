@@ -40,6 +40,18 @@ class TestAndroidPlan(unittest.TestCase):
             self.assertIn(must.lower(), t.lower(), must)
         self.assertIn("ANDROID_PLAN.md", read("docs", "HUONG_DAN.md"))
 
+    def test_huong_dan_adb_tung_buoc(self):
+        t = read("docs", "HUONG_DAN.md")
+        m = re.search(r"^## (\d+)\. Dùng thử trên điện thoại Android qua cáp USB$(.*?)^## ", t, re.M | re.S)
+        self.assertTrue(m)
+        sec = m.group(2)
+        for must in ("Gỡ lỗi USB", "Platform-Tools", "adb devices", "unauthorized",
+                     "adb reverse tcp:18763 tcp:18763", "http://localhost:18763", "adb reverse --remove-all"):
+            self.assertIn(must, sec, must)
+        # cổng trong lệnh khớp cổng mặc định của compose
+        self.assertIn("PANEL_PORT:-18763", read("solohost", "docker-compose.yml"))
+        self.assertIn("theo mục %s ở trên" % m.group(1), t)
+
 
 if __name__ == "__main__":
     unittest.main()

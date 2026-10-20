@@ -77,7 +77,7 @@ App cũng tự sửa sẵn một số chữ hay bị nghe lệch theo giọng v�
 
 - Mục **Sắp tới** hiện các việc trong 7 ngày tới, chia theo ngày. Việc lặp có vạch màu riêng, việc âm lịch có màu khác.
 - Nút **bút chì**: sửa việc đã lưu. Việc âm lịch giữ nguyên ngày âm, chỉ sửa được tên, giờ và nhắc trước.
-- Nút **thùng rác**: xóa việc. Với việc lặp, xóa là xóa cả chuỗi.
+- Nút **thùng rác**: xóa việc. App hỏi lại trong một hộp nhỏ (mặc định chọn *Hủy*; bấm *Esc* hoặc bấm ra ngoài cũng là hủy). Với việc lặp, xóa là xóa cả chuỗi.
 - Nút **mũi tên tải xuống**: tải việc đó thành tệp `.ics`. Mở tệp (hoặc gửi sang điện thoại rồi mở) để thêm việc vào Lịch Google, Lịch iPhone, Outlook. Việc lặp mỗi ngày/tuần/tháng/năm được thêm thành chuỗi lặp; việc âm lịch được thêm 10 lần tới (ứng dụng lịch không hiểu âm lịch).
 - Việc lưu xa hơn 7 ngày không hiện trong Sắp tới, nhưng vẫn được nhắc đúng hẹn.
 
@@ -121,7 +121,29 @@ Tệp sao lưu gồm các việc, cụm từ đã học và Cài đặt cá nhâ
 
 Khôi phục chỉ **gộp thêm**, không xóa việc đang có. Việc trùng (cùng tên, cùng giờ, cùng kiểu lặp) được bỏ qua, nên khôi phục hai lần cũng không bị nhân đôi. Tệp hỏng thì app từ chối cả tệp, không nhập nửa chừng.
 
-## 8. Câu hỏi thường gặp
+## 8. Dùng thử trên điện thoại Android qua cáp USB
+
+App chỉ mở trên máy tính (127.0.0.1). Cách an toàn nhất để thử trên điện thoại, kể cả micro và thông báo, là cho điện thoại "mượn" cổng của máy tính qua cáp USB. Không cần đổi cấu hình app, không mở cổng nào ra Wi-Fi. So sánh các cách khác xem [ANDROID_PLAN.md](ANDROID_PLAN.md).
+
+1. **Bật gỡ lỗi USB trên điện thoại**: *Cài đặt → Thông tin điện thoại* → chạm 7 lần vào *Số hiệu bản tạo* (Build number) để mở *Tùy chọn nhà phát triển*. Vào *Cài đặt → Hệ thống → Tùy chọn nhà phát triển* → bật *Gỡ lỗi USB*. Tên mục có thể khác chút tùy hãng.
+2. **Cài công cụ `adb` trên máy tính**: tải [Android SDK Platform-Tools](https://developer.android.com/tools/releases/platform-tools) (gói nhỏ, chỉ cần giải nén), mở cửa sổ lệnh trong thư mục `platform-tools`.
+3. **Cắm cáp**, điện thoại hỏi *Cho phép gỡ lỗi USB?* → chọn *Cho phép* (có thể tích *Luôn cho phép từ máy tính này*). Kiểm tra bằng lệnh `adb devices`: phải thấy một dòng có chữ `device` (nếu là `unauthorized` thì mở khóa điện thoại và bấm Cho phép).
+4. **Xem số cổng của app**: trên máy tính, địa chỉ app có dạng `http://127.0.0.1:18763`; số sau dấu hai chấm là cổng (mặc định 18763).
+5. **Chuyển cổng**: chạy
+
+   ```
+   adb reverse tcp:18763 tcp:18763
+   ```
+
+   (thay `18763` bằng số cổng của bạn ở cả hai chỗ).
+6. **Mở trên điện thoại**: trong Chrome gõ `http://localhost:18763`. Đây là `localhost` nên micro, thông báo và *Thêm vào màn hình chính* đều dùng được, và app không hỏi khóa.
+
+Lưu ý:
+- Rút cáp hoặc khởi động lại điện thoại/máy tính thì chạy lại lệnh ở bước 5. Muốn gỡ: `adb reverse --remove-all`.
+- Thông báo chỉ tới khi app trên điện thoại đang mở và cáp đang cắm.
+- Dùng xong có thể tắt *Gỡ lỗi USB* để an toàn hơn.
+
+## 9. Câu hỏi thường gặp
 
 **Mở http://127.0.0.1:18763 không được?**
 Kiểm tra app đang chạy trong Pi Desktop. Nếu lúc cài bạn chọn cổng khác thì đổi số cuối địa chỉ. Nếu app vừa cài, chờ thêm vài giây rồi tải lại trang.
@@ -145,7 +167,7 @@ App báo còn thiếu "việc cần làm" hoặc "ngày giờ". Nói rõ hơn, v
 Có. Câu có chữ *sinh nhật*, *kỷ niệm* hoặc *thôi nôi* kèm ngày (không ghi năm) được đặt lặp hằng năm theo dương lịch, ví dụ "sinh nhật mẹ 20/11"; bản nháp có dòng nhắc để bạn biết, chỉ một lần thì bấm Sửa và chọn *Không lặp*. Việc khác muốn lặp hằng năm thì thêm "hằng năm" hoặc "mỗi năm", hoặc chọn *Mỗi năm* trong ô Lặp khi sửa. Sinh nhật 29/2: năm không nhuận nhắc vào 28/2. Sinh nhật âm lịch thì thêm "âm lịch": "sinh nhật bà 10/3 âm lịch".
 
 **Dùng trên điện thoại được không?**
-App chỉ mở được trên chính máy cài Pi Desktop (địa chỉ 127.0.0.1), để dữ liệu không lộ ra mạng. Muốn có việc trên lịch điện thoại, bấm nút tải `.ics` cạnh việc đó rồi gửi tệp sang điện thoại và mở. Muốn thử app (cả giọng nói) từ điện thoại Android: cắm cáp USB và dùng `adb reverse`, xem [ANDROID_PLAN.md](ANDROID_PLAN.md); đừng mở cổng app ra Wi-Fi.
+App chỉ mở được trên chính máy cài Pi Desktop (địa chỉ 127.0.0.1), để dữ liệu không lộ ra mạng. Muốn có việc trên lịch điện thoại, bấm nút tải `.ics` cạnh việc đó rồi gửi tệp sang điện thoại và mở. Muốn thử app (cả giọng nói) từ điện thoại Android: cắm cáp USB và dùng `adb reverse` theo mục 8 ở trên; đừng mở cổng app ra Wi-Fi.
 
 **Trang hiện "Nhập khóa để mở lịch"?**
 Bạn đang mở app từ một máy khác (điện thoại qua mạng nội bộ hoặc Tailscale) và người cài app đã đặt khóa bảo vệ. Nhập đúng khóa đó (giá trị `LICHVIET_API_KEY`) một lần, trình duyệt sẽ nhớ. Trên chính máy cài app hoặc qua cáp USB (`adb reverse`) thì không bị hỏi.

@@ -67,6 +67,14 @@ textarea::placeholder{color:var(--mut)}
 .btn{border:0;border-radius:12px;padding:10px 22px;font-family:inherit;font-weight:600;font-size:15px;cursor:pointer;background:var(--tx);color:var(--bg)}
 .btn.ghost{background:transparent;color:var(--mut);border:1px solid var(--line);font-weight:500}
 .btn:disabled{opacity:.5}
+.btn.danger{background:#b91c1c;color:#fff}
+dialog.ask{border:1px solid var(--line);border-radius:18px;padding:0;background:var(--card);color:var(--tx);box-shadow:var(--sh);width:min(92vw,400px)}
+dialog.ask::backdrop{background:rgba(20,18,16,.45)}
+dialog.ask form{padding:20px 20px 16px}
+dialog.ask h2{font-size:17px;margin:0 0 6px;overflow-wrap:anywhere}
+dialog.ask p{margin:0;color:var(--mut);font-size:14px}
+dialog.ask .actions{justify-content:flex-end}
+dialog.ask .btn{min-height:44px}
 /* ---- nhắc ---- */
 .banner svg{width:20px;height:20px;flex:none}.banner{display:flex;align-items:center;gap:12px;background:var(--warnbg);color:var(--warn);border-radius:16px;padding:12px 14px;margin:14px 0 0}
 .banner .x{flex:1}.banner.ntf{flex-wrap:wrap;background:var(--accsoft);color:var(--tx)}.banner.ntf button{min-height:40px}.banner button{border:1px solid currentColor;background:transparent;color:inherit;border-radius:10px;padding:6px 12px;font-family:inherit;font-weight:600;font-size:13px;cursor:pointer}
@@ -179,6 +187,8 @@ details.more .ck{display:flex;align-items:center;gap:8px;margin:0 0 10px;font-si
 <p>Cụm từ app đã học từ các lần bạn xác nhận. Xóa cụm nào thì app sẽ hỏi AI lại như lần đầu.</p>
 <div id="phl"></div></details>
 <footer class="foot" id="ver"></footer>
+<dialog class="ask" id="ask" aria-labelledby="ask_t" aria-describedby="ask_d"><form method="dialog"><h2 id="ask_t"></h2><p id="ask_d"></p>
+<div class="actions"><button class="btn ghost" value="" id="ask_no">Hủy</button><button class="btn danger" value="ok" id="ask_ok">Đồng ý</button></div></form></dialog>
 </main>
 <script>
 const $=id=>document.getElementById(id);
@@ -368,8 +378,20 @@ async function refresh(){
       duration_min:e.duration_min,lunar:lun},()=>show(''),e.id);
     $('draft').scrollIntoView({behavior:'smooth',block:'center'});});
   document.querySelectorAll('#list .del:not(.ed)').forEach(btn=>btn.onclick=async()=>{
-    if(!confirm(btn.dataset.rep?'Xóa toàn bộ chuỗi lịch lặp này?':'Xóa lịch này?'))return;
-    try{await j('/events/'+btn.dataset.id,{method:'DELETE'});}catch(e){toast('Chưa xóa được: '+e.message);}refresh();});
+    const e=ev.find(x=>x.id===+btn.dataset.id),name=e?e.title:'việc này';
+    if(!await ask('Xóa “'+name+'”?',btn.dataset.rep?'Việc này lặp lại: xóa là xóa cả chuỗi, mọi lần tới đều mất.':'Xóa rồi thì không lấy lại được, trừ khi bạn có bản sao lưu.','Xóa'))return;
+    try{await j('/events/'+btn.dataset.id,{method:'DELETE'});toast('Đã xóa “'+name+'”.');}catch(x){toast('Chưa xóa được: '+x.message);}refresh();});
+}
+/* hộp xác nhận trong trang (thay hộp confirm của trình duyệt): Esc, bấm ra ngoài hoặc Hủy = không; mặc định chọn Hủy cho an toàn */
+function ask(title,detail,okLabel){
+  const d=$('ask');
+  if(!d||typeof d.showModal!=='function')return Promise.resolve(confirm(title+(detail?' '+detail:'')));
+  $('ask_t').textContent=title;$('ask_d').textContent=detail||'';$('ask_ok').textContent=okLabel||'Đồng ý';
+  const back=document.activeElement;
+  return new Promise(res=>{
+    d.onclick=e=>{if(e.target===d)d.close('');};
+    d.onclose=()=>{d.onclose=null;res(d.returnValue==='ok');if(back&&back.isConnected)back.focus();};
+    d.returnValue='';d.showModal();$('ask_no').focus();});
 }
 async function due(){
   let d;try{d=await j('/reminders/due?channel=ui',null,20000);net(true);}catch(e){net(false);return;}
@@ -390,6 +412,12 @@ function showSaved(ev){
 /* ---- sửa bản nháp trước khi lưu: đi qua POST /events (cùng create() với Lưu, có kiểm tra trùng) ---- */
 const okDate=s=>{const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(s);if(!m)return false;const x=new Date(+m[1],+m[2]-1,+m[3]);return x.getMonth()===+m[2]-1&&x.getDate()===+m[3];};
 const REPOPT=[['','Không lặp'],['daily','Mỗi ngày'],['weekly','Mỗi tuần'],['monthly','Mỗi tháng'],['yearly','Mỗi năm']];
+const REMOPT=[5,10,15,30,60,120,1440,2880,10080];
+function remOpts(v){   // chọn nhanh; giá trị lạ (ví dụ 45 phút từ câu nói) vẫn giữ thành một lựa chọn riêng
+  v=v||0;const l=REMOPT.slice();if(v&&!l.includes(v))l.push(v);l.sort((a,b)=>a-b);
+  return '<option value=""'+(v?'':' selected')+'>Không, nhắc đúng giờ</option>'
+    +l.map(m=>'<option value="'+m+'"'+(m===v?' selected':'')+'>'+(m===10080?'1 tuần':mins(m))+'</option>').join('');
+}
 function openEdit(d,back,id){   // id: sửa việc đã lưu (PATCH); không có id: sửa bản nháp trước khi lưu (POST)
   const lunar=!!d.lunar,st=d.start||'',dateV=st.slice(0,10),timeV=st.slice(11,16);
   const opts=REPOPT.map(([v,l])=>'<option value="'+v+'"'+((d.repeat||'')===v?' selected':'')+'>'+l+'</option>').join('');
@@ -400,7 +428,7 @@ function openEdit(d,back,id){   // id: sửa việc đã lưu (PATCH); không c�
     +'<label class="ck"><input id="e_all" type="checkbox"'+(d.all_day?' checked':'')+'> Cả ngày</label>'
     +(lunar?'<p class="ai">Việc theo âm lịch giữ nguyên ngày âm, nên chỉ sửa được tên, giờ và nhắc trước.</p>'
       :'<label class="fl">Lặp<select id="e_r">'+opts+'</select></label>')
-    +'<label class="fl">Nhắc trước (phút)<input id="e_m" type="number" min="0" max="10080" step="1" inputmode="numeric" value="'+(d.remind_before_min||'')+'"></label>'
+    +'<label class="fl">Nhắc trước<select id="e_m">'+remOpts(d.remind_before_min)+'</select></label>'
     +'<div id="e_cf" aria-live="polite"></div><div class="note" id="e_err" hidden></div>'
     +'<div class="actions"><button class="btn" type="submit">Lưu</button><button class="btn ghost" type="button" id="e_no">Hủy</button></div></form>');
   const f=$('ef'),err=$('e_err'),all=$('e_all'),btn=f.querySelector('button[type=submit]');
@@ -424,8 +452,7 @@ function openEdit(d,back,id){   // id: sửa việc đã lưu (PATCH); không c�
     if(!okDate(date))return fail('Ngày chưa hợp lệ.');
     const time=allDay?'00:00':$('e_h').value;
     if(!/^\d{2}:\d{2}$/.test(time))return fail('Giờ chưa hợp lệ.');
-    const mv=$('e_m').value.trim();let mins=null;
-    if(mv!==''){mins=Number(mv);if(!Number.isInteger(mins)||mins<0||mins>10080)return fail('Nhắc trước phải là số phút từ 0 đến 10080.');}
+    const mv=$('e_m').value,mins=mv===''?null:Number(mv);
     const body={title,start:date+'T'+time+':00',all_day:allDay,duration_min:d.duration_min||null,
       repeat:lunar?(d.repeat||null):($('e_r').value||null),remind_before_min:mins,lunar:d.lunar||null};
     btn.disabled=true;
