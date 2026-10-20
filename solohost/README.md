@@ -6,8 +6,8 @@ Gồm `docker-compose.yml` và `config_options.yml`. Pi Desktop chỉ kéo image
 
 | Service | Image | Ghi chú |
 |---|---|---|
-| `app` | `ghcr.io/dacle7/licsolo:0.5.1` | Lịch, nhắc việc, giao diện, API `/v1` |
-| `stt` | `ghcr.io/dacle7/licsolo-stt:0.5.1` | Chỉ chạy khi bật nhập bằng giọng nói (profile `voice`) |
+| `app` | `ghcr.io/dacle7/licsolo:0.5.2` | Lịch, nhắc việc, giao diện, API `/v1` |
+| `stt` | `ghcr.io/dacle7/licsolo-stt:0.5.2` | Chỉ chạy khi bật nhập bằng giọng nói (profile `voice`) |
 | `llm` | `ghcr.io/ggml-org/llama.cpp:server` | Chỉ chạy khi bật Trợ lý AI (profile `ai`). Tag `server` trôi theo bản mới |
 
 Khi có bản phát hành mới: sửa tag `image:` của `app` và `stt` cùng một phiên bản, rồi `docker compose pull && docker compose up -d`.
@@ -26,7 +26,7 @@ Cổng trên máy là `PANEL_PORT`, mặc định `18763`, chỉ nghe `127.0.0.1
 
 ## Xác thực API
 
-- Không có khóa trên SoloHost: các endpoint cũ mở như các bản trước, còn các endpoint cần khóa (đồng bộ, thiết bị, mốc nhắc sắp tới, `.ics`) trả **503** `chưa cấu hình LICHVIET_API_KEY`.
+- Không có khóa trên SoloHost: mọi endpoint mở như các bản trước (kể cả đồng bộ, thiết bị, mốc nhắc sắp tới, `.ics`). Bảo vệ dựa vào việc chỉ nghe `127.0.0.1` và chặn Host/Origin lạ.
 - App chỉ nghe `127.0.0.1` và chặn Host/Origin lạ. Không đưa cổng này ra mạng.
 
 ## Giọng nói

@@ -57,7 +57,7 @@ def _mask(f: str, m: re.Match) -> str:
 
 
 def _unit_min(n: int, unit: str) -> int:
-    return n * {"phut": 1, "gio": 60, "tieng": 60, "ngay": 1440}[unit]
+    return n * {"phut": 1, "gio": 60, "tieng": 60, "ngay": 1440, "tuan": 10080}[unit]
 
 
 def _valid_date(y, m, d):
@@ -80,11 +80,13 @@ def _parse_core(text: str, now: datetime) -> ParseResult:
             f = _mask(f, m)
         return m
 
-    take(r"\b(?:nhac|giup)\s+toi\b")  # "tôi" ở đây là đại từ, không phải buổi tối
-    # 1) nhắc trước
-    m = take(r"\bnhac\s+(?:toi\s+)?truoc\s+(\d+)\s*(phut|gio|tieng|ngay)\b")
+    # 1) nhắc trước: "nhắc (tôi) trước 2 ngày", "nhắc (tôi) 2 ngày trước", "báo trước 30 phút"
+    who = r"(?:(?:toi|em|anh|chi)\s+)?"
+    m = take(r"\b(?:nhac|bao)\s+" + who + r"truoc\s+(\d+)\s*(phut|gio|tieng|ngay)\b") or \
+        take(r"\b(?:nhac|bao)\s+" + who + r"(\d+)\s*(phut|gio|tieng|ngay)\s+truoc\b")
     if m:
         r.remind_before_min = _unit_min(int(m.group(1)), m.group(2))
+    take(r"\b(?:nhac|giup)\s+toi\b")  # "tôi" ở đây là đại từ, không phải buổi tối
 
     # 2) thời lượng
     m = take(r"\b(?:keo\s+dai|trong|mat)\s+(\d+)\s*(phut|gio|tieng)\b")
@@ -113,12 +115,20 @@ def _parse_core(text: str, now: datetime) -> ParseResult:
     # 4) sau N phút/giờ/ngày  (tương đối so với bây giờ)
     rel = None
     rel_days = False
-    m = take(r"\bsau\s+(\d+)\s*(phut|gio|tieng|ngay)\b")
+    # "sau 3 ngày", "3 ngày nữa", "2 tuần nữa"; "3 ngày trước", "1 tuần trước" (đã qua)
+    m = take(r"\bsau\s+(\d+)\s*(phut|gio|tieng|ngay|tuan)\b") or \
+        take(r"\b(\d+)\s*(phut|gio|tieng|ngay|tuan)\s+nua\b")
     if m:
-        rel_days = m.group(2) == "ngay"
+        rel_days = m.group(2) in ("ngay", "tuan")
         rel = now + timedelta(minutes=_unit_min(int(m.group(1)), m.group(2)))
-        if m.group(2) == "ngay":
+        if rel_days:
             rel = rel.replace(second=0, microsecond=0)
+    else:
+        m = take(r"\b(\d+)\s*(ngay|hom|tuan)\s+(?:ve\s+)?truoc\b")
+        if m:
+            rel_days = True
+            n = int(m.group(1)) * (7 if m.group(2) == "tuan" else 1)
+            rel = (now - timedelta(days=n)).replace(second=0, microsecond=0)
 
     # "cả ngày": chỉ là dấu hiệu việc không có giờ, không thuộc tên việc
     take(r"\bca\s+ngay\b")
@@ -152,7 +162,7 @@ def _parse_core(text: str, now: datetime) -> ParseResult:
                 r.warnings.append("không tìm được tháng có ngày %d" % dom)
     if d is None and not r.warnings:
         m = re.search(r"\b(?:sang|trua|chieu|toi|dem|khuya)\s+(nay)\b", f)
-        if take(r"\bhom\s+nay\b"):
+        if take(r"\b(?:bua\s+)?(?:hom|bua)\s+nay\b"):
             d = now.date()
         elif m:
             spans.append((m.start(1), m.end(1)))
@@ -162,8 +172,15 @@ def _parse_core(text: str, now: datetime) -> ParseResult:
             d = now.date() + timedelta(days=1)
         elif take(r"\bngay\s+kia\b"):
             d = now.date() + timedelta(days=2)
-        elif take(r"\bhom\s+qua\b"):
+        elif take(r"\b(?:bua\s+)?(?:hom|bua)\s+qua\b"):
             d = now.date() - timedelta(days=1)   # service sẽ cảnh báo "đã qua" khi lưu
+        elif take(r"\bhom\s+kia\b"):
+            d = now.date() - timedelta(days=2)
+        elif (m := take(r"\bbua\s+hom\b(?!\s+(?:nay|kia|sau))|\bhom\s+bua\b")):
+            # "bữa hổm", "hôm bữa" = mấy hôm trước, không rõ ngày: tạm đặt 3 ngày trước để người dùng chỉnh
+            d = now.date() - timedelta(days=3)
+            r.warnings.append("\"%s\" không rõ là ngày nào, tạm đặt 3 ngày trước, bạn chỉnh lại nếu khác"
+                              % text[m.start():m.end()].lower())
     if d is None and not r.warnings:
         # cụm mơ hồ: "cuối tuần (này/sau)", "đầu tuần sau", "cuối tháng", "đầu tháng sau"
         unit = "tuan"
@@ -190,13 +207,15 @@ def _parse_core(text: str, now: datetime) -> ParseResult:
                 else:
                     d = (base + timedelta(days=32)).replace(day=1) - timedelta(days=1)
     if d is None and not r.warnings:
-        m = take(r"\b(?:thu\s+(hai|bay|ba|tu|nam|sau|[2-7])|(chu\s+nhat))\s*(tuan\s+(?:sau|toi|nay))?")
+        m = take(r"\b(?:thu\s+(hai|bay|ba|tu|nam|sau|[2-7])|(chu\s+nhat))\s*(tuan\s+(?:sau|toi|nay|truoc))?")
         if m or day is not None:
             wd = day if m is None else WEEKDAYS["cn" if m.group(2) else m.group(1)]
             q = (m.group(3) or "") if m else ""
             monday = now.date() - timedelta(days=now.weekday())
             if "sau" in q or "toi" in q:
                 d = monday + timedelta(days=7 + wd)
+            elif "truoc" in q:
+                d = monday + timedelta(days=wd - 7)
             elif "nay" in q:
                 d = monday + timedelta(days=wd)
             else:
@@ -204,6 +223,8 @@ def _parse_core(text: str, now: datetime) -> ParseResult:
         else:
             if take(r"\btuan\s+(?:sau|toi)\b"):
                 d = now.date() + timedelta(days=7)
+            elif take(r"\btuan\s+truoc\b"):
+                d = now.date() - timedelta(days=7)
 
     # 6) giờ
     hh = mi = None

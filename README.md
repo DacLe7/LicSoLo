@@ -76,8 +76,8 @@ Thời gian trả về là giờ địa phương theo `LICHVIET_TZ`, không kèm
 ## Xác thực API
 
 - **Khóa tùy chọn.** `LICHVIET_API_KEY` (≥16 ký tự) bật khóa cho các endpoint cần khóa. Gửi qua header `X-Lacviet-Key: <khóa>` hoặc `Authorization: Bearer <khóa>`. Sai hoặc thiếu: `401`.
-- **Không đặt khóa:** các endpoint cũ mở như các bản trước. Các endpoint mới (đồng bộ, thiết bị, mốc nhắc sắp tới, lịch `.ics`) trả `503` `chưa cấu hình LICHVIET_API_KEY`, để không mở mặc định.
-- **Trên SoloHost, khóa chưa được nối vào container.** Compose không truyền `LICHVIET_API_KEY`, nên các endpoint cần khóa trả 503. Muốn dùng khóa thật phải thêm biến vào compose và khai báo trong `config_options.yml`.
+- **Không đặt khóa (mặc định):** mọi endpoint mở như các bản trước, kể cả đồng bộ, thiết bị, mốc nhắc sắp tới và lịch `.ics`. An toàn dựa vào việc cổng chỉ nghe `127.0.0.1` và app chặn Host/Origin lạ (xem dưới).
+- **Trên SoloHost, khóa chưa được nối vào container.** Compose không truyền `LICHVIET_API_KEY`, nên app chạy ở chế độ không khóa. Muốn dùng khóa thật phải thêm biến vào compose và khai báo trong `config_options.yml`.
 - `LICHVIET_ICS_KEY` (tùy chọn, ≥16 ký tự) chỉ mở `GET /v1/calendar.ics?key=…` để đăng ký lịch qua URL.
 - App từ chối yêu cầu từ trang web khác (Origin khác Host, `Sec-Fetch-Site: cross-site`) và Host là tên miền có dấu chấm (chống DNS rebinding). Host `localhost`, `127.0.0.1`, `::1` và tên không có dấu chấm (tên service Docker) được phép. Host khác thì thêm vào `LICHVIET_ALLOWED_HOSTS` (cách nhau dấu phẩy). Trên SoloHost, biến này chưa được truyền vào container.
 - `/health` luôn mở. Nội dung JSON tối đa 10 MB.
