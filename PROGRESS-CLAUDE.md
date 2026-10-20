@@ -6,7 +6,7 @@ Chạy test: `python -m unittest discover -s tests`.
 ## Hiện trạng (khảo sát lần đầu, 2026-10-21)
 
 - Python thuần (stdlib), SQLite, giao diện một trang trong `lichviet/ui.py`, API trong `lichviet/api.py`.
-- 93 test xanh lúc bắt đầu (lần 2: 117 test; lần 3: 133 test; lần 4: 139 test; lần 5: 162 test; lần 6: 168 test; lần 7: 181 test).
+- 93 test xanh lúc bắt đầu (lần 2: 117 test; lần 3: 133 test; lần 4: 139 test; lần 5: 162 test; lần 6: 168 test; lần 7: 181 test; lần 8: 197 test).
 - Phát hiện:
   - README ghi "không đặt khóa thì các endpoint mới trả 503" nhưng code (và test `test_no_key_configured_means_open`) mở hết. README sai.
   - `solohost/README.md` ghi image 0.5.1 trong khi compose ghim 0.5.2.
@@ -28,7 +28,7 @@ Chạy test: `python -m unittest discover -s tests`.
 - [x] A8. Hiện phiên bản app trong giao diện và `/v1/info`.
 - [x] A9. Lỗi không mở được database (`/data` không ghi được) báo rõ bằng tiếng Việt trong log, thoát có mã lỗi.
 - [x] A10. Trợ giúp trong app: mục "Hướng dẫn nhanh" gấp/mở, liệt kê các kiểu câu hiểu được.
-- [ ] A11. Khi làm xong C1/C2: cập nhật `docs/HUONG_DAN.md` (thông báo hệ thống, cài PWA; FAQ sinh nhật đã xong ở lần 5) và mục Hướng dẫn nhanh; test đã khóa câu ví dụ nên thêm câu mới vào bảng là được kiểm tra luôn.
+- [x] A11. (lần 8) Khi làm xong C1/C2: cập nhật `docs/HUONG_DAN.md` (thông báo hệ thống, cài PWA; FAQ sinh nhật đã xong ở lần 5) và mục Hướng dẫn nhanh; test đã khóa câu ví dụ nên thêm câu mới vào bảng là được kiểm tra luôn.
 - [x] A12. Màn hình chào: thêm một dòng "Tải bản sao lưu cũ? Khôi phục từ tệp" cho người cài lại app (mở thẳng mục Sao lưu).
 - [x] A13. Trang báo "đang khởi động" khi `/health` trả 503 (database lỗi): hiện câu lỗi tiếng Việt từ `/health` trong thanh mất kết nối thay vì câu chung chung.
 
@@ -47,10 +47,13 @@ Chạy test: `python -m unittest discover -s tests`.
 - [x] B12. "đầu/cuối tuần trước", "đầu/cuối tháng trước", "tháng trước", "năm ngoái/năm trước/năm rồi" (tạm cùng ngày, có cảnh báo), "N tháng/năm nữa|trước", "sau N tháng", "20/11 năm sau", "ngày 5 tháng tới".
 
 ### C. Nhắc việc cá nhân, PWA, xuất lịch, cài đặt
-- [ ] C1. PWA: `manifest.webmanifest`, biểu tượng 192/512, service worker (`/sw.js`) để cài app lên máy.
-- [ ] C2. Xin quyền thông báo lần đầu mở (có nút, không tự bật), hiện nhắc thành thông báo hệ thống qua service worker; kênh riêng không đụng `ui`/notifier.
-- [ ] C3. Tải `.ics` cho từng việc (`GET /v1/events/<id>.ics`), nút trong danh sách.
-- [ ] C4. Hiện URL đăng ký lịch `.ics` trong phần Cài đặt, giải thích cách thêm vào lịch điện thoại và giới hạn 127.0.0.1.
+- [x] C1. PWA: `manifest.webmanifest`, biểu tượng 192/512, service worker (`/sw.js`) để cài app lên máy.
+- [x] C2. Xin quyền thông báo lần đầu mở (có nút, không tự bật), hiện nhắc thành thông báo hệ thống qua service worker; kênh riêng không đụng `ui`/notifier.
+- [x] C3. Tải `.ics` cho từng việc (`GET /v1/events/<id>.ics`), nút trong danh sách.
+- [x] C4. Hiện URL đăng ký lịch `.ics` trong phần Cài đặt, giải thích cách thêm vào lịch điện thoại và giới hạn 127.0.0.1.
+- [ ] C8. Thông báo trên máy cho người dùng đã đóng thẻ: cân nhắc Periodic Background Sync (chỉ Chrome đã cài PWA) gọi `/reminders/due` từ service worker; không dùng push qua máy chủ ngoài.
+- [ ] C9. Biểu tượng trong danh sách: đổi nút tải .ics thành menu "…" (Sửa / Tải .ics / Xóa) trên màn hình hẹp để đỡ chật.
+- [ ] C10. Tệp sao lưu: kèm cài đặt trình duyệt (`lv_ntf_later`) không cần; nhưng khi làm C5 nhớ đưa cài đặt vào `export_all`/`import`.
 - [ ] C5. Cài đặt cá nhân (tên, lời chào, nhắc trước mặc định, giờ nhắc việc cả ngày) lưu trong database, có trong tệp sao lưu.
 - [ ] C6. Lời chào theo tên và buổi trong ngày ở đầu trang.
 - [ ] C7. Áp dụng "nhắc trước mặc định" khi câu không nói nhắc trước.
@@ -164,3 +167,18 @@ Chạy test: `python -m unittest discover -s tests`.
 - Tài liệu: bảng kiểu câu HUONG_DAN và Hướng dẫn nhanh thêm khoảng giờ, nửa đêm, tháng tới, số chữ (test khóa câu ví dụ đã chạy qua).
 - Test: `tests/test_parser_phrases.py` (14 test, bảng câu theo nhóm).
 - Lưu ý: heredoc trong Bash vẫn làm hỏng `(gạch ngược + b)` kể cả trong chuỗi Python thường; sửa regex chỉ dùng Edit.
+
+### Lần 8 — 2026-10-21
+- Lần trước dừng giữa chừng với C1/C2/C3 chưa commit (api, ics, service, ui, pwa.py mới). Rà lại và hoàn thiện:
+  sửa lỗi cú pháp JS (xuống dòng thật trong chuỗi `'
+'` của thông báo, do heredoc) — sẽ làm hỏng cả trang.
+- C1: `lichviet/pwa.py` — manifest, biểu tượng SVG + PNG 192/512/maskable vẽ bằng stdlib (không có tệp nhị phân trong kho),
+  service worker chỉ trả trang "App chưa chạy" khi mất kết nối và xử lý bấm thông báo; các tệp này không cần khóa.
+- C2: thanh "Bật thông báo trên máy?" (chỉ xin quyền khi bấm, có "Để sau"), mục "Thông báo và cài app lên máy" (trạng thái quyền,
+  nút thử, nút cài PWA qua `beforeinstallprompt`). Mỗi lần nhắc hiện một lần trên máy (nhớ `lv_ntf_seen`), nút "Đã biết" trên thông báo gọi ack.
+- C3: `GET /v1/events/<id>.ics` (`Service.event_calendar`, `ics.render_event`): RRULE cho lặp chuẩn, liệt kê từng lần cho âm lịch/ngày 29–31/29-2.
+- C4: `GET /v1/calendar/feed` + mục "Đồng bộ sang ứng dụng lịch khác" (chép địa chỉ; nói rõ điện thoại/Google Lịch không đọc được 127.0.0.1).
+- A11: HUONG_DAN (thông báo trên máy, cài app, đồng bộ lịch, FAQ), API.md, README, Hướng dẫn nhanh.
+- Test: `tests/test_pwa_ics.py` (PNG hợp lệ + CRC, cú pháp sw.js bằng node, tệp PWA không cần khóa, .ics từng việc, địa chỉ feed theo khóa).
+- Tiếp theo nên làm: C5–C7 (cài đặt cá nhân), D1 (ANDROID_PLAN), B7 (thêm câu test), E13.
+
