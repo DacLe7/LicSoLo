@@ -49,6 +49,14 @@ textarea::placeholder{color:var(--mut)}
 .saved{background:var(--okbg);color:var(--ok);border-radius:12px;padding:10px 14px;font-size:14.5px}
 .ai{font-size:12.5px;color:var(--mut);margin-top:10px}
 .actions{display:flex;gap:8px;margin-top:14px}
+.edit .fl{display:grid;gap:4px;font-size:13px;color:var(--mut);margin-top:10px}
+.edit input,.edit select{font:inherit;font-size:16px;color:var(--tx);background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:9px 12px;width:100%;min-width:0}
+.edit .erow{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.edit .ck{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:14.5px}
+.edit .ck input{width:18px;height:18px;margin:0}
+.edit .ai{margin:10px 0 0}
+.edit [hidden]{display:none!important}
+@media(max-width:480px){.edit .erow{grid-template-columns:1fr}}
 .btn{border:0;border-radius:12px;padding:10px 22px;font-family:inherit;font-weight:600;font-size:15px;cursor:pointer;background:var(--tx);color:var(--bg)}
 .btn.ghost{background:transparent;color:var(--mut);border:1px solid var(--line);font-weight:500}
 .btn:disabled{opacity:.5}
@@ -226,6 +234,54 @@ async function due(){
 }
 /* ---- hiểu câu + lưu ---- */
 function show(html,cls){const d=$('draft');d.className=html?(cls||'draft'):'';d.innerHTML=html;d.hidden=!html;}
+function showSaved(ev){
+  const far=(new Date(ev.start)-new Date())>7*864e5;
+  show('<div class="saved">'+(ev.duplicate?'Việc này đã có trong lịch, mình không lưu thêm.':'Đã lưu.')+(far?' Lần tới vào '+when(ev.start,ev.all_day)+', xa hơn 7 ngày nên chưa hiện trong danh sách bên dưới.':'')+'</div>','draft');
+  refresh();due();}
+/* ---- sửa bản nháp trước khi lưu: đi qua POST /events (cùng create() với Lưu, có kiểm tra trùng) ---- */
+const okDate=s=>{const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(s);if(!m)return false;const x=new Date(+m[1],+m[2]-1,+m[3]);return x.getMonth()===+m[2]-1&&x.getDate()===+m[3];};
+const REPOPT=[['','Không lặp'],['daily','Mỗi ngày'],['weekly','Mỗi tuần'],['monthly','Mỗi tháng']];
+function openEdit(d,back){
+  const lunar=!!d.lunar,st=d.start||'',dateV=st.slice(0,10),timeV=st.slice(11,16);
+  const opts=REPOPT.map(([v,l])=>'<option value="'+v+'"'+((d.repeat||'')===v?' selected':'')+'>'+l+'</option>').join('');
+  show('<form class="edit" id="ef" novalidate><div class="who">Sửa việc trước khi lưu</div>'
+    +'<label class="fl">Tên việc<input id="e_t" type="text" maxlength="200" value="'+esc(d.title)+'"></label>'
+    +'<div class="erow">'+(lunar?'':'<label class="fl">Ngày<input id="e_d" type="date" value="'+dateV+'"></label>')
+    +'<label class="fl" id="e_hw">Giờ<input id="e_h" type="time" value="'+timeV+'"></label></div>'
+    +'<label class="ck"><input id="e_all" type="checkbox"'+(d.all_day?' checked':'')+'> Cả ngày</label>'
+    +(lunar?'<p class="ai">Việc theo âm lịch giữ nguyên ngày âm, nên chỉ sửa được tên, giờ và nhắc trước.</p>'
+      :'<label class="fl">Lặp<select id="e_r">'+opts+'</select></label>')
+    +'<label class="fl">Nhắc trước (phút)<input id="e_m" type="number" min="0" max="10080" step="1" inputmode="numeric" value="'+(d.remind_before_min||'')+'"></label>'
+    +'<div class="note" id="e_err" hidden></div>'
+    +'<div class="actions"><button class="btn" type="submit">Lưu</button><button class="btn ghost" type="button" id="e_no">Hủy</button></div></form>');
+  const f=$('ef'),err=$('e_err'),all=$('e_all'),btn=f.querySelector('button[type=submit]');
+  const fail=m=>{err.textContent=m;err.hidden=false;};
+  all.onchange=()=>{$('e_hw').hidden=all.checked;};all.onchange();
+  $('e_no').onclick=back;
+  f.onkeydown=e=>{if(e.key==='Escape'){e.preventDefault();back();}};
+  f.onsubmit=async e=>{
+    e.preventDefault();err.hidden=true;
+    const title=$('e_t').value.trim();
+    if(!title)return fail('Tên việc không được để trống.');
+    const allDay=all.checked,date=lunar?dateV:$('e_d').value;
+    if(!okDate(date))return fail('Ngày chưa hợp lệ.');
+    const time=allDay?'00:00':$('e_h').value;
+    if(!/^\d{2}:\d{2}$/.test(time))return fail('Giờ chưa hợp lệ.');
+    const mv=$('e_m').value.trim();let mins=null;
+    if(mv!==''){mins=Number(mv);if(!Number.isInteger(mins)||mins<0||mins>10080)return fail('Nhắc trước phải là số phút từ 0 đến 10080.');}
+    const body={title,start:date+'T'+time+':00',all_day:allDay,duration_min:d.duration_min||null,
+      repeat:lunar?(d.repeat||null):($('e_r').value||null),remind_before_min:mins,lunar:d.lunar||null};
+    btn.disabled=true;
+    try{
+      const r=await fetch('/events',{method:'POST',body:JSON.stringify(body)});
+      const ev=await r.json();
+      if(!r.ok){btn.disabled=false;return fail(ev.error||'Chưa lưu được, bạn thử lại.');}
+      $('q').value='';grow();Voice.last=null;
+      showSaved(ev);
+    }catch(x){btn.disabled=false;fail('Chưa lưu được, bạn thử lại.');}
+  };
+  $('e_t').focus();
+}
 $('go').onclick=async()=>{
   const text=$('q').value.trim();if(!text)return;
   if(Voice.last&&text!==Voice.last){fetch('/stt/learn',{method:'POST',body:JSON.stringify({heard:Voice.last,fixed:text})}).catch(()=>{});Voice.last=null;}
@@ -244,18 +300,20 @@ $('go').onclick=async()=>{
     +(rep?'<div class="fact">'+ICO.rep+'<span>'+esc(rep)+'</span></div>':'')
     +(d.remind_before_min?'<div class="fact">'+ICO.bell+'<span>Nhắc trước '+d.remind_before_min+' phút</span></div>':'');
   const tags=(d.used_ai?'<span class="tag">AI hỗ trợ</span>':'')+(d.memory?'<span class="tag">theo cách nói đã nhớ</span>':'');
-  show('<div class="who">Trợ lý hiểu là</div><p class="dt">'+esc(d.title)+'</p><div class="facts">'+facts+'</div>'+(tags?'<div class="tags">'+tags+'</div>':'')+conf+warn+ainote
-    +'<div class="actions"><button class="btn" id="ok">Lưu</button><button class="btn ghost" id="no">Bỏ qua</button></div>');
+  const card='<div class="who">Trợ lý hiểu là</div><p class="dt">'+esc(d.title)+'</p><div class="facts">'+facts+'</div>'+(tags?'<div class="tags">'+tags+'</div>':'')+conf+warn+ainote
+    +'<div class="actions"><button class="btn" id="ok">Lưu</button><button class="btn ghost" id="edit">Sửa</button><button class="btn ghost" id="no">Bỏ qua</button></div>';
+  const bindCard=()=>{
   $('no').onclick=()=>show('');
+  $('edit').onclick=()=>openEdit(d,()=>{show(card);bindCard();});
   $('ok').onclick=async()=>{
     $('ok').disabled=true;
     const r2=await j('/parse',{method:'POST',body:JSON.stringify({text,save:true})});
     const ev=r2.event;
     if(!ev){show('<div class="note">Chưa lưu được, bạn thử lại.</div>');return;}
-    const far=(new Date(ev.start)-new Date())>7*864e5;
     $('q').value='';grow();Voice.last=null;
-    show('<div class="saved">'+(ev.duplicate?'Việc này đã có trong lịch, mình không lưu thêm.':'Đã lưu.')+(far?' Lần tới vào '+when(ev.start,ev.all_day)+', xa hơn 7 ngày nên chưa hiện trong danh sách bên dưới.':'')+'</div>','draft');
-    refresh();due();};
+    showSaved(ev);};
+  };
+  show(card);bindCard();
 };
 refresh();due();setInterval(due,30000);
 
