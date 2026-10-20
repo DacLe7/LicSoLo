@@ -131,7 +131,8 @@ details.more .ck{display:flex;align-items:center;gap:8px;margin:0 0 10px;font-si
 <div class="vstat" id="vstat" hidden role="status" aria-live="polite"><div class="vt" id="vtxt"></div><div class="pbar"><i id="vbar"></i></div></div>
 <section class="banner ntf" id="keybar" hidden aria-labelledby="keyh"><div class="x"><b id="keyh">Nhập khóa để mở lịch</b><br>Bạn đang mở app từ máy khác trong mạng. Chủ máy đã đặt khóa bảo vệ (LICHVIET_API_KEY), hãy nhập khóa đó. Trình duyệt này sẽ nhớ khóa, trên chính máy cài app thì không cần.<div id="keymsg" role="alert"></div></div>
 <form id="keyf" class="row"><input id="keyin" type="password" autocomplete="current-password" aria-label="Khóa của app" placeholder="Khóa của app"><button type="submit">Mở khóa</button></form></section>
-<div class="banner" id="net" hidden role="alert">⚠<div class="x" id="nettxt">Mất kết nối với app, đang thử lại… Nếu lâu không được, kiểm tra app trong Pi Desktop.</div></div>
+<div class="banner" id="net" hidden role="alert">⚠<div class="x" id="nettxt">Mất kết nối với app, đang thử lại… Nếu lâu không được, kiểm tra app trong Pi Desktop.</div><button type="button" id="netre">Thử lại</button></div>
+<div class="banner ntf" id="undo" hidden role="status"><div class="x" id="undotxt"></div><button type="button" id="undobtn">Hoàn tác</button></div>
 <section class="banner ntf" id="ntf" hidden aria-labelledby="ntfh"><div class="x"><b id="ntfh">Bật thông báo trên máy?</b><br>Tới giờ nhắc, máy sẽ hiện thông báo kể cả khi bạn đang mở cửa sổ khác. Trình duyệt sẽ hỏi bạn cho phép.</div>
 <button type="button" id="ntfok">Bật thông báo</button><button type="button" id="ntfno">Để sau</button></section>
 <div id="due"></div>
@@ -213,7 +214,8 @@ const j=async(u,o,ms)=>{
 /* Báo mất kết nối khi các lần tải nền (danh sách, nhắc việc) thất bại; tự ẩn khi nối lại được. */
 const NETMSG='Mất kết nối với app, đang thử lại… Nếu lâu không được, kiểm tra app trong Pi Desktop.';
 /* App vẫn chạy nhưng database lỗi thì /health trả 503 kèm lý do tiếng Việt: hiện đúng lý do đó thay vì câu chung chung. */
-const net=async ok=>{const b=$('net');if(!b)return;b.hidden=ok;if(ok){$('nettxt').textContent=NETMSG;return;}
+/* Nối lại được sau khi mất kết nối thì tự tải lại danh sách (refresh/due gọi net(true) lúc thanh đã ẩn nên không lặp). */
+const net=async ok=>{const b=$('net');if(!b)return;const was=!b.hidden;b.hidden=ok;if(ok){$('nettxt').textContent=NETMSG;if(was){refresh();due();}return;}
   let m=NETMSG;try{await j('/health',null,8000);}catch(e){const x=e.data;if(x&&!x.ok&&x.error)m='App đang gặp sự cố: '+String(x.error).replace(/\.?$/,'.')+' Sửa xong thì khởi động lại app trong Pi Desktop.';}
   if(!b.hidden)$('nettxt').textContent=m;};
 (async()=>{try{const x=await j('/info');$('ver').textContent='Lịch Việt phiên bản '+x.version;if(typeof x.events==='number')welcome(x.events);}catch(e){}})();
@@ -272,6 +274,7 @@ const Voice={rec:null,chunks:[],stream:null,on:false,timer:null,
     let st={};try{st=await j('/stt/status');}catch(e){toast(e.message);return;}
     if(!st.enabled){toast('Nhập bằng giọng nói chưa bật. Vào Config của app, chọn "Nhập bằng giọng nói" rồi lưu.');return;}
     if(!st.ready){toast('Giọng nói chưa sẵn sàng, bạn gõ tạm nhé. Tiến độ hiện ngay bên dưới.');VStat.show(st);VStat.poll();return;}
+    if(window.isSecureContext===false){toast(INSECURE);return;}
     if(!navigator.mediaDevices||!window.MediaRecorder){toast('Cửa sổ này không hỗ trợ ghi âm.');return;}
     try{this.stream=await navigator.mediaDevices.getUserMedia({audio:true});}
     catch(e){toast(e.name==='NotFoundError'?'Chưa thấy micro trên máy này.':'Chưa được cấp quyền micro.');return;}
@@ -380,8 +383,20 @@ async function refresh(){
   document.querySelectorAll('#list .del:not(.ed)').forEach(btn=>btn.onclick=async()=>{
     const e=ev.find(x=>x.id===+btn.dataset.id),name=e?e.title:'việc này';
     if(!await ask('Xóa “'+name+'”?',btn.dataset.rep?'Việc này lặp lại: xóa là xóa cả chuỗi, mọi lần tới đều mất.':'Xóa rồi thì không lấy lại được, trừ khi bạn có bản sao lưu.','Xóa'))return;
-    try{await j('/events/'+btn.dataset.id,{method:'DELETE'});toast('Đã xóa “'+name+'”.');}catch(x){toast('Chưa xóa được: '+x.message);}refresh();});
+    try{await j('/events/'+btn.dataset.id,{method:'DELETE'});if(e)Undo.offer(e);else toast('Đã xóa “'+name+'”.');}catch(x){toast('Chưa xóa được: '+x.message);}refresh();});
 }
+/* Sau khi xóa: thanh "Đã xóa … · Hoàn tác" trong 10 giây; Hoàn tác tạo lại việc từ bản sao giữ ở trang (id mới). */
+const undoBody=e=>{const b={title:e.title,start:e.start,all_day:!!e.all_day,repeat:e.repeat||null,
+  remind_before_min:e.remind_before_min,duration_min:e.duration_min,notes:e.notes||null};
+  if(e.lunar_day)b.lunar=[e.lunar_day,e.lunar_month];return b;};
+const Undo={ev:null,t:0,
+  offer(e){this.ev=e;$('undotxt').textContent='Đã xóa “'+e.title+'”.';$('undo').hidden=false;$('undobtn').disabled=false;
+    clearTimeout(this.t);this.t=setTimeout(()=>this.hide(),10000);},
+  hide(){this.ev=null;$('undo').hidden=true;},
+  async go(){const e=this.ev;if(!e)return;$('undobtn').disabled=true;
+    try{await j('/events',{method:'POST',body:JSON.stringify(undoBody(e))});this.hide();toast('Đã khôi phục “'+e.title+'”.');refresh();}
+    catch(x){$('undobtn').disabled=false;toast('Chưa khôi phục được: '+x.message);}}};
+$('undobtn').onclick=()=>Undo.go();
 /* hộp xác nhận trong trang (thay hộp confirm của trình duyệt): Esc, bấm ra ngoài hoặc Hủy = không; mặc định chọn Hủy cho an toàn */
 function ask(title,detail,okLabel){
   const d=$('ask');
@@ -507,6 +522,8 @@ $('go').onclick=async()=>{
   show(card);bindCard();
 };
 /* ---- thông báo hệ thống (tùy chọn): chỉ xin quyền khi người dùng bấm, nhắc hiện thành thông báo của máy ---- */
+/* Trang mở qua http bằng địa chỉ IP (không phải localhost) không phải "trang an toàn": trình duyệt tắt micro, thông báo, cài app. */
+const INSECURE='Bạn đang mở app qua địa chỉ mạng (http://…), không phải localhost, nên trình duyệt tắt micro, thông báo trên máy và cài app. Lịch và nhắc trong trang vẫn dùng bình thường. Muốn có đủ các tính năng này trên điện thoại, mở bằng localhost qua cáp USB (Hướng dẫn sử dụng, mục 8).';
 const store={get:k=>{try{return localStorage.getItem(k);}catch(e){return null;}},set:(k,v)=>{try{localStorage.setItem(k,v);}catch(e){}}};
 const Notif={reg:null,
   can(){return 'Notification' in window&&window.isSecureContext;},
@@ -522,7 +539,8 @@ const Notif={reg:null,
     $('ntf').hidden=st!=='default'||store.get('lv_ntf_later')==='1';
     $('ntfbtn').hidden=st!=='default';$('ntftest').hidden=st!=='granted';
     $('ntfst').textContent=st==='granted'?'Thông báo trên máy đang bật.':st==='denied'?'Trình duyệt đang chặn thông báo của app. Muốn bật lại, bấm biểu tượng ổ khóa cạnh địa chỉ trang, chọn cho phép Thông báo rồi tải lại trang.'
-      :st==='default'?'Thông báo trên máy chưa bật. Nhắc việc vẫn hiện ở đầu trang khi app đang mở.':'Cửa sổ này không hỗ trợ thông báo của máy. Nhắc việc vẫn hiện ở đầu trang.';},
+      :st==='default'?'Thông báo trên máy chưa bật. Nhắc việc vẫn hiện ở đầu trang khi app đang mở.':window.isSecureContext===false?INSECURE:'Cửa sổ này không hỗ trợ thông báo của máy. Nhắc việc vẫn hiện ở đầu trang.';
+    if(window.isSecureContext===false)$('instx').textContent='Cài app lên máy chỉ có khi mở bằng localhost (xem phần Thông báo ở trên).';},
   async ask(){
     try{await Notification.requestPermission();}catch(e){}
     this.ui();
@@ -544,6 +562,8 @@ const Notif={reg:null,
     if(!this.reg||!this.reg.getNotifications)return;
     try{(await this.reg.getNotifications({tag:'lv-'+k})).forEach(n=>n.close());}catch(e){}}};
 $('ntfok').onclick=$('ntfbtn').onclick=()=>Notif.ask();
+$('netre').onclick=()=>{$('nettxt').textContent='Đang thử kết nối lại…';refresh();due();};
+window.addEventListener('online',()=>{refresh();due();});
 $('ntfno').onclick=()=>{store.set('lv_ntf_later','1');Notif.ui();toast('Bạn có thể bật sau trong mục "Thông báo và cài app lên máy" ở cuối trang.');};
 $('ntftest').onclick=()=>Notif.show('Thử thông báo',{body:'Thông báo của trợ lý thời gian hiện như thế này.',tag:'lv-test',icon:'/icon-192.png',lang:'vi'});
 /* Cài app lên máy (PWA): Chrome/Edge báo có thể cài thì hiện nút. */

@@ -110,5 +110,5 @@ Nguyên tắc: chỉ thêm phần nhỏ, **tự bật**, an toàn; không bao gi
   `LICHVIET_API_KEY`: giao diện cũng phải nhập khóa (lưu trong trình duyệt), không tin `same-origin` nữa
   (`api.host_is_local`, ô nhập khóa trong trang, tải tệp sao lưu/.ics kèm khóa; `tests/test_remote_key.py`).
   Mở thêm địa chỉ mà chưa đặt khóa: log cảnh báo lúc khởi động.
-- [ ] Trong mục "Thông báo và cài app": khi trang không phải trang an toàn, giải thích vì sao micro/thông báo tắt
-  và trỏ tới cách 1/2 thay vì chỉ ẩn nút.
+- [x] Trong mục "Thông báo và cài app": khi trang không phải trang an toàn, giải thích vì sao micro/thông báo/cài app tắt
+  và trỏ tới Hướng dẫn mục 8 (cáp USB); bấm micro cũng báo cùng câu đó (`INSECURE` trong `ui.py`).

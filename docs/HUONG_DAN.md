@@ -77,7 +77,7 @@ App cũng tự sửa sẵn một số chữ hay bị nghe lệch theo giọng v�
 
 - Mục **Sắp tới** hiện các việc trong 7 ngày tới, chia theo ngày. Việc lặp có vạch màu riêng, việc âm lịch có màu khác.
 - Nút **bút chì**: sửa việc đã lưu. Việc âm lịch giữ nguyên ngày âm, chỉ sửa được tên, giờ và nhắc trước.
-- Nút **thùng rác**: xóa việc. App hỏi lại trong một hộp nhỏ (mặc định chọn *Hủy*; bấm *Esc* hoặc bấm ra ngoài cũng là hủy). Với việc lặp, xóa là xóa cả chuỗi.
+- Nút **thùng rác**: xóa việc. App hỏi lại trong một hộp nhỏ (mặc định chọn *Hủy*; bấm *Esc* hoặc bấm ra ngoài cũng là hủy). Với việc lặp, xóa là xóa cả chuỗi. Xóa nhầm? Ngay sau khi xóa có thanh **Đã xóa … · Hoàn tác** trong khoảng 10 giây: bấm *Hoàn tác* để lấy lại việc đó.
 - Nút **mũi tên tải xuống**: tải việc đó thành tệp `.ics`. Mở tệp (hoặc gửi sang điện thoại rồi mở) để thêm việc vào Lịch Google, Lịch iPhone, Outlook. Việc lặp mỗi ngày/tuần/tháng/năm được thêm thành chuỗi lặp; việc âm lịch được thêm 10 lần tới (ứng dụng lịch không hiểu âm lịch).
 - Việc lưu xa hơn 7 ngày không hiện trong Sắp tới, nhưng vẫn được nhắc đúng hẹn.
 
@@ -149,7 +149,7 @@ Lưu ý:
 Kiểm tra app đang chạy trong Pi Desktop. Nếu lúc cài bạn chọn cổng khác thì đổi số cuối địa chỉ. Nếu app vừa cài, chờ thêm vài giây rồi tải lại trang.
 
 **Trang báo "Mất kết nối với app, đang thử lại…"?**
-App đã dừng hoặc đang khởi động lại. Trang tự nối lại khi app chạy trở lại. Nếu lâu không được, khởi động lại app trong Pi Desktop. Nếu thanh báo ghi "App đang gặp sự cố: Không dùng được database…" thì app vẫn chạy nhưng không ghi được dữ liệu: làm theo lý do ghi trong câu (giải phóng ổ đĩa, sửa quyền thư mục) rồi khởi động lại app.
+App đã dừng hoặc đang khởi động lại. Trang tự nối lại và tải lại danh sách khi app chạy trở lại; muốn thử ngay thì bấm **Thử lại** trên thanh báo. Nếu lâu không được, khởi động lại app trong Pi Desktop. Nếu thanh báo ghi "App đang gặp sự cố: Không dùng được database…" thì app vẫn chạy nhưng không ghi được dữ liệu: làm theo lý do ghi trong câu (giải phóng ổ đĩa, sửa quyền thư mục) rồi khởi động lại app.
 
 **App không chạy, log báo "Không dùng được database…"?**
 Thư mục dữ liệu `./data` của app không ghi được (thiếu quyền, đầy ổ đĩa) hoặc tệp bị hỏng. Câu báo lỗi trong log nói rõ lý do. Giải phóng ổ đĩa hoặc sửa quyền thư mục rồi khởi động lại app.
@@ -159,6 +159,9 @@ Vào Config của app, chọn "Nhập bằng giọng nói" (hoặc "Cả giọng
 
 **Bấm micro báo "Chưa được cấp quyền micro"?**
 Bấm biểu tượng ổ khóa cạnh thanh địa chỉ trình duyệt, cho phép micro rồi tải lại trang.
+
+**Mở app bằng địa chỉ `http://192.168…` thì micro, thông báo, cài app đều tắt?**
+Đúng vậy: trình duyệt chỉ cho các tính năng này trên trang `localhost` hoặc `https://`. App sẽ báo rõ khi bạn bấm micro và trong mục *Thông báo và cài app lên máy*. Gõ câu, xem lịch và nhắc trong trang vẫn dùng được. Muốn đủ tính năng trên điện thoại, dùng cáp USB theo mục 8.
 
 **App không hiểu câu của tôi?**
 App báo còn thiếu "việc cần làm" hoặc "ngày giờ". Nói rõ hơn, ví dụ "họp 3h chiều mai". Bật Trợ lý AI trong Config sẽ giúp hiểu những câu khó hơn.

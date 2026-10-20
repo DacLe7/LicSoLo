@@ -6,7 +6,7 @@ Chạy test: `python -m unittest discover -s tests`.
 ## Hiện trạng (khảo sát lần đầu, 2026-10-21)
 
 - Python thuần (stdlib), SQLite, giao diện một trang trong `lichviet/ui.py`, API trong `lichviet/api.py`.
-- 93 test xanh lúc bắt đầu (lần 2: 117 test; lần 3: 133 test; lần 4: 139 test; lần 5: 162 test; lần 6: 168 test; lần 7: 181 test; lần 8: 197 test; lần 9: 218 test; lần 10: 231 test; lần 11: 236 test).
+- 93 test xanh lúc bắt đầu (lần 2: 117 test; lần 3: 133 test; lần 4: 139 test; lần 5: 162 test; lần 6: 168 test; lần 7: 181 test; lần 8: 197 test; lần 9: 218 test; lần 10: 231 test; lần 11: 236 test; lần 12: 243 test).
 - Phát hiện:
   - README ghi "không đặt khóa thì các endpoint mới trả 503" nhưng code (và test `test_no_key_configured_means_open`) mở hết. README sai.
   - `solohost/README.md` ghi image 0.5.1 trong khi compose ghim 0.5.2.
@@ -64,7 +64,7 @@ Chạy test: `python -m unittest discover -s tests`.
 - [x] D1. `docs/ANDROID_PLAN.md`: USB + `adb reverse` (khuyến nghị demo), Tailscale + HTTPS, LAN HTTP (không khuyến nghị), PWA, mô hình nhỏ trên máy; bảng so sánh, đánh đổi riêng tư.
 - [x] D2. (lần 11) Hướng dẫn từng bước `adb reverse` trong HUONG_DAN (bật gỡ lỗi USB, platform-tools, lệnh) — không đổi mặc định 127.0.0.1.
 - [x] D3. Truy cập qua host trong `LICHVIET_ALLOWED_HOSTS` khi đã đặt `LICHVIET_API_KEY`: giao diện phải nhập khóa (không tin same-origin), có test.
-- [ ] D4. Trang không phải trang an toàn (http qua IP): mục Thông báo giải thích vì sao micro/thông báo/cài app tắt, trỏ tới ANDROID_PLAN.
+- [x] D4. Trang không phải trang an toàn (http qua IP): mục Thông báo giải thích vì sao micro/thông báo/cài app tắt, trỏ tới ANDROID_PLAN.
 - [x] D5. Test khóa mặc định: compose chỉ mở 127.0.0.1, `serve()`/`LICHVIET_HOST` mặc định 127.0.0.1 (`tests/test_android_plan.py`).
 
 ### E. Chất lượng, trợ năng, giao diện di động, hiệu năng
@@ -95,10 +95,13 @@ Chạy test: `python -m unittest discover -s tests`.
 - [ ] B23. "2h đêm mai" = 2h ngày mai (theo lịch) hay đêm nay rạng sáng mai? Đang lấy 2h ngày 22; cân nhắc cảnh báo khi giờ đêm 0–4h đi với "mai/nay".
 - [ ] D6. Service worker không gửi được khóa khi mở từ máy khác: nút "Đã biết" trên thông báo nhờ trang đang mở gửi ack (đã làm); nếu không có trang nào mở thì ack bị bỏ — chấp nhận, ghi trong ANDROID_PLAN.
 - [ ] E16. Hộp `ask()` dùng lại cho các thao tác khác cần hỏi: xóa cụm từ đã học, khôi phục sao lưu (ghi đè/gộp), tắt thông báo.
-- [ ] E17. Sau khi xóa: thanh "Đã xóa … · Hoàn tác" trong vài giây (giữ bản sao việc vừa xóa ở trang, tạo lại bằng POST nếu bấm Hoàn tác).
+- [x] E17. Sau khi xóa: thanh "Đã xóa … · Hoàn tác" trong vài giây (giữ bản sao việc vừa xóa ở trang, tạo lại bằng POST nếu bấm Hoàn tác).
 - [ ] C13. Cài đặt cá nhân: ô "Nhắc trước mặc định" thêm "2 ngày"/"1 tuần" cho khớp form Sửa.
 - [ ] D7. HUONG_DAN mục 8: thêm ảnh chụp/sơ đồ chữ đơn giản (không ảnh nhị phân lớn) và mục "Không thấy thiết bị trong adb devices" (cáp chỉ sạc, trình điều khiển USB trên Windows).
-- [ ] E10. Nút "Thử lại" trên thanh mất kết nối; tự tải lại danh sách khi nối lại được.
+- [x] E10. Nút "Thử lại" trên thanh mất kết nối; tự tải lại danh sách khi nối lại được.
+- [ ] E18. Hoàn tác xóa tạo việc mới (id mới) nên mất các lần nhắc đã "Đã biết" và thiết bị đồng bộ thấy xóa + thêm; cân nhắc xóa mềm (cột `deleted`) để khôi phục giữ id.
+- [ ] E19. Thanh Hoàn tác: chỉ giữ việc xóa gần nhất; xóa liên tiếp hai việc thì việc đầu không hoàn tác được nữa — cân nhắc hàng đợi nhỏ.
+- [ ] D8. Trang không an toàn: ẩn hẳn nút micro (hoặc làm mờ kèm chú thích) thay vì chỉ báo khi bấm.
 
 ## Nhật ký
 
@@ -234,3 +237,12 @@ Chạy test: `python -m unittest discover -s tests`.
   mở `localhost`, gỡ chuyển cổng); FAQ trỏ về mục 8. Mục FAQ thành mục 9.
 - Test: `tests/test_confirm_remind.py` (4, có chạy `remOpts` bằng node), `test_android_plan` thêm kiểm tra mục hướng dẫn adb.
 - Tiếp theo nên làm: D4, E16/E17, B7 (thêm ~40 câu), E1/E2.
+
+### Lần 12 — 2026-10-21
+- D4: hằng `INSECURE` trong `ui.py`: khi `window.isSecureContext===false` (mở qua http://IP) mục "Thông báo và cài app" giải thích vì sao
+  micro/thông báo/cài app tắt và trỏ tới Hướng dẫn mục 8; bấm micro báo cùng câu. HUONG_DAN thêm câu hỏi thường gặp; ANDROID_PLAN đánh dấu xong.
+- E10: thanh mất kết nối có nút "Thử lại"; `net(true)` khi thanh đang hiện thì tự `refresh()` + `due()`; sự kiện `online` cũng tải lại.
+- E17: xóa xong hiện thanh "Đã xóa … · Hoàn tác" 10 giây (`Undo`, `undoBody`); Hoàn tác POST lại việc từ bản sao trong trang
+  (giữ lặp, âm lịch, nhắc trước, ghi chú, thời lượng). Việc mới có id mới (xem E18).
+- Test: `tests/test_undo_net.py` (7; chạy `undoBody` bằng node trên việc thật lấy từ `/v1/events`, xóa rồi tạo lại, so từng trường).
+- Tiếp theo nên làm: E16, B7 (thêm ~40 câu), E1/E2, C13.
