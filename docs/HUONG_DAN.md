@@ -119,7 +119,7 @@ Cài đặt nằm trong tệp sao lưu. Khôi phục vào app mới cài thì l�
 
 1. Mở mục **Sao lưu và cụm từ đã học** ở cuối trang.
 2. Bấm **Tải bản sao lưu**: trình duyệt tải về tệp `lichviet-saoluu.json`. Cất tệp này ở nơi an toàn.
-3. Khôi phục: bấm **Khôi phục từ tệp** và chọn tệp sao lưu. Mới cài lại app (chưa có việc nào) thì màn hình chào có sẵn nút **Khôi phục từ tệp**, bấm là mở thẳng hộp chọn tệp.
+3. Khôi phục: bấm **Khôi phục từ tệp** và chọn tệp sao lưu. Mới cài lại app (chưa có việc nào) thì màn hình chào có sẵn nút **Khôi phục từ tệp**, bấm là mở thẳng hộp chọn tệp. Chọn tệp xong, app hỏi lại một lần (nêu tên tệp) rồi mới nhập; bấm **Hủy** nếu chọn nhầm tệp.
 
 Tệp sao lưu gồm các việc, cụm từ đã học và Cài đặt cá nhân.
 

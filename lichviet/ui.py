@@ -583,8 +583,14 @@ refresh();due();setInterval(due,30000);
 async function phr(){
   let l;try{l=await j('/phrases');}catch(e){$('phl').innerHTML='<p>'+esc(e.message)+'</p>';return;}
   $('phl').innerHTML=l.length?l.map(x=>'<div class="ph"><div class="x"><b>'+esc(x.src)+'</b> → '+esc(x.dst)+'<br><small>xác nhận '+x.hits+' lần, đã dùng '+x.uses+' lần'+(x.hits>=2?'':' (chưa đủ để áp dụng)')+'</small></div><button class="del" title="Quên cụm này" aria-label="Quên" data-s="'+esc(x.src)+'">'+ICO.x+'</button></div>').join(''):'<p>Chưa có cụm nào.</p>';
-  document.querySelectorAll('#phl .del').forEach(b=>b.onclick=async()=>{try{await j('/phrases/'+encodeURIComponent(b.dataset.s),{method:'DELETE'});}catch(e){toast(e.message);}phr();});
+  document.querySelectorAll('#phl .del').forEach(b=>b.onclick=async()=>{
+    const x=l.find(y=>y.src===b.dataset.s);
+    if(!await ask('Quên cụm “'+b.dataset.s+'”?',x?forgetText(x):'','Quên'))return;
+    try{await j('/phrases/'+encodeURIComponent(b.dataset.s),{method:'DELETE'});}catch(e){toast(e.message);}phr();});
 }
+/* lời giải thích trong hộp hỏi trước khi quên cụm từ / nhập sao lưu */
+const forgetText=x=>'App sẽ thôi tự hiểu “'+x.src+'” là “'+x.dst+'”. Lần sau gặp cụm này, app hỏi AI lại như lần đầu.';
+const RESTORE_NOTE='Việc trong tệp được thêm vào lịch đang có, việc trùng thì bỏ qua; không việc nào bị xóa. Cài đặt cá nhân đã đặt trên máy này được giữ nguyên.';
 /* Màn hình chào: người cài lại app mở thẳng mục Sao lưu và chọn tệp. */
 $('wrs').onclick=()=>{const m=$('more');m.open=true;m.scrollIntoView({behavior:'smooth',block:'start'});$('rs').click();};
 $('more').addEventListener('toggle',()=>{if($('more').open)phr();});
@@ -602,6 +608,7 @@ $('feedcp').onclick=async()=>{
 };
 $('rs').onchange=async e=>{
   const f=e.target.files[0];if(!f)return;
+  if(!await ask('Nhập bản sao lưu “'+f.name+'”?',RESTORE_NOTE,'Nhập')){e.target.value='';return;}
   try{const r=await fetch('/import',{method:'POST',headers:KEY.h(),body:await f.text()});const x=await r.json();
     $('bkmsg').textContent=r.ok?('Đã nhập '+x.added+' việc, bỏ qua '+x.skipped+' việc trùng, '+x.phrases+' cụm từ.'):(x.error||'Không nhập được');
     if(r.ok&&x.added)welcome(1);
