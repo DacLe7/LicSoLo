@@ -163,4 +163,4 @@ Chạy test: `python -m unittest discover -s tests`.
   đúng chữ "chiều/tối/sáng…"); "sau 2 giờ chiều" bị hiểu thành 2 tiếng nữa.
 - Tài liệu: bảng kiểu câu HUONG_DAN và Hướng dẫn nhanh thêm khoảng giờ, nửa đêm, tháng tới, số chữ (test khóa câu ví dụ đã chạy qua).
 - Test: `tests/test_parser_phrases.py` (14 test, bảng câu theo nhóm).
-- Lưu ý: heredoc trong Bash vẫn làm hỏng `` kể cả trong chuỗi Python thường; sửa regex chỉ dùng Edit.
+- Lưu ý: heredoc trong Bash vẫn làm hỏng `(gạch ngược + b)` kể cả trong chuỗi Python thường; sửa regex chỉ dùng Edit.
