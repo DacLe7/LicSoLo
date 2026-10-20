@@ -4,6 +4,8 @@
 Chỉ đổi khi ngữ cảnh chắc chắn là một con số: đứng trước giờ/phút/tháng/ngày/h hoặc đứng sau ngày/tháng/mùng/mồng/giờ.
 Vì vậy "thứ ba", "thứ năm", "năm sau", "ngày mốt", "ba mẹ" được giữ nguyên.
 """
+import re
+
 from .parser import fold
 
 _UNIT = {"mot": 1, "hai": 2, "ba": 3, "bon": 4, "nam": 5, "sau": 6, "bay": 7, "tam": 8, "chin": 9}
@@ -49,6 +51,20 @@ def _punct(t: str) -> str:
     return t[len(t.rstrip(_TAIL)):]
 
 
+def _is_hour(f: str) -> bool:
+    """Từ (đã bỏ dấu) đứng ngay trước buổi trong ngày khi nói giờ: "giờ", "rưỡi", "3", "3h", "15h30".
+    Không tính số đọc bằng chữ để "chín chưa" (xoài chín chưa) không thành "chín trưa"."""
+    return (f in ("gio", "h", "ruoi", "kem")
+            or re.fullmatch(r"\d{1,2}(h|g|gio)?(\d{2})?", f) is not None)
+
+
+# Từ nghe lệch theo vùng miền -> từ đúng, chỉ áp dụng khi từ đứng cạnh khớp điều kiện (xem dialect_fix).
+_HOUR_WORDS = {"dờ", "dzờ", "giừ", "dừ", "rờ", "zờ"}          # "giờ" đọc theo giọng Nam/Trung
+_DAY_AFTER = {"nay", "mai", "qua", "kia", "mot", "sau", "toi", "sang", "chieu", "trua", "dem"}
+_PERIOD_WORDS = {"sáng": {"xáng"}, "chiều": {"triều", "chìu"}, "trưa": {"chưa", "chua"}, "tối": {"tói", "tồi"}}
+_PERIOD_FIX = {v: k for k, vs in _PERIOD_WORDS.items() for v in vs}
+
+
 def dialect_fix(text: str) -> str:
     """Sửa các chỗ nghe lệch do giọng địa phương, chỉ khi ngữ cảnh gần như chắc chắn.
     Không sửa mù các từ thật (nêm, nem, chưa, tấm...): luôn dựa vào từ đứng cạnh (giờ, mươi, ngày...)."""
@@ -68,6 +84,35 @@ def dialect_fix(text: str) -> str:
             out.append("sáu" + p)
         elif nf == "gio" and f == "trin":
             out.append("chín" + p)
+        # "ba dờ chiều", "mười dzờ" -> "giờ" (chỉ khi ngay trước là một con số)
+        elif raw in _HOUR_WORDS and (pf in _UNIT or pf in ("muoi", "ruoi") or pf.isdigit()):
+            out.append("giờ" + p)
+        # tr/ch, s/x, hỏi/ngã ở buổi trong ngày: "3 giờ triều mai", "12 giờ chưa", "7 giờ xáng" (chỉ sau giờ)
+        elif raw in _PERIOD_FIX and _is_hour(pf):
+            out.append(_PERIOD_FIX[raw] + p)
+        elif raw in ("triều", "chìu", "xáng") and nf in ("mai", "nay", "qua", "mot", "kia"):
+            out.append(_PERIOD_FIX[raw] + p)
+        # "rưởi/rưới" -> "rưỡi" sau giờ; "30 phút nửa" -> "nữa"; "tuần xau" -> "tuần sau"
+        elif raw in ("rưởi", "rưới", "rửi", "rưỡi") and _is_hour(pf):
+            out.append("rưỡi" + p)
+        elif raw in ("nửa", "nưa", "lữa", "lửa") and pf in ("phut", "tieng", "ngay", "hom", "tuan", "thang") and nf != "dem":
+            out.append("nữa" + p)
+        elif raw == "xau" and pf in ("tuan", "thang", "nam", "hom", "bua", "ngay"):
+            out.append("sau" + p)
+        # "mõi/mổi/mội ngày" -> "mỗi"; "bửa nay" -> "bữa"; "chủ nhựt" -> "chủ nhật"; "giổ" -> "giỗ"
+        elif raw in ("mõi", "mổi", "mội") and nf in ("ngay", "tuan", "thang", "nam", "sang", "toi", "chieu", "trua", "dem"):
+            out.append("mỗi" + p)
+        elif raw in ("bửa", "bựa") and nf in _DAY_AFTER | {"hom", "kia", "truoc"}:
+            out.append("bữa" + p)
+        elif raw == "nhựt" and pf == "chu":
+            out.append("nhật" + p)
+        elif raw in ("giổ", "giộ"):   # không đụng "dỗ" (dỗ em ngủ) vì là từ thật
+            out.append(("Giỗ" if t[:1].isupper() else "giỗ") + p)
+        # l/n: "tối nai", "hôm lay" -> "nay"; "lăm sau" (= năm sau) ở cuối cụm thời gian
+        elif raw in ("nai", "lay") and pf in ("toi", "sang", "chieu", "trua", "dem", "hom", "bua", "tuan", "thang", "nam"):
+            out.append("nay" + p)
+        elif raw == "lăm" and nf in ("sau", "ngoai", "toi") and pf in ("", "cuoi", "dau", "giua", "trong"):
+            out.append("năm" + p)
         # "hăm" = hai mươi (hăm lăm, hăm mốt), "nhăm" = lăm sau hàng chục
         elif raw == "hăm" and (nf in _AFTER_TENS or nf in _NEXT_OK or pf in _PREV_OK):
             out.extend(["hai", "mươi" + p])

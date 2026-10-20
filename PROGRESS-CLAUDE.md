@@ -6,7 +6,7 @@ Chạy test: `python -m unittest discover -s tests`.
 ## Hiện trạng (khảo sát lần đầu, 2026-10-21)
 
 - Python thuần (stdlib), SQLite, giao diện một trang trong `lichviet/ui.py`, API trong `lichviet/api.py`.
-- 93 test xanh lúc bắt đầu (lần 2: 117 test; lần 3: 133 test; lần 4: 139 test; lần 5: 162 test).
+- 93 test xanh lúc bắt đầu (lần 2: 117 test; lần 3: 133 test; lần 4: 139 test; lần 5: 162 test; lần 6: 168 test).
 - Phát hiện:
   - README ghi "không đặt khóa thì các endpoint mới trả 503" nhưng code (và test `test_no_key_configured_means_open`) mở hết. README sai.
   - `solohost/README.md` ghi image 0.5.1 trong khi compose ghim 0.5.2.
@@ -29,8 +29,8 @@ Chạy test: `python -m unittest discover -s tests`.
 - [x] A9. Lỗi không mở được database (`/data` không ghi được) báo rõ bằng tiếng Việt trong log, thoát có mã lỗi.
 - [x] A10. Trợ giúp trong app: mục "Hướng dẫn nhanh" gấp/mở, liệt kê các kiểu câu hiểu được.
 - [ ] A11. Khi làm xong C1/C2: cập nhật `docs/HUONG_DAN.md` (thông báo hệ thống, cài PWA; FAQ sinh nhật đã xong ở lần 5) và mục Hướng dẫn nhanh; test đã khóa câu ví dụ nên thêm câu mới vào bảng là được kiểm tra luôn.
-- [ ] A12. Màn hình chào: thêm một dòng "Tải bản sao lưu cũ? Khôi phục từ tệp" cho người cài lại app (mở thẳng mục Sao lưu).
-- [ ] A13. Trang báo "đang khởi động" khi `/health` trả 503 (database lỗi): hiện câu lỗi tiếng Việt từ `/health` trong thanh mất kết nối thay vì câu chung chung.
+- [x] A12. Màn hình chào: thêm một dòng "Tải bản sao lưu cũ? Khôi phục từ tệp" cho người cài lại app (mở thẳng mục Sao lưu).
+- [x] A13. Trang báo "đang khởi động" khi `/health` trả 503 (database lỗi): hiện câu lỗi tiếng Việt từ `/health` trong thanh mất kết nối thay vì câu chung chung.
 
 ### B. Sửa giới hạn đã biết
 - [x] B1. Ngày tương đối đã qua: "hôm kia", "bữa hổm/bữa hôm/hôm bữa", "N ngày trước", "tuần trước", "thứ X tuần trước".
@@ -38,7 +38,7 @@ Chạy test: `python -m unittest discover -s tests`.
 - [x] B3. "sinh nhật", "kỷ niệm ngày cưới" có ngày mà không nói lặp: mặc định lặp hằng năm (có cảnh báo để người dùng biết).
 - [x] B4. Cảnh báo trùng giờ ngay trong form Sửa (endpoint kiểm tra trùng, gọi khi đổi ngày/giờ).
 - [x] B5. Sửa việc đã lưu: `PATCH /v1/events/<id>`, nút Sửa trên từng việc trong danh sách.
-- [ ] B6. Thêm luật sửa lỗi nghe theo vùng miền (l/n, tr/ch, s/x, dấu hỏi/ngã, "dzờ", "giờ" đọc "dờ"...), có test.
+- [x] B6. Thêm luật sửa lỗi nghe theo vùng miền (l/n, tr/ch, s/x, dấu hỏi/ngã, "dzờ", "giờ" đọc "dờ"...), có test.
 - [ ] B7. Thêm nhiều câu test bộ phân tích (mục tiêu ≥150 câu, phân nhóm theo hiện tượng).
 - [ ] B8. "rưỡi" sau số chữ, "kém" trong nhiều dạng, "trưa mai", "sáng sớm", "nửa đêm".
 - [ ] B9. Khoảng giờ "từ 2h đến 4h chiều" → giờ bắt đầu + thời lượng.
@@ -76,6 +76,9 @@ Chạy test: `python -m unittest discover -s tests`.
 - [ ] E15. Kiểm tra trùng giờ chỉ xét một lần của việc đang sửa: việc lặp (mỗi ngày 9h) nên xét vài lần tới, báo "trùng vào thứ Hai 26/10".
 - [ ] B13. "sinh nhật" kèm thứ/ngày tương đối ("sinh nhật mẹ thứ bảy này") hiện không tự lặp (đúng, vì không rõ ngày cố định); cân nhắc hỏi lại.
 - [ ] B14. "ngày 20/11 hằng năm" không có tên việc: hỏi lại tên (đang trả need_info), thêm câu gợi ý cụ thể.
+- [ ] B15. Luật vùng miền (`speech.dialect_fix`) chỉ chạy cho chữ từ giọng nói; cân nhắc áp một phần an toàn cho câu gõ tay ("chủ nhựt", "tuần xau", "mơi").
+- [ ] B16. "tháng giêng", "tháng chạp" (âm lịch) đổi thành tháng 1/12 trong `digits_from_words` và bộ hiểu câu gõ tay.
+- [ ] B17. "bữa nay" sau khi sửa "bửa nay" chưa đi qua luật "bữa nay → hôm nay" (luật dựa trên từ gốc); kiểm tra bộ hiểu câu có hiểu "bữa nay" ở mọi vị trí.
 - [ ] E10. Nút "Thử lại" trên thanh mất kết nối; tự tải lại danh sách khi nối lại được.
 
 ## Nhật ký
@@ -133,3 +136,14 @@ Chạy test: `python -m unittest discover -s tests`.
 - Tài liệu: HUONG_DAN (bảng kiểu câu + FAQ sinh nhật), Hướng dẫn nhanh trong app, API.md (giá trị `repeat`, endpoint mới).
 - Test: `tests/test_yearly_conflicts.py` (23 test).
 - Lưu ý: chuỗi `\b` trong heredoc Python vẫn bị đổi thành ký tự backspace; dùng Edit hoặc tệp script riêng.
+
+### Lần 6 — 2026-10-21
+- A12: màn hình chào có dòng "Cài lại app và có bản sao lưu cũ? Khôi phục từ tệp": mở mục Sao lưu, cuộn tới và mở hộp chọn tệp.
+- A13: thanh mất kết nối gọi `/health` (qua `j()`, hạn 8 giây); có lý do 503 thì hiện "App đang gặp sự cố: <lý do>. Sửa xong thì khởi động lại…",
+  nối lại được thì trả câu mặc định. `net()` giờ là hàm async, gọi không cần await.
+- B6: `speech.dialect_fix` thêm luật theo ngữ cảnh: "dờ/dzờ/giừ/dừ/rờ" sau số → giờ; "triều/chìu" → chiều, "chưa" → trưa, "xáng" → sáng,
+  "tói/tồi" → tối (chỉ ngay sau giờ dạng "giờ/h/3h/15h30/rưỡi/kém" hoặc trước mai/nay/qua); "rưởi/rưới" → rưỡi; "nửa/lữa" → nữa sau
+  phút/tiếng/ngày/tuần (không đụng "nửa đêm"); "tuần xau"; "mõi ngày"; "bửa nay"; "chủ nhựt"; "giổ"; "tối nai/hôm lay"; "lăm sau" đầu câu.
+  Cố ý không tính số đọc bằng chữ là "giờ" để "xoài chín chưa", "ba chưa về" giữ nguyên; không sửa "dỗ" (từ thật).
+- Tài liệu: HUONG_DAN (luật vùng miền, nút khôi phục ở màn hình chào, FAQ lỗi database trên thanh báo).
+- Test: `tests/test_dialect_restore.py` (6 test, gồm danh sách từ thật phải giữ nguyên và đi hết đường giọng nói → bộ hiểu câu).

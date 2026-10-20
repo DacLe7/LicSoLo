@@ -96,6 +96,7 @@ details.more p{color:var(--mut);font-size:13px;margin:0 0 10px}
 details.more ul{margin:0 0 14px;padding-left:20px;font-size:14px}details.more li{margin:3px 0}details.more h3{font-size:14px;margin:12px 0 4px}
 .welcome{margin-top:18px;background:var(--accsoft);border:1px solid var(--line);border-radius:20px;padding:16px 18px}
 .welcome h2{font-size:17px;margin:0 0 6px}.welcome p{margin:0 0 10px;font-size:14px}
+.welcome .wrs{margin:12px 0 0;font-size:13px;color:var(--mut)}.lnk{background:none;border:0;padding:4px 2px;font:inherit;color:var(--acc);text-decoration:underline;cursor:pointer;min-height:32px}
 .welcome .tries{display:flex;flex-wrap:wrap;gap:8px}.welcome .chip{background:var(--card)}
 .ph{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line);font-size:14px}
 .ph .x{flex:1;min-width:0;overflow-wrap:anywhere}.ph small{color:var(--mut)}
@@ -113,12 +114,13 @@ details.more ul{margin:0 0 14px;padding-left:20px;font-size:14px}details.more li
 <div class="chips" id="chips"></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <div class="vstat" id="vstat" hidden role="status" aria-live="polite"><div class="vt" id="vtxt"></div><div class="pbar"><i id="vbar"></i></div></div>
-<div class="banner" id="net" hidden role="alert">⚠<div class="x">Mất kết nối với app, đang thử lại… Nếu lâu không được, kiểm tra app trong Pi Desktop.</div></div>
+<div class="banner" id="net" hidden role="alert">⚠<div class="x" id="nettxt">Mất kết nối với app, đang thử lại… Nếu lâu không được, kiểm tra app trong Pi Desktop.</div></div>
 <div id="due"></div>
 <div id="draft" hidden></div>
 <section class="welcome" id="welcome" hidden aria-labelledby="wh"><h2 id="wh">Chào bạn, mình là trợ lý thời gian</h2>
 <p>Bạn cứ gõ hoặc nói việc cần nhớ như nói với người nhà, có ngày giờ là được. Mình hiểu cả âm lịch và sẽ nhắc khi tới giờ. Mình luôn hỏi lại trước khi lưu.</p>
-<p>Bấm thử một câu dưới đây:</p><div class="tries" id="tries"></div></section>
+<p>Bấm thử một câu dưới đây:</p><div class="tries" id="tries"></div>
+<p class="wrs">Cài lại app và có bản sao lưu cũ? <button class="lnk" id="wrs" type="button">Khôi phục từ tệp</button></p></section>
 <div class="sec"><h2>Sắp tới</h2><span>7 ngày</span></div>
 <div id="list"></div>
 <details class="more" id="help"><summary>Hướng dẫn nhanh</summary>
@@ -156,7 +158,11 @@ const j=async(u,o,ms)=>{
   if(!r.ok||x===null){const er=new Error((x&&x.error)?x.error.charAt(0).toUpperCase()+x.error.slice(1):r.status>=500?'App gặp lỗi bên trong, bạn thử lại sau ít phút.':r.status===401?'App đang bật khóa API, giao diện chưa được cấp quyền.':'Yêu cầu chưa hợp lệ (mã '+r.status+').');er.status=r.status;er.data=x;throw er;}
   return x;};
 /* Báo mất kết nối khi các lần tải nền (danh sách, nhắc việc) thất bại; tự ẩn khi nối lại được. */
-const net=ok=>{const b=$('net');if(b)b.hidden=ok;};
+const NETMSG='Mất kết nối với app, đang thử lại… Nếu lâu không được, kiểm tra app trong Pi Desktop.';
+/* App vẫn chạy nhưng database lỗi thì /health trả 503 kèm lý do tiếng Việt: hiện đúng lý do đó thay vì câu chung chung. */
+const net=async ok=>{const b=$('net');if(!b)return;b.hidden=ok;if(ok){$('nettxt').textContent=NETMSG;return;}
+  let m=NETMSG;try{await j('/health',null,8000);}catch(e){const x=e.data;if(x&&!x.ok&&x.error)m='App đang gặp sự cố: '+String(x.error).replace(/\.?$/,'.')+' Sửa xong thì khởi động lại app trong Pi Desktop.';}
+  if(!b.hidden)$('nettxt').textContent=m;};
 (async()=>{try{const x=await j('/info');$('ver').textContent='Lịch Việt phiên bản '+x.version;if(typeof x.events==='number')welcome(x.events);}catch(e){}})();
 const p=n=>String(n).padStart(2,'0');
 const WD=['Chủ nhật','Thứ hai','Thứ ba','Thứ tư','Thứ năm','Thứ sáu','Thứ bảy'];
@@ -412,6 +418,8 @@ async function phr(){
   $('phl').innerHTML=l.length?l.map(x=>'<div class="ph"><div class="x"><b>'+esc(x.src)+'</b> → '+esc(x.dst)+'<br><small>xác nhận '+x.hits+' lần, đã dùng '+x.uses+' lần'+(x.hits>=2?'':' (chưa đủ để áp dụng)')+'</small></div><button class="del" title="Quên cụm này" aria-label="Quên" data-s="'+esc(x.src)+'">'+ICO.x+'</button></div>').join(''):'<p>Chưa có cụm nào.</p>';
   document.querySelectorAll('#phl .del').forEach(b=>b.onclick=async()=>{try{await j('/phrases/'+encodeURIComponent(b.dataset.s),{method:'DELETE'});}catch(e){toast(e.message);}phr();});
 }
+/* Màn hình chào: người cài lại app mở thẳng mục Sao lưu và chọn tệp. */
+$('wrs').onclick=()=>{const m=$('more');m.open=true;m.scrollIntoView({behavior:'smooth',block:'start'});$('rs').click();};
 $('more').addEventListener('toggle',()=>{if($('more').open)phr();});
 $('rs').onchange=async e=>{
   const f=e.target.files[0];if(!f)return;

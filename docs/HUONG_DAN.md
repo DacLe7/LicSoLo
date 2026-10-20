@@ -68,6 +68,8 @@ Lần đầu sau khi bật, app tải mô hình giọng nói (khoảng 1,6 GB). 
 
 Nếu máy nghe sai một chữ, bạn sửa chữ đó trong ô rồi bấm mũi tên. App ghi nhớ cặp "nghe sai → sửa đúng"; khi bạn sửa cùng một lỗi đủ 2 lần, các lần sau app tự sửa.
 
+App cũng tự sửa sẵn một số chữ hay bị nghe lệch theo giọng vùng miền, nhưng chỉ khi đứng cạnh giờ hoặc ngày nên không đụng tới từ thật: "ba dờ triều mai" thành "3 giờ chiều mai", "12 giờ chưa" thành "12 giờ trưa", "6 giờ xáng", "4 giờ rưởi", "30 phút nửa" (nữa), "tuần xau", "tối nai", "mõi ngày", "chủ nhựt", "giổ ông".
+
 ## 5. Xem, sửa, xóa việc
 
 - Mục **Sắp tới** hiện các việc trong 7 ngày tới, chia theo ngày. Việc lặp có vạch màu riêng, việc âm lịch có màu khác.
@@ -88,7 +90,7 @@ Nếu máy nghe sai một chữ, bạn sửa chữ đó trong ô rồi bấm mũ
 
 1. Mở mục **Sao lưu và cụm từ đã học** ở cuối trang.
 2. Bấm **Tải bản sao lưu**: trình duyệt tải về tệp `lichviet-saoluu.json`. Cất tệp này ở nơi an toàn.
-3. Khôi phục: bấm **Khôi phục từ tệp** và chọn tệp sao lưu.
+3. Khôi phục: bấm **Khôi phục từ tệp** và chọn tệp sao lưu. Mới cài lại app (chưa có việc nào) thì màn hình chào có sẵn nút **Khôi phục từ tệp**, bấm là mở thẳng hộp chọn tệp.
 
 Khôi phục chỉ **gộp thêm**, không xóa việc đang có. Việc trùng (cùng tên, cùng giờ, cùng kiểu lặp) được bỏ qua, nên khôi phục hai lần cũng không bị nhân đôi. Tệp hỏng thì app từ chối cả tệp, không nhập nửa chừng.
 
@@ -98,7 +100,7 @@ Khôi phục chỉ **gộp thêm**, không xóa việc đang có. Việc trùng 
 Kiểm tra app đang chạy trong Pi Desktop. Nếu lúc cài bạn chọn cổng khác thì đổi số cuối địa chỉ. Nếu app vừa cài, chờ thêm vài giây rồi tải lại trang.
 
 **Trang báo "Mất kết nối với app, đang thử lại…"?**
-App đã dừng hoặc đang khởi động lại. Trang tự nối lại khi app chạy trở lại. Nếu lâu không được, khởi động lại app trong Pi Desktop.
+App đã dừng hoặc đang khởi động lại. Trang tự nối lại khi app chạy trở lại. Nếu lâu không được, khởi động lại app trong Pi Desktop. Nếu thanh báo ghi "App đang gặp sự cố: Không dùng được database…" thì app vẫn chạy nhưng không ghi được dữ liệu: làm theo lý do ghi trong câu (giải phóng ổ đĩa, sửa quyền thư mục) rồi khởi động lại app.
 
 **App không chạy, log báo "Không dùng được database…"?**
 Thư mục dữ liệu `./data` của app không ghi được (thiếu quyền, đầy ổ đĩa) hoặc tệp bị hỏng. Câu báo lỗi trong log nói rõ lý do. Giải phóng ổ đĩa hoặc sửa quyền thư mục rồi khởi động lại app.
