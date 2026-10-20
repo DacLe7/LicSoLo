@@ -43,10 +43,10 @@ class TestAuth(unittest.TestCase):
         with self.assertRaises(ValueError):
             Srv(svc(), {"LICHVIET_API_KEY": "ngan"})
 
-    def test_new_endpoints_fail_closed_without_key(self):
+    def test_no_key_configured_means_open(self):
         s = Srv(svc(), {"LICHVIET_API_KEY": "", "LICHVIET_ICS_KEY": ""})
         for p in ("/v1/events/changes", "/v1/reminders/upcoming", "/v1/devices", "/v1/calendar.ics"):
-            self.assertEqual(s.call("GET", p)[0], 503, p)
+            self.assertEqual(s.call("GET", p)[0], 200, p)
         s.close()
 
     def test_key_required_when_set(self):

@@ -93,7 +93,7 @@ def make_handler(svc: Service):
             """Kiểm tra khóa.
             - Khi đã đặt LICHVIET_API_KEY: MỌI API (trừ /health và giao diện đi kèm) phải có khóa qua
               header X-Lacviet-Key hoặc Authorization: Bearer; sai/thiếu → 401.
-            - Khi chưa đặt khóa: endpoint mới (required=True) trả 503 để không mở mặc định; endpoint cũ mở như bản trước.
+            - Khi chưa đặt khóa: mọi endpoint mở như bản trước (khóa là tùy chọn). Cổng vẫn chỉ nghe 127.0.0.1 và chặn Host/Origin lạ.
             - ics_ok: ?key= khớp LICHVIET_ICS_KEY cũng được (chỉ cho đăng ký lịch .ics)."""
             if ics_ok and ics_key and q and hmac.compare_digest((q.get("key") or "").encode(), ics_key.encode()):
                 return True
@@ -107,7 +107,7 @@ def make_handler(svc: Service):
                 if self._is_ui() and not ics_ok:
                     return True
                 return self._fail_auth(401, "thiếu hoặc sai khóa (header X-Lacviet-Key)")
-            return True if not required else self._fail_auth(503, "chưa cấu hình LICHVIET_API_KEY")
+            return True   # chưa đặt khóa: mở (required chỉ còn ý nghĩa khi bật khóa)
 
         def _send_raw(self, code, body: bytes, ctype: str):
             self.send_response(code)
@@ -191,7 +191,7 @@ def make_handler(svc: Service):
             u = self._url()
             if u.path in ("/health", "/", "/index.html"):
                 return True
-            # Mọi API khác đi qua khóa (khi đã đặt LICHVIET_API_KEY). Endpoint mới vẫn tự kiểm tra thêm (503 khi chưa đặt khóa).
+            # Mọi API khác đi qua khóa khi đã đặt LICHVIET_API_KEY; chưa đặt thì mở.
             q = {k: v[0] for k, v in parse_qs(u.query).items()}
             return self._auth(required=False, q=q, ics_ok=u.path.endswith("/calendar.ics"))
 
