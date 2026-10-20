@@ -83,6 +83,19 @@ giờ UTC (`Z`), việc cả ngày dùng `VALUE=DATE`, nhắc là `VALARM` với
 `lv-<id>-<yyyymmddHHMM>@lichviet`. Đồng bộ **một chiều** từ LicSoLo sang lịch điện thoại; không ghi ngược.
 URL có `?key=` có thể lọt vào nhật ký của proxy: dùng `LICHVIET_ICS_KEY` riêng và xoay khi nghi ngờ lộ.
 
+`GET /v1/events/<id>.ics`: tải **một** việc (tệp đính kèm `lichviet-<id>.ics`, không có `REFRESH-INTERVAL`). Lặp dương lịch có chuẩn
+(`daily`, `weekly`, `monthly` ngày ≤ 28, `yearly` trừ 29/2) là một `VEVENT` có `RRULE` và `VALARM` tương đối (việc cả ngày: `PT480M` = 8h sáng);
+còn lại liệt kê từng lần (âm lịch 10 lần, hằng tháng 24 lần). `404` nếu không có việc.
+
+`GET /v1/calendar/feed`: `{"path", "usable", "note"}` — đường dẫn đăng ký lịch cho trang Cài đặt (kèm `?key=` khi đã đặt
+`LICHVIET_ICS_KEY`); `usable=false` khi đã bật khóa API mà chưa đặt khóa ics (`note` giải thích bằng tiếng Việt).
+
+## Cài app (PWA), không cần khóa
+
+`/manifest.webmanifest`, `/sw.js`, `/icon.svg`, `/icon-192.png`, `/icon-512.png`, `/icon-maskable-512.png`, `/favicon.ico`.
+Biểu tượng PNG vẽ lúc chạy bằng thư viện chuẩn. Service worker không lưu đệm dữ liệu: chỉ trả trang "App chưa chạy" khi mất kết nối
+và xử lý bấm thông báo (mở app, hoặc nút "Đã biết" gọi `POST /reminders/ack`).
+
 ## Khác
 
 `GET /v1/info` (`version`, `api`, `tz`, `user_id`, `events` = số việc đã lưu, `now_iso`, `features`, `auth.configured`), `GET /v1/events?from=&to=` (các lần xảy ra đã

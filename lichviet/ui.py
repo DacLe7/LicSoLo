@@ -138,8 +138,8 @@ details.more ul{margin:0 0 14px;padding-left:20px;font-size:14px}details.more li
 <h3>Âm lịch</h3><ul><li><q>giỗ ông nội 15/8 âm lịch</q> (lặp hằng năm theo âm lịch)</li><li><q>cúng rằm mỗi tháng</q>, <q>ăn chay mùng 1 hàng tháng</q></li></ul>
 <h3>Nhắc trước</h3><ul><li><q>đi đám cưới chủ nhật 11h trưa, nhắc tôi trước 1 ngày</q>, hoặc thêm <i>báo trước 30 phút</i> vào cuối câu</li></ul>
 <h3>Mẹo</h3><ul><li>Mỗi câu một việc. Muốn nhắc cả <i>mùng 1 và rằm</i> thì tạo thành hai việc.</li>
-<li>Nút bút chì để sửa, nút thùng rác để xóa việc đã lưu.</li>
-<li>Thông báo nhắc hiện ở đầu trang khi app đang mở. Bấm <i>Đã biết</i> để tắt.</li>
+<li>Nút bút chì để sửa, nút thùng rác để xóa, nút mũi tên để tải việc về lịch điện thoại (.ics).</li>
+<li>Thông báo nhắc hiện ở đầu trang khi app đang mở. Bấm <i>Đã biết</i> để tắt. Bật <i>thông báo trên máy</i> để được nhắc cả khi đang ở cửa sổ khác.</li>
 <li>Tải bản sao lưu thường xuyên, nhất là trước khi gỡ app.</li></ul></details>
 <details class="more" id="set"><summary>Thông báo và cài app lên máy</summary>
 <p id="ntfst" aria-live="polite"></p>
@@ -148,6 +148,12 @@ details.more ul{margin:0 0 14px;padding-left:20px;font-size:14px}details.more li
 <p id="instx">Cài app lên máy để mở nhanh như một phần mềm riêng: trong Chrome hoặc Edge, bấm biểu tượng cài đặt ở cuối thanh địa chỉ.</p>
 <div class="row"><button class="btn" type="button" id="inst" hidden>Cài app lên máy</button></div>
 <p>Nút tải lịch cạnh mỗi việc cho tệp .ics: mở tệp đó để thêm việc vào lịch của điện thoại hoặc Outlook.</p></details>
+<details class="more" id="feed"><summary>Đồng bộ sang ứng dụng lịch khác</summary>
+<p>Ứng dụng lịch trên <b>chính máy này</b> (Outlook, Thunderbird, Lịch của macOS) có thể đăng ký địa chỉ dưới đây để tự cập nhật mọi việc mỗi giờ. Trong Outlook: <i>Thêm lịch → Từ Internet</i>, dán địa chỉ.</p>
+<div class="row"><input id="feedurl" readonly aria-label="Địa chỉ đăng ký lịch" style="flex:1;min-width:0;font:inherit;font-size:14px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--bg);color:var(--tx)">
+<button class="btn ghost" type="button" id="feedcp">Chép địa chỉ</button></div>
+<p id="feednote" class="note" hidden></p>
+<p>Điện thoại và Google Lịch <b>không</b> đọc được địa chỉ này vì app chỉ mở trên máy tính của bạn (127.0.0.1), không ra mạng ngoài. Với điện thoại, dùng nút tải lịch cạnh từng việc rồi gửi tệp .ics sang máy.</p></details>
 <details class="more" id="more"><summary>Sao lưu và cụm từ đã học</summary>
 <p>Gỡ app khỏi Pi Desktop sẽ xóa dữ liệu. Hãy tải bản sao lưu trước khi gỡ, rồi khôi phục sau khi cài lại.</p>
 <div class="row"><a class="btn" id="bk" href="/export" download="lichviet-saoluu.json" style="text-decoration:none">Tải bản sao lưu</a>
@@ -481,6 +487,18 @@ async function phr(){
 /* Màn hình chào: người cài lại app mở thẳng mục Sao lưu và chọn tệp. */
 $('wrs').onclick=()=>{const m=$('more');m.open=true;m.scrollIntoView({behavior:'smooth',block:'start'});$('rs').click();};
 $('more').addEventListener('toggle',()=>{if($('more').open)phr();});
+/* Đăng ký lịch .ics cho ứng dụng lịch trên cùng máy */
+$('feed').addEventListener('toggle',async()=>{
+  if(!$('feed').open)return;
+  try{const f=await j('/calendar/feed');$('feedurl').value=location.origin+f.path;
+    $('feednote').hidden=!f.note;$('feednote').textContent=f.note||'';}
+  catch(e){$('feedurl').value='';$('feednote').hidden=false;$('feednote').textContent=e.message;}
+});
+$('feedcp').onclick=async()=>{
+  const v=$('feedurl').value;if(!v)return;
+  try{await navigator.clipboard.writeText(v);toast('Đã chép địa chỉ đăng ký lịch.');}
+  catch(e){$('feedurl').select();toast('Hãy bấm Ctrl+C để chép địa chỉ đang chọn.');}
+};
 $('rs').onchange=async e=>{
   const f=e.target.files[0];if(!f)return;
   try{const r=await fetch('/import',{method:'POST',body:await f.text()});const x=await r.json();

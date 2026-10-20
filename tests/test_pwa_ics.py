@@ -142,5 +142,35 @@ class TestEventIcs(unittest.TestCase):
         self.assertEqual(srv.call("GET", "/events/abc.ics")[0], 404)
 
 
+class TestFeedUrl(unittest.TestCase):
+    def feed(self, env, headers=None):
+        s = Srv(svc(), env)
+        self.addCleanup(s.close)
+        return s, s.call("GET", "/v1/calendar/feed", headers=headers)
+
+    def test_khong_khoa(self):
+        s, (code, f, _) = self.feed({"LICHVIET_API_KEY": "", "LICHVIET_ICS_KEY": ""})
+        self.assertEqual((code, f["path"], f["usable"], f["note"]), (200, "/v1/calendar.ics", True, ""))
+        self.assertEqual(s.call("GET", f["path"])[0], 200)
+
+    def test_co_khoa_ics(self):
+        ik = "i" * 20
+        s, (code, f, _) = self.feed({"LICHVIET_API_KEY": KEY, "LICHVIET_ICS_KEY": ik})
+        self.assertEqual(code, 401)   # client lạ không khóa không xem được khóa ics
+        code, f, _ = s.call("GET", "/v1/calendar/feed", headers={"X-Lacviet-Key": KEY})
+        self.assertEqual((code, f["path"], f["usable"]), (200, "/v1/calendar.ics?key=" + ik, True))
+        self.assertEqual(s.call("GET", f["path"])[0], 200)   # ứng dụng lịch đọc được không cần header
+
+    def test_co_khoa_api_khong_khoa_ics(self):
+        _, (code, f, _) = self.feed({"LICHVIET_API_KEY": KEY, "LICHVIET_ICS_KEY": ""}, {"X-Lacviet-Key": KEY})
+        self.assertFalse(f["usable"])
+        self.assertIn("LICHVIET_ICS_KEY", f["note"])
+
+    def test_trang_co_muc(self):
+        self.assertIn('id="feed"', PAGE)
+        self.assertIn("j('/calendar/feed')", PAGE)
+        self.assertIn("127.0.0.1", PAGE)
+
+
 if __name__ == "__main__":
     unittest.main()

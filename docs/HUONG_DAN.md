@@ -78,12 +78,24 @@ App cũng tự sửa sẵn một số chữ hay bị nghe lệch theo giọng v�
 - Mục **Sắp tới** hiện các việc trong 7 ngày tới, chia theo ngày. Việc lặp có vạch màu riêng, việc âm lịch có màu khác.
 - Nút **bút chì**: sửa việc đã lưu. Việc âm lịch giữ nguyên ngày âm, chỉ sửa được tên, giờ và nhắc trước.
 - Nút **thùng rác**: xóa việc. Với việc lặp, xóa là xóa cả chuỗi.
+- Nút **mũi tên tải xuống**: tải việc đó thành tệp `.ics`. Mở tệp (hoặc gửi sang điện thoại rồi mở) để thêm việc vào Lịch Google, Lịch iPhone, Outlook. Việc lặp mỗi ngày/tuần/tháng/năm được thêm thành chuỗi lặp; việc âm lịch được thêm 10 lần tới (ứng dụng lịch không hiểu âm lịch).
 - Việc lưu xa hơn 7 ngày không hiện trong Sắp tới, nhưng vẫn được nhắc đúng hẹn.
 
 ## 6. Nhắc việc
 
 - Khi đến giờ (hoặc đến lúc nhắc trước), đầu trang hiện thông báo "Đến giờ: …" hoặc "Còn N ngày: …". Bấm **Đã biết** để tắt.
 - Thông báo trong trang chỉ hiện khi app đang mở trong trình duyệt. Hãy để một thẻ app mở nếu bạn muốn được nhắc.
+- **Thông báo trên máy**: lần đầu mở app, đầu trang hỏi "Bật thông báo trên máy?". Bấm **Bật thông báo** rồi chọn *Cho phép* khi trình duyệt hỏi. Từ đó, tới giờ nhắc máy hiện thông báo ở góc màn hình kể cả khi bạn đang làm việc ở cửa sổ khác; bấm **Đã biết** ngay trên thông báo là xong. Bấm **Để sau** nếu chưa muốn; bật lại bất cứ lúc nào trong mục **Thông báo và cài app lên máy** ở cuối trang (có nút **Thử một thông báo**).
+- Lỡ bấm *Chặn*: bấm biểu tượng ổ khóa cạnh địa chỉ trang, cho phép Thông báo rồi tải lại trang.
+- Thông báo trên máy vẫn cần app đang mở (một thẻ trình duyệt, hoặc cửa sổ app đã cài, thu nhỏ cũng được).
+
+### Cài app lên máy
+
+Trong Chrome hoặc Edge, mục **Thông báo và cài app lên máy** có nút **Cài app lên máy** (hoặc bấm biểu tượng cài đặt ở cuối thanh địa chỉ). App sẽ có biểu tượng riêng trên màn hình nền/thanh tác vụ và mở trong cửa sổ riêng, gọn như một phần mềm. Dữ liệu vẫn nằm trong app ở Pi Desktop; nếu app trong Pi Desktop đang tắt, cửa sổ sẽ báo "App chưa chạy" kèm nút **Thử lại**.
+
+### Đồng bộ sang ứng dụng lịch trên máy
+
+Mục **Đồng bộ sang ứng dụng lịch khác** ở cuối trang cho một địa chỉ đăng ký lịch (bấm **Chép địa chỉ**). Dán vào Outlook (*Thêm lịch → Từ Internet*), Thunderbird hoặc Lịch của macOS **trên cùng máy** để ứng dụng đó tự cập nhật các việc mỗi giờ. Đồng bộ một chiều: sửa trong ứng dụng lịch không làm đổi việc trong app. Điện thoại và Google Lịch không đọc được địa chỉ này vì app chỉ mở trong máy (127.0.0.1); với điện thoại hãy dùng nút tải `.ics` cạnh từng việc.
 - Nếu máy tắt lúc đến giờ, lần mở sau app nhắc bù: việc một lần và ngày giỗ bị lỡ trong 7 ngày gần nhất; việc lặp mỗi ngày/tuần/tháng chỉ nhắc bù lần của hôm trước.
 - Việc lưu với giờ đã qua không bị nhắc.
 
@@ -121,7 +133,10 @@ App báo còn thiếu "việc cần làm" hoặc "ngày giờ". Nói rõ hơn, v
 Có. Câu có chữ *sinh nhật*, *kỷ niệm* hoặc *thôi nôi* kèm ngày (không ghi năm) được đặt lặp hằng năm theo dương lịch, ví dụ "sinh nhật mẹ 20/11"; bản nháp có dòng nhắc để bạn biết, chỉ một lần thì bấm Sửa và chọn *Không lặp*. Việc khác muốn lặp hằng năm thì thêm "hằng năm" hoặc "mỗi năm", hoặc chọn *Mỗi năm* trong ô Lặp khi sửa. Sinh nhật 29/2: năm không nhuận nhắc vào 28/2. Sinh nhật âm lịch thì thêm "âm lịch": "sinh nhật bà 10/3 âm lịch".
 
 **Dùng trên điện thoại được không?**
-App chỉ mở được trên chính máy cài Pi Desktop (địa chỉ 127.0.0.1), để dữ liệu không lộ ra mạng.
+App chỉ mở được trên chính máy cài Pi Desktop (địa chỉ 127.0.0.1), để dữ liệu không lộ ra mạng. Muốn có việc trên lịch điện thoại, bấm nút tải `.ics` cạnh việc đó rồi gửi tệp sang điện thoại và mở.
+
+**Không thấy thông báo trên máy dù đã bật?**
+Kiểm tra app còn mở (một thẻ hoặc cửa sổ app đã cài). Trên Windows, xem *Cài đặt → Hệ thống → Thông báo* đã cho phép Chrome/Edge chưa, và chế độ *Không làm phiền* có đang bật không.
 
 **Dữ liệu có bị gửi lên mạng không?**
 Không. Lịch, nhắc việc, giọng nói và Trợ lý AI đều chạy trên máy của bạn. Mạng chỉ cần khi tải mô hình lần đầu.

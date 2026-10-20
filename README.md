@@ -94,6 +94,9 @@ Thời gian trả về là giờ địa phương theo `LICHVIET_TZ`, không kèm
 - Nhắc bù khi máy từng tắt: việc một lần và giỗ được nhắc bù trong `LICHVIET_CATCHUP_DAYS` ngày (mặc định 7); việc lặp ngày/tuần/tháng chỉ nhìn lùi 1 ngày.
 - `GET /v1/reminders/due` (mặc định) và `POST /v1/reminders/fired`: dành cho notifier của hệ sinh thái.
 - `GET /v1/reminders/due?channel=ui` và `POST /v1/reminders/ack`: banner "Đã biết" trong giao diện. Bấm "Đã biết" **không** làm mất thông báo notifier phải gửi, và ngược lại.
+- **Thông báo trên máy (tùy chọn):** trang hỏi "Bật thông báo trên máy?" và chỉ xin quyền trình duyệt khi người dùng bấm nút. Khi được phép, mỗi lần nhắc của kênh `ui` hiện thêm một thông báo hệ thống qua service worker (`/sw.js`), có nút "Đã biết". Mỗi lần nhắc chỉ hiện một lần trên một trình duyệt (nhớ trong `localStorage`). Vẫn cần app đang mở; không có push từ máy chủ.
+- **Cài app (PWA):** `/manifest.webmanifest` + biểu tượng vẽ lúc chạy; Chrome/Edge cho cài thành cửa sổ riêng. Service worker không lưu đệm dữ liệu người dùng.
+- **Tải .ics từng việc:** `GET /v1/events/<id>.ics` (nút mũi tên trong danh sách). Đăng ký cả lịch: `GET /v1/calendar.ics`, địa chỉ hiện trong mục "Đồng bộ sang ứng dụng lịch khác" (chỉ ứng dụng lịch trên cùng máy đọc được vì cổng nghe `127.0.0.1`).
 - Mỗi lần nhắc trả thêm `user_id` (đặt bằng `LICHVIET_USER_ID`, mặc định `default`) và `occurrence_iso` kèm độ lệch múi giờ.
 
 ## Lặp theo âm lịch hằng tháng

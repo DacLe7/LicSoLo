@@ -5,7 +5,7 @@ import os
 import time
 from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import urlparse, parse_qs, unquote
+from urllib.parse import urlparse, parse_qs, quote, unquote
 
 from .service import Service, CursorTooOld
 from .ui import PAGE
@@ -311,6 +311,14 @@ def make_handler(svc: Service):
                 if not self._auth(required=True):
                     return
                 return self._run(svc.list_devices)
+            if u.path == "/calendar/feed":
+                # trang Cài đặt hiện địa chỉ đăng ký lịch: kèm ?key= khi đã đặt LICHVIET_ICS_KEY
+                # (chỉ trang đi kèm hoặc client có khóa mới tới được đây, nên trả khóa chỉ đọc là an toàn)
+                path = "/v1/calendar.ics" + ("?key=" + quote(ics_key, safe="") if ics_key else "")
+                return self._send(200, {"path": path, "usable": bool(ics_key) or not api_key,
+                                        "note": "" if ics_key or not api_key else
+                                        "App đang bật khóa API nên ứng dụng lịch không đọc được địa chỉ này. "
+                                        "Đặt thêm LICHVIET_ICS_KEY (khóa chỉ đọc, từ 16 ký tự) rồi khởi động lại app."})
             if u.path == "/calendar.ics":
                 if not self._auth(required=True, q=q, ics_ok=True):
                     return
