@@ -1,18 +1,20 @@
 # LicSoLo API v1 (hợp đồng cho hệ sinh thái Lạc Việt)
 
-Mọi đường dẫn dùng được cả có và không có tiền tố `/v1`. Nội dung JSON, UTF-8. App chỉ lưu và tính mốc nhắc;
+Mọi đường dẫn dùng được cả có và không có tiền tố `/v1`. Lỗi từ chối (401/403) luôn đọc hết thân yêu cầu trước khi trả, nên client không bị rớt kết nối. Nội dung JSON, UTF-8. App chỉ lưu và tính mốc nhắc;
 **gửi thông báo là việc của hệ sinh thái**.
 
 ## Xác thực
 
 | Cấu hình | Hành vi |
 |---|---|
-| `LICHVIET_API_KEY` (≥16 ký tự) | Gửi khóa bằng header `X-Lacviet-Key: <khóa>` hoặc `Authorization: Bearer <khóa>`. Sai/thiếu: `401`. |
+| `LICHVIET_API_KEY` (≥16 ký tự) | **Mọi API** (trừ `/health` và giao diện đi kèm) phải gửi khóa: header `X-Lacviet-Key: <khóa>` hoặc `Authorization: Bearer <khóa>`. Sai/thiếu: `401`. |
 | không đặt khóa | Chế độ cục bộ như bản trước: endpoint cũ mở. **Endpoint mới (đánh dấu 🔒) trả `503`**, không bao giờ mở mặc định. |
 | `LICHVIET_ICS_KEY` (≥16 ký tự, tùy chọn) | Khóa riêng chỉ đọc, chỉ mở `GET /v1/calendar.ics?key=...` để đăng ký lịch qua URL. Không mở endpoint nào khác. |
 
-Giao diện web trong máy dùng `?channel=ui` và các endpoint của nó, không cần khóa. Khóa so sánh thời gian cố định;
-sai khóa bị làm chậm 0,3 giây. Cổng của hệ sinh thái phải đứng trước app, không đưa cổng 18763 ra mạng.
+Giao diện web đi kèm (trang `/` và các lời gọi cùng nguồn gốc từ chính trang đó, nhận biết bằng `Sec-Fetch-Site: same-origin`
+hoặc `Origin` trùng `Host`) không cần khóa, vì trình duyệt đã chặn trang web khác. **Cổng hệ sinh thái phải gỡ các header
+`Sec-Fetch-*` và `Origin` của client trước khi chuyển tiếp**, nếu không client ngoài có thể giả header để qua khóa.
+Khóa so sánh thời gian cố định; sai khóa bị làm chậm 0,3 giây. Không đưa cổng 18763 ra mạng: cổng hệ sinh thái đứng trước app.
 Yêu cầu từ trang web khác (Origin khác Host, `Sec-Fetch-Site: cross-site`) và Host là tên miền có dấu chấm bị từ chối
 (`403`); host của cổng đặt trong `LICHVIET_ALLOWED_HOSTS`.
 

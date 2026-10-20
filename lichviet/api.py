@@ -81,21 +81,33 @@ def make_handler(svc: Service):
             self._send(code, {"error": msg})
             return False
 
+        def _is_ui(self) -> bool:
+            """Trang giao diện đi kèm chạy trên chính máy chủ này (cùng nguồn gốc trong trình duyệt).
+            Trình duyệt đã chặn trang khác (Origin/Sec-Fetch-Site), nên ở đây được tin; client khác phải có khóa."""
+            if self.headers.get("Sec-Fetch-Site") == "same-origin":
+                return True
+            origin = self.headers.get("Origin")
+            return bool(origin) and urlparse(origin).netloc.lower() == (self.headers.get("Host") or "").strip().lower()
+
         def _auth(self, required: bool, q=None, ics_ok: bool = False) -> bool:
-            """Kiểm tra khóa. required=True: endpoint chỉ dành cho hệ sinh thái, không cấu hình khóa thì từ chối (503).
-            required=False: endpoint cũ, chỉ kiểm tra khi đã đặt LICHVIET_API_KEY (tương thích bản trước).
-            Khóa gửi qua header X-Lacviet-Key hoặc Authorization: Bearer. ics_ok: cho phép ?key= khớp LICHVIET_ICS_KEY."""
-            given = self.headers.get("X-Lacviet-Key") or ""
-            auth = self.headers.get("Authorization") or ""
-            if not given and auth.lower().startswith("bearer "):
-                given = auth[7:].strip()
+            """Kiểm tra khóa.
+            - Khi đã đặt LICHVIET_API_KEY: MỌI API (trừ /health và giao diện đi kèm) phải có khóa qua
+              header X-Lacviet-Key hoặc Authorization: Bearer; sai/thiếu → 401.
+            - Khi chưa đặt khóa: endpoint mới (required=True) trả 503 để không mở mặc định; endpoint cũ mở như bản trước.
+            - ics_ok: ?key= khớp LICHVIET_ICS_KEY cũng được (chỉ cho đăng ký lịch .ics)."""
             if ics_ok and ics_key and q and hmac.compare_digest((q.get("key") or "").encode(), ics_key.encode()):
                 return True
-            if not api_key and not (ics_ok and ics_key):
-                return True if not required else self._fail_auth(503, "chưa cấu hình LICHVIET_API_KEY")
-            if api_key and hmac.compare_digest(given.encode(), api_key.encode()):
-                return True
-            return self._fail_auth(401, "thiếu hoặc sai khóa (header X-Lacviet-Key)")
+            if api_key:
+                given = self.headers.get("X-Lacviet-Key") or ""
+                auth = self.headers.get("Authorization") or ""
+                if not given and auth.lower().startswith("bearer "):
+                    given = auth[7:].strip()
+                if hmac.compare_digest(given.encode(), api_key.encode()):
+                    return True
+                if self._is_ui() and not ics_ok:
+                    return True
+                return self._fail_auth(401, "thiếu hoặc sai khóa (header X-Lacviet-Key)")
+            return True if not required else self._fail_auth(503, "chưa cấu hình LICHVIET_API_KEY")
 
         def _send_raw(self, code, body: bytes, ctype: str):
             self.send_response(code)
@@ -105,11 +117,39 @@ def make_handler(svc: Service):
             self.end_headers()
             self.wfile.write(body)
 
+        _consumed = False   # đã đọc hết thân yêu cầu chưa
+
+        def _drain(self):
+            """Đọc và bỏ phần thân yêu cầu còn lại trước khi trả lỗi.
+            Nếu đóng kết nối khi thân còn trong bộ đệm, Windows gửi RST và phía client thấy 'connection aborted'
+            thay vì nhận được mã 4xx."""
+            if self._consumed or self.command not in ("POST", "PUT", "DELETE", "PATCH"):
+                return
+            self._consumed = True
+            try:
+                n = int(self.headers.get("Content-Length") or 0)
+            except ValueError:
+                self.close_connection = True
+                return
+            cap = max(MAX_BODY, MAX_AUDIO)
+            if n > cap:
+                self.close_connection = True   # quá lớn để đọc: báo đóng kết nối, không đọc tiếp
+                return
+            left = max(n, 0)
+            while left > 0:
+                chunk = self.rfile.read(min(left, 65536))
+                if not chunk:
+                    break
+                left -= len(chunk)
+
         def _send(self, code, obj):
+            self._drain()
             b = json.dumps(obj, ensure_ascii=False).encode("utf-8")
             self.send_response(code)
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Content-Length", str(len(b)))
+            if self.close_connection:
+                self.send_header("Connection", "close")
             self.end_headers()
             self.wfile.write(b)
 
@@ -129,8 +169,10 @@ def make_handler(svc: Service):
         def _body(self):
             n = self._length()
             if n < 0 or n > MAX_BODY:
-                raise ValueError("nội dung quá lớn")
-            b = json.loads(self.rfile.read(n) or b"{}")
+                raise ValueError("nội dung quá lớn")   # chưa đọc: _send sẽ đọc bỏ (hoặc đóng kết nối nếu quá lớn)
+            raw = self.rfile.read(n)
+            self._consumed = True
+            b = json.loads(raw or b"{}")
             if not isinstance(b, dict):
                 raise ValueError("nội dung phải là đối tượng JSON")
             return b
@@ -146,7 +188,12 @@ def make_handler(svc: Service):
                     or not origin_ok(self.headers.get("Origin"), self.headers.get("Host"))):
                 self._send(403, {"error": "yêu cầu từ trang khác bị từ chối"})
                 return False
-            return True
+            u = self._url()
+            if u.path in ("/health", "/", "/index.html"):
+                return True
+            # Mọi API khác đi qua khóa (khi đã đặt LICHVIET_API_KEY). Endpoint mới vẫn tự kiểm tra thêm (503 khi chưa đặt khóa).
+            q = {k: v[0] for k, v in parse_qs(u.query).items()}
+            return self._auth(required=False, q=q, ics_ok=u.path.endswith("/calendar.ics"))
 
         def _run(self, fn):
             try:
@@ -205,8 +252,7 @@ def make_handler(svc: Service):
             if u.path == "/ai/status":
                 return self._run(svc.llm.status)
             if u.path == "/reminders/due":
-                ui = q.get("channel") == "ui"
-                if not ui and not self._auth(required=False):
+                if not self._auth(required=False):
                     return
                 return self._run(lambda: [{**with_iso(d), "fire_at_iso": with_iso({"start": d["fire_at"]})["start_iso"],
                                            "user_id": USER_ID}
@@ -258,6 +304,7 @@ def make_handler(svc: Service):
                     return self._send(400, {"error": str(e)})
                 if n <= 0 or n > MAX_AUDIO:
                     return self._send(400, {"error": "âm thanh rỗng hoặc quá dài"})
+                self._consumed = True
                 return self._run(lambda: {"text": svc.transcribe(self.rfile.read(n))})
             if u.path == "/stt/learn":
                 b = self._body()

@@ -56,8 +56,16 @@ class TestAuth(unittest.TestCase):
         self.assertEqual(s.call("GET", "/v1/events/changes", headers={"X-Lacviet-Key": KEY})[0], 200)
         self.assertEqual(s.call("GET", "/v1/events/changes", headers={"Authorization": "Bearer " + KEY})[0], 200)
         self.assertEqual(s.call("GET", "/v1/reminders/due")[0], 401)                      # endpoint cũ cũng được khóa
-        self.assertEqual(s.call("GET", "/v1/reminders/due?channel=ui")[0], 200)           # banner giao diện thì không
+        self.assertEqual(s.call("GET", "/v1/reminders/due?channel=ui")[0], 401)          # không phải giao diện: cần khóa
+        self.assertEqual(s.call("GET", "/v1/reminders/due?channel=ui", headers={"Sec-Fetch-Site": "same-origin"})[0], 200)
         self.assertEqual(s.call("POST", "/v1/reminders/fired", {"event_id": 1, "occurrence": "x"})[0], 401)
+        self.assertEqual(s.call("GET", "/v1/events?from=2026-01-01&to=2026-12-31")[0], 401)
+        self.assertEqual(s.call("GET", "/v1/export")[0], 401)
+        self.assertEqual(s.call("POST", "/v1/events", {"title": "x", "start": "2026-11-01T09:00:00"})[0], 401)
+        self.assertEqual(s.call("POST", "/v1/parse", {"text": "họp mai"})[0], 401)
+        # giao diện đi kèm (cùng nguồn gốc trong trình duyệt) không cần khóa
+        self.assertEqual(s.call("GET", "/v1/export", headers={"Sec-Fetch-Site": "same-origin"})[0], 200)
+        self.assertEqual(s.call("GET", "/health")[0], 200)
         s.close()
 
     def test_legacy_endpoints_open_without_key(self):
