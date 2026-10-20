@@ -14,11 +14,7 @@ services:
       LICHVIET_LLM_URL: http://llm:8080
       LICHVIET_STT_URL: http://stt:8080
       LICHVIET_AI: "${AI_MODE:-off}"
-      LICHVIET_TZ: "${LICHVIET_TZ:-Asia/Ho_Chi_Minh}"   # giờ người dùng, không phụ thuộc giờ máy chủ (UTC); hệ sinh thái có thể đặt theo tài khoản
-      LICHVIET_USER_ID: "${LICHVIET_USER_ID:-default}"
-      LICHVIET_API_KEY: "${LICHVIET_API_KEY:-}"      # khóa của cổng hệ sinh thái (≥16 ký tự); trống = chế độ cục bộ, endpoint mới bị khóa
-      LICHVIET_ICS_KEY: "${LICHVIET_ICS_KEY:-}"      # khóa chỉ đọc cho đăng ký lịch .ics qua URL (tùy chọn)
-      LICHVIET_ALLOWED_HOSTS: "${LICHVIET_ALLOWED_HOSTS:-}"   # host khác được gọi API (cách nhau dấu phẩy); mặc định chỉ máy này và tên service Docker
+      LICHVIET_TZ: Asia/Ho_Chi_Minh        # giờ người dùng, không phụ thuộc giờ máy chủ (UTC)
     volumes:
       - ./data:/data
       - lichviet-models:/ai-models
@@ -26,7 +22,6 @@ services:
     cpus: 0.5
     pids_limit: 128
     cap_drop: [ALL]
-    security_opt: ["no-new-privileges:true"]
 
   stt:
     profiles: ["voice"]
@@ -41,7 +36,6 @@ services:
     cpus: 4
     pids_limit: 128
     cap_drop: [ALL]
-    security_opt: ["no-new-privileges:true"]
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:8080/health', timeout=3)"]
       interval: 30s
@@ -51,8 +45,7 @@ services:
 
   llm:
     profiles: ["ai"]
-    # Tag "server" luôn trôi theo bản mới nhất. Để cố định: đặt LLM_IMAGE=ghcr.io/ggml-org/llama.cpp@sha256:<digest> trong .env
-    image: ${LLM_IMAGE:-ghcr.io/ggml-org/llama.cpp:server}
+    image: ghcr.io/ggml-org/llama.cpp:server
     restart: unless-stopped
     environment:
       LLAMA_CACHE: /models
