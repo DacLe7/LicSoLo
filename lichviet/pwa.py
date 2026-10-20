@@ -60,7 +60,9 @@ self.addEventListener('notificationclick',e=>{
   const n=e.notification,d=n.data||{};n.close();
   if(e.action==='ack'&&d.event_id){
     e.waitUntil(fetch('/reminders/ack',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({event_id:d.event_id,occurrence:d.key})}).then(()=>tell('due')).catch(()=>{}));
+      body:JSON.stringify({event_id:d.event_id,occurrence:d.key})})
+      /* cần khóa (mở từ máy khác): nhờ trang đang mở gửi kèm khóa */
+      .then(r=>tell(r.ok?'due':{ack:{event_id:d.event_id,occurrence:d.key}})).catch(()=>{}));
     return;
   }
   e.waitUntil(self.clients.matchAll({type:'window',includeUncontrolled:true}).then(l=>{

@@ -121,6 +121,8 @@ details.more .ck{display:flex;align-items:center;gap:8px;margin:0 0 10px;font-si
 <div class="chips" id="chips"></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <div class="vstat" id="vstat" hidden role="status" aria-live="polite"><div class="vt" id="vtxt"></div><div class="pbar"><i id="vbar"></i></div></div>
+<section class="banner ntf" id="keybar" hidden aria-labelledby="keyh"><div class="x"><b id="keyh">Nhập khóa để mở lịch</b><br>Bạn đang mở app từ máy khác trong mạng. Chủ máy đã đặt khóa bảo vệ (LICHVIET_API_KEY), hãy nhập khóa đó. Trình duyệt này sẽ nhớ khóa, trên chính máy cài app thì không cần.<div id="keymsg" role="alert"></div></div>
+<form id="keyf" class="row"><input id="keyin" type="password" autocomplete="current-password" aria-label="Khóa của app" placeholder="Khóa của app"><button type="submit">Mở khóa</button></form></section>
 <div class="banner" id="net" hidden role="alert">⚠<div class="x" id="nettxt">Mất kết nối với app, đang thử lại… Nếu lâu không được, kiểm tra app trong Pi Desktop.</div></div>
 <section class="banner ntf" id="ntf" hidden aria-labelledby="ntfh"><div class="x"><b id="ntfh">Bật thông báo trên máy?</b><br>Tới giờ nhắc, máy sẽ hiện thông báo kể cả khi bạn đang mở cửa sổ khác. Trình duyệt sẽ hỏi bạn cho phép.</div>
 <button type="button" id="ntfok">Bật thông báo</button><button type="button" id="ntfno">Để sau</button></section>
@@ -183,12 +185,19 @@ const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 /* Gọi API. Lỗi mạng, hết thời gian, mã lỗi đều thành Error có câu tiếng Việt dễ hiểu (e.message), không bao giờ treo nút. */
 const NET='Không nối được với app. Kiểm tra app còn đang chạy trong Pi Desktop rồi thử lại.';
+/* Mở app từ máy khác trong mạng (địa chỉ thêm qua LICHVIET_ALLOWED_HOSTS) khi chủ máy đã đặt khóa: trang phải gửi khóa.
+   Khóa chỉ lưu trong trình duyệt này; trên chính máy cài app thì không cần. */
+const KEY={get(){try{return localStorage.getItem('lv_key')||'';}catch(e){return '';}},
+  set(v){try{v?localStorage.setItem('lv_key',v):localStorage.removeItem('lv_key');}catch(e){}},
+  h(o){const k=KEY.get();return k?{...((o&&o.headers)||{}),'X-Lacviet-Key':k}:((o&&o.headers)||{});},
+  ask(){const b=$('keybar');if(!b||!b.hidden)return;b.hidden=false;$('keymsg').textContent=KEY.get()?'Khóa đã lưu không đúng hoặc đã đổi. Nhập lại khóa mới.':'';$('keyin').focus();}};
 const j=async(u,o,ms)=>{
   const ac=new AbortController(),t=setTimeout(()=>ac.abort(),ms||60000);let r;
-  try{r=await fetch(u,{...(o||{}),signal:ac.signal});}
+  try{r=await fetch(u,{...(o||{}),headers:KEY.h(o),signal:ac.signal});}
   catch(e){throw new Error(e.name==='AbortError'?'App phản hồi quá lâu, bạn thử lại sau ít phút.':NET);}
   finally{clearTimeout(t);}
   let x=null;try{x=await r.json();}catch(e){}
+  if(r.status===401)KEY.ask();
   if(!r.ok||x===null){const er=new Error((x&&x.error)?x.error.charAt(0).toUpperCase()+x.error.slice(1):r.status>=500?'App gặp lỗi bên trong, bạn thử lại sau ít phút.':r.status===401?'App đang bật khóa API, giao diện chưa được cấp quyền.':'Yêu cầu chưa hợp lệ (mã '+r.status+').');er.status=r.status;er.data=x;throw er;}
   return x;};
 /* Báo mất kết nối khi các lần tải nền (danh sách, nhắc việc) thất bại; tự ẩn khi nối lại được. */
@@ -272,7 +281,7 @@ const Voice={rec:null,chunks:[],stream:null,on:false,timer:null,
     toast('Đang chuyển thành chữ…');
     try{
       const wav=await Voice.toWav(blob);
-      const r=await fetch('/stt',{method:'POST',body:wav,headers:{'Content-Type':'audio/wav'}});
+      const r=await fetch('/stt',{method:'POST',body:wav,headers:KEY.h({headers:{'Content-Type':'audio/wav'}})});
       const x=await r.json();
       if(!r.ok){toast(x.error||'Nhận giọng nói gặp lỗi.');return;}
       if(!x.text){toast('Không nghe rõ, bạn nói lại giúp mình nhé.');return;}
@@ -437,7 +446,7 @@ function openEdit(d,back,id){   // id: sửa việc đã lưu (PATCH); không c�
 }
 $('go').onclick=async()=>{
   const text=$('q').value.trim();if(!text)return;
-  if(Voice.last&&text!==Voice.last){fetch('/stt/learn',{method:'POST',body:JSON.stringify({heard:Voice.last,fixed:text})}).catch(()=>{});Voice.last=null;}
+  if(Voice.last&&text!==Voice.last){fetch('/stt/learn',{method:'POST',headers:KEY.h(),body:JSON.stringify({heard:Voice.last,fixed:text})}).catch(()=>{});Voice.last=null;}
   toast('');$('go').disabled=true;$('go').classList.add('busy');
   let r;try{r=await j('/parse',{method:'POST',body:JSON.stringify({text})},90000);}
   catch(e){show('<div class="note">'+esc(e.message)+'</div>');return;}
@@ -478,7 +487,8 @@ const Notif={reg:null,
   async init(){
     if('serviceWorker' in navigator&&window.isSecureContext){
       try{this.reg=await navigator.serviceWorker.register('/sw.js');}catch(e){}
-      navigator.serviceWorker.addEventListener('message',e=>{if(e.data==='due')due();});}
+      navigator.serviceWorker.addEventListener('message',e=>{if(e.data==='due')due();
+        else if(e.data&&e.data.ack)j('/reminders/ack',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(e.data.ack)}).then(due).catch(()=>{});});}
     this.ui();},
   ui(){
     const st=this.can()?Notification.permission:'none';
@@ -540,10 +550,29 @@ $('feedcp').onclick=async()=>{
 };
 $('rs').onchange=async e=>{
   const f=e.target.files[0];if(!f)return;
-  try{const r=await fetch('/import',{method:'POST',body:await f.text()});const x=await r.json();
+  try{const r=await fetch('/import',{method:'POST',headers:KEY.h(),body:await f.text()});const x=await r.json();
     $('bkmsg').textContent=r.ok?('Đã nhập '+x.added+' việc, bỏ qua '+x.skipped+' việc trùng, '+x.phrases+' cụm từ.'):(x.error||'Không nhập được');
     if(r.ok&&x.added)welcome(1);
     if(r.ok&&x.settings){$('bkmsg').textContent+=' Đã lấy lại cài đặt cá nhân.';loadMe();}
     refresh();phr();}catch(err){$('bkmsg').textContent='Tệp không đọc được.';}
   e.target.value='';};
+/* Nhập khóa khi mở từ máy khác: thử bằng /info, đúng thì tải lại trang, sai thì báo và quên khóa. */
+$('keyf').onsubmit=async e=>{
+  e.preventDefault();const v=$('keyin').value.trim();if(!v)return;
+  KEY.set(v);$('keymsg').textContent='Đang kiểm tra khóa…';
+  try{await j('/info',null,15000);location.reload();}
+  catch(er){if(er.status===401){KEY.set('');$('keymsg').textContent='Khóa không đúng. Bạn hỏi lại người cài app (giá trị LICHVIET_API_KEY).';}
+    else $('keymsg').textContent=er.message;}};
+/* Liên kết tải tệp (sao lưu, .ics) không tự gửi được khóa: khi có khóa thì tải bằng fetch rồi lưu tệp. */
+document.addEventListener('click',async e=>{
+  const a=e.target.closest&&e.target.closest('a[download]');
+  if(!a||!KEY.get()||a.href.startsWith('blob:'))return;
+  e.preventDefault();
+  try{const r=await fetch(a.getAttribute('href'),{headers:KEY.h()});
+    if(r.status===401){KEY.ask();return;}
+    if(!r.ok)throw new Error();
+    const u=URL.createObjectURL(await r.blob()),t=document.createElement('a');
+    t.href=u;t.download=a.getAttribute('download')||(a.getAttribute('href').endsWith('.ics')?'lich.ics':'tep');
+    document.body.appendChild(t);t.click();t.remove();setTimeout(()=>URL.revokeObjectURL(u),10000);}
+  catch(er){toast('Không tải được tệp, bạn thử lại.');}});
 </script></body></html>"""

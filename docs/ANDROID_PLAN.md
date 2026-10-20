@@ -14,8 +14,10 @@ bình thường chỉ cần đọc phần [Khuyến nghị](#khuyến-nghị).
   nên mở qua địa chỉ mạng nội bộ thì nút micro, thông báo và cài app đều không hoạt động.
 - App chặn tên máy có dấu chấm trong `Host` (chống DNS rebinding). Địa chỉ IP hay tên `*.ts.net` phải được thêm vào
   `LICHVIET_ALLOWED_HOSTS` thì app mới trả lời.
-- Giao diện đi kèm được tin theo `Sec-Fetch-Site: same-origin` (`api._is_ui`). Nghĩa là **ai mở được trang thì dùng
-  được app**, kể cả khi đã đặt `LICHVIET_API_KEY`. Khóa API chỉ chặn client khác, không chặn người cầm trình duyệt.
+- Giao diện đi kèm được tin theo `Sec-Fetch-Site: same-origin` (`api._is_ui`) **chỉ khi mở trên chính máy này**
+  (`127.0.0.1`, `localhost`, kể cả `localhost` qua `adb reverse`). Mở qua tên/IP thêm trong `LICHVIET_ALLOWED_HOSTS`
+  và đã đặt `LICHVIET_API_KEY` thì trang hiện ô **"Nhập khóa để mở lịch"**; khóa lưu trong trình duyệt đó.
+  Chưa đặt khóa thì **ai mở được trang là dùng được app** (app ghi cảnh báo trong log lúc khởi động).
   Mọi cách cho điện thoại vào app vì vậy phải tự giới hạn *ai* tới được trang.
 
 ## Các cách
@@ -104,7 +106,9 @@ Nguyên tắc: chỉ thêm phần nhỏ, **tự bật**, an toàn; không bao gi
   mặc định `127.0.0.1` (trong container app nghe `0.0.0.0` là bình thường, cổng ra ngoài do compose quyết định)
   (`tests/test_android_plan.py`). Ai lỡ đổi sẽ làm test đỏ.
 - [ ] Hướng dẫn từng bước cách 1 trong `docs/HUONG_DAN.md` (bật gỡ lỗi USB, cài platform-tools, chạy lệnh).
-- [ ] Khi truy cập qua tên ngoài danh sách máy này (Host nằm trong `LICHVIET_ALLOWED_HOSTS`) và đã đặt
-  `LICHVIET_API_KEY`: giao diện cũng phải nhập khóa (lưu trong trình duyệt), không tin `same-origin` nữa.
+- [x] Khi truy cập qua tên ngoài danh sách máy này (Host nằm trong `LICHVIET_ALLOWED_HOSTS`) và đã đặt
+  `LICHVIET_API_KEY`: giao diện cũng phải nhập khóa (lưu trong trình duyệt), không tin `same-origin` nữa
+  (`api.host_is_local`, ô nhập khóa trong trang, tải tệp sao lưu/.ics kèm khóa; `tests/test_remote_key.py`).
+  Mở thêm địa chỉ mà chưa đặt khóa: log cảnh báo lúc khởi động.
 - [ ] Trong mục "Thông báo và cài app": khi trang không phải trang an toàn, giải thích vì sao micro/thông báo tắt
   và trỏ tới cách 1/2 thay vì chỉ ẩn nút.

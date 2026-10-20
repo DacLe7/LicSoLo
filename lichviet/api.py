@@ -21,13 +21,27 @@ EVENT_FIELDS = {"title", "start", "duration_min", "all_day", "repeat", "remind_b
 LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
 
 
+def _host_name(host_header: str) -> str:
+    h = (host_header or "").strip().lower()
+    return h[1:h.index("]")] if h.startswith("[") and "]" in h else h.rsplit(":", 1)[0] if h.count(":") == 1 else h
+
+
+def _extra_hosts() -> set:
+    return {x.strip().lower() for x in os.environ.get("LICHVIET_ALLOWED_HOSTS", "").split(",") if x.strip()}
+
+
 def host_ok(host_header: str) -> bool:
     """Chỉ nhận Host là máy này hoặc tên không có dấu chấm (tên service trong mạng Docker, ví dụ "app").
     Tên miền có dấu chấm bị từ chối: chặn DNS rebinding. Thêm host khác bằng LICHVIET_ALLOWED_HOSTS (cách nhau dấu phẩy)."""
-    h = (host_header or "").strip().lower()
-    h = h[1:h.index("]")] if h.startswith("[") and "]" in h else h.rsplit(":", 1)[0] if h.count(":") == 1 else h
-    extra = {x.strip().lower() for x in os.environ.get("LICHVIET_ALLOWED_HOSTS", "").split(",") if x.strip()}
-    return bool(h) and (h in LOCAL_HOSTS or "." not in h or h in extra)
+    h = _host_name(host_header)
+    return bool(h) and (h in LOCAL_HOSTS or "." not in h or h in _extra_hosts())
+
+
+def host_is_local(host_header: str) -> bool:
+    """Host là chính máy này (hoặc tên service Docker), không phải tên/IP được mở thêm qua LICHVIET_ALLOWED_HOSTS.
+    "localhost" qua cáp USB (adb reverse) vẫn tính là máy này."""
+    h = _host_name(host_header)
+    return bool(h) and (h in LOCAL_HOSTS or ("." not in h and h not in _extra_hosts()))
 
 
 def origin_ok(origin: str, host_header: str) -> bool:
@@ -85,7 +99,11 @@ def make_handler(svc: Service):
 
         def _is_ui(self) -> bool:
             """Trang giao diện đi kèm chạy trên chính máy chủ này (cùng nguồn gốc trong trình duyệt).
-            Trình duyệt đã chặn trang khác (Origin/Sec-Fetch-Site), nên ở đây được tin; client khác phải có khóa."""
+            Trình duyệt đã chặn trang khác (Origin/Sec-Fetch-Site), nên ở đây được tin; client khác phải có khóa.
+            Mở qua tên/IP thêm trong LICHVIET_ALLOWED_HOSTS (điện thoại trong mạng) thì không tin: ai tới được trang
+            chưa chắc là chủ máy, giao diện phải nhập khóa như client khác."""
+            if not host_is_local(self.headers.get("Host")):
+                return False
             if self.headers.get("Sec-Fetch-Site") == "same-origin":
                 return True
             origin = self.headers.get("Origin")
@@ -470,5 +488,9 @@ def serve(db_path="lichviet.db", host="127.0.0.1", port=8765):
         log.critical("Không mở được cổng %s:%s (%s). Có thể cổng đang được chương trình khác dùng. App dừng lại.",
                      host, port, e)
         raise SystemExit(3)
+    if _extra_hosts() and not os.environ.get("LICHVIET_API_KEY"):
+        log.warning("Đã mở thêm địa chỉ %s (LICHVIET_ALLOWED_HOSTS) nhưng chưa đặt LICHVIET_API_KEY: ai tới được "
+                    "địa chỉ đó đều dùng được app. Nên đặt khóa, giao diện sẽ hỏi khóa khi mở từ máy khác.",
+                    ", ".join(sorted(_extra_hosts())))
     log.info("Lịch Việt %s đang chạy tại http://%s:%s", __version__, host, port)
     srv.serve_forever()

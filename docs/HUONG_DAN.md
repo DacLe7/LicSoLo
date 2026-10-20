@@ -147,6 +147,9 @@ Có. Câu có chữ *sinh nhật*, *kỷ niệm* hoặc *thôi nôi* kèm ngày 
 **Dùng trên điện thoại được không?**
 App chỉ mở được trên chính máy cài Pi Desktop (địa chỉ 127.0.0.1), để dữ liệu không lộ ra mạng. Muốn có việc trên lịch điện thoại, bấm nút tải `.ics` cạnh việc đó rồi gửi tệp sang điện thoại và mở. Muốn thử app (cả giọng nói) từ điện thoại Android: cắm cáp USB và dùng `adb reverse`, xem [ANDROID_PLAN.md](ANDROID_PLAN.md); đừng mở cổng app ra Wi-Fi.
 
+**Trang hiện "Nhập khóa để mở lịch"?**
+Bạn đang mở app từ một máy khác (điện thoại qua mạng nội bộ hoặc Tailscale) và người cài app đã đặt khóa bảo vệ. Nhập đúng khóa đó (giá trị `LICHVIET_API_KEY`) một lần, trình duyệt sẽ nhớ. Trên chính máy cài app hoặc qua cáp USB (`adb reverse`) thì không bị hỏi.
+
 **Không thấy thông báo trên máy dù đã bật?**
 Kiểm tra app còn mở (một thẻ hoặc cửa sổ app đã cài). Trên Windows, xem *Cài đặt → Hệ thống → Thông báo* đã cho phép Chrome/Edge chưa, và chế độ *Không làm phiền* có đang bật không.
 
