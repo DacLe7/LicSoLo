@@ -86,4 +86,4 @@ Chạy test: `python -m unittest discover -s tests`.
   test máy chủ giọng nói bằng `faster_whisper` giả (lỗi rồi tự thử lại, phần trăm, đếm tệp tải dở). `tests/test_stt_progress.py`.
 - A4: `j()` có hạn chờ (AbortController), lỗi mạng/500/401 thành câu tiếng Việt; nút "Hiểu câu"/"Lưu" không còn treo; thanh "Mất kết nối"
   khi tải nền lỗi; toast có `aria-live`. `tests/test_ui.py` kiểm tra cú pháp JS bằng `node --check` (bỏ qua nếu không có node).
-- Lưu ý kỹ thuật: heredoc trong công cụ Bash làm hỏng `` trong chuỗi Python; sửa mã có regex thì dùng công cụ Edit.
+- Lưu ý kỹ thuật: heredoc trong công cụ Bash làm hỏng chuỗi có dấu gạch ngược (ví dụ ranh giới từ trong regex) khi ghi bằng Python; sửa mã có regex thì dùng công cụ Edit.
