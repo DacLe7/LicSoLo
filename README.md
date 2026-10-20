@@ -1,24 +1,23 @@
 # LicSoLo — Trợ lý thời gian (lịch + nhắc việc, tiếng Việt)
 
-Ứng dụng quản lý lịch và nhắc việc bằng tiếng Việt, có hiển thị âm lịch và trợ lý AI tùy chọn. Viết bằng Python thuần (package `lichviet`, chỉ dùng thư viện chuẩn, lưu bằng SQLite). Đóng gói Docker và chạy trong Pi Desktop.
+Ứng dụng quản lý lịch và nhắc việc bằng tiếng Việt, có hiển thị âm lịch và trợ lý AI tùy chọn. Viết bằng Python thuần (package `lichviet`, chỉ dùng thư viện chuẩn, lưu bằng SQLite). Đóng gói Docker và chạy trong Pi Desktop (xem [solohost/README.md](solohost/README.md)).
 
 ## Chạy thử bằng Docker
 Build image cục bộ:
 
     docker build -t lichviet:test .
 
-Chạy, dữ liệu lưu trong thư mục `data/` cạnh file compose:
+Chạy, dữ liệu lưu trong thư mục `data/` cạnh lệnh:
 
     docker run --rm -p 127.0.0.1:18763:8080 -v "$PWD/data:/data" lichviet:test
 
 Mở http://127.0.0.1:18763. Kiểm tra sức khỏe: `GET /health`.
 
-Cổng trên máy chủ là `PANEL_PORT` (mặc định `18763`), chỉ đổi khi cổng đó đang bị dùng: `PANEL_PORT=18764 docker compose up -d`. Trong `solohost/docker-compose.yml` cổng này được đọc từ `${PANEL_PORT:-18763}`.
-
-Trên Pi Desktop không build, chỉ kéo image có sẵn từ GitHub Container Registry, dùng `solohost/docker-compose.yml` và `solohost/config_options.yml`.
+## Cổng truy cập (PANEL_PORT)
+Trên SoloHost, cổng trên máy là `PANEL_PORT` (mặc định `18763`), chỉ nghe `127.0.0.1`. Form cài đặt cho chọn `18763`, `18764`, `18765`, `28763`. Chỉ đổi khi cổng mặc định đang bị chương trình khác dùng.
 
 ## Cấu hình AI (tùy chọn)
-Các biến được đặt trong `config_options.yml` và truyền qua compose:
+Các biến được khai báo trong `solohost/config_options.yml`:
 
 | Biến | Giá trị | Ý nghĩa |
 |---|---|---|
@@ -34,20 +33,21 @@ Các biến được đặt trong `config_options.yml` và truyền qua compose:
 - `ai`: thêm service `llm` (profile `ai`).
 - `both`: thêm cả `stt` và `llm`.
 
-`AI_TIER`, `AI_MEMORY`, `AI_THREADS` chỉ hiện trong form cài đặt khi `AI_MODE` tương ứng.
-
 ## Nhập bằng giọng nói
 
-Nhập bằng giọng nói chạy hoàn toàn trên máy, không gửi âm thanh ra ngoài. Service `stt` dùng whisper (image `ghcr.io/dacle7/licsolo-stt`). App gọi nó qua `LICHVIET_STT_URL`.
+Nhập bằng giọng nói chạy hoàn toàn trên máy, không gửi âm thanh ra ngoài. Service `stt` dùng whisper, mô hình cố định `turbo` trong compose.
 
-- Bật qua mục **Tính năng nâng cao** trong form cài đặt, chọn "Nhập bằng giọng nói" hoặc "Cả giọng nói và Trợ lý AI".
-- **Lần đầu chạy** service tải mô hình whisper `turbo` (khoảng 1,6 GB) vào volume `lichviet-stt`. Cần mạng trong lần này. Các lần sau dùng bản đã tải. Mô hình cố định `turbo` trong compose (biến `STT_MODEL`).
+- Bật qua form cài đặt: chọn "Nhập bằng giọng nói" hoặc "Cả giọng nói và Trợ lý AI".
+- Cần trình duyệt có quyền micro. Bấm mic để bắt đầu nói, bấm lại khi nói xong.
+- Lần đầu chạy, service tải mô hình `turbo` (khoảng 1,6 GB) vào volume `lichviet-stt`. Cần mạng trong lần này.
+- Cần khoảng 4 GB RAM cho service `stt`.
+- **Tự học lỗi nghe:** khi bạn sửa một chữ mà máy nhận sai, app ghi lại cặp "nghe sai → sửa đúng" qua `POST /stt/learn`. Khi cùng một cặp được sửa đủ `LICHVIET_LEARN_MIN` lần (mặc định 2), app tự áp dụng cho các lần nhận sau.
 
 ## Múi giờ
-Đặt `LICHVIET_TZ` (mặc định `Asia/Ho_Chi_Minh`), ví dụ `Asia/Bangkok`. Giờ hiển thị theo múi giờ này, không theo giờ của máy chủ (UTC).
+App đọc `LICHVIET_TZ` (mặc định `Asia/Ho_Chi_Minh`). Giờ hiển thị theo múi giờ này, không theo giờ của máy chủ (UTC). Trên SoloHost, compose cố định `Asia/Ho_Chi_Minh`.
 
-## Sao lưu/khôi phục
-Dữ liệu (việc, lần nhắc đã gửi, cụm từ đã học) nằm trong `/data` của container, trên Pi Desktop là thư mục `./data` cạnh compose. Xóa thư mục đó là mất dữ liệu, nên hãy sao lưu định kỳ:
+## Sao lưu và khôi phục
+Dữ liệu (việc, lần nhắc đã gửi, cụm từ đã học, lỗi nghe đã học) nằm trong `/data` của container. Trên Pi Desktop là thư mục `./data` cạnh compose. Xóa thư mục đó là mất dữ liệu, nên hãy sao lưu định kỳ:
 
     curl -s http://127.0.0.1:18763/v1/export > sao-luu.json
     curl -s -X POST http://127.0.0.1:18763/v1/import -H "Content-Type: application/json" --data-binary @sao-luu.json
@@ -71,45 +71,50 @@ Mọi đường dẫn dùng được cả có và không có tiền tố `/v1` (
 | GET | `/v1/phrases` | Sổ cụm từ đã học |
 | DELETE | `/v1/phrases/<cụm>` | Quên một cụm từ đã học |
 
-Thời gian trả về là giờ địa phương theo `LICHVIET_TZ`, không kèm độ lệch múi giờ.
+Thời gian trả về là giờ địa phương theo `LICHVIET_TZ`, không kèm độ lệch múi giờ. Chi tiết đầy đủ: [docs/API.md](docs/API.md).
 
-## Nhắc việc và bảo vệ API
+## Xác thực API
+
+- **Khóa tùy chọn.** `LICHVIET_API_KEY` (≥16 ký tự) bật khóa cho các endpoint cần khóa. Gửi qua header `X-Lacviet-Key: <khóa>` hoặc `Authorization: Bearer <khóa>`. Sai hoặc thiếu: `401`.
+- **Không đặt khóa:** các endpoint cũ mở như các bản trước. Các endpoint mới (đồng bộ, thiết bị, mốc nhắc sắp tới, lịch `.ics`) trả `503` `chưa cấu hình LICHVIET_API_KEY`, để không mở mặc định.
+- **Trên SoloHost, khóa chưa được nối vào container.** Compose không truyền `LICHVIET_API_KEY`, nên các endpoint cần khóa trả 503. Muốn dùng khóa thật phải thêm biến vào compose và khai báo trong `config_options.yml`.
+- `LICHVIET_ICS_KEY` (tùy chọn, ≥16 ký tự) chỉ mở `GET /v1/calendar.ics?key=…` để đăng ký lịch qua URL.
+- App từ chối yêu cầu từ trang web khác (Origin khác Host, `Sec-Fetch-Site: cross-site`) và Host là tên miền có dấu chấm (chống DNS rebinding). Host `localhost`, `127.0.0.1`, `::1` và tên không có dấu chấm (tên service Docker) được phép. Host khác thì thêm vào `LICHVIET_ALLOWED_HOSTS` (cách nhau dấu phẩy). Trên SoloHost, biến này chưa được truyền vào container.
+- `/health` luôn mở. Nội dung JSON tối đa 10 MB.
+
+## Nhắc việc
 
 - Việc **lưu với giờ đã qua** được cảnh báo ở bản nháp và **không** bị nhắc ngay. Một việc chỉ được nhắc nếu được tạo trước mốc nhắc.
 - Nhắc bù khi máy từng tắt: việc một lần và giỗ được nhắc bù trong `LICHVIET_CATCHUP_DAYS` ngày (mặc định 7); việc lặp ngày/tuần/tháng chỉ nhìn lùi 1 ngày.
-- API từ chối yêu cầu từ trang web khác (Origin khác Host, `Sec-Fetch-Site: cross-site`) và Host là tên miền có dấu chấm (chống DNS rebinding). Host `localhost`, `127.0.0.1`, `::1` và tên không có dấu chấm (tên service Docker) được phép. App khác gọi bằng host khác thì thêm vào `LICHVIET_ALLOWED_HOSTS` (cách nhau dấu phẩy). `/health` luôn mở.
-- Nội dung JSON tối đa 10 MB.
-
-## Tích hợp hệ sinh thái
-
-Hợp đồng API (khóa `X-Lacviet-Key`, nhắc có `ref`, mốc sắp tới cho thông báo cục bộ, thiết bị, đồng bộ tăng dần,
-lịch `.ics`): xem [docs/API.md](docs/API.md). Khóa do cổng hệ sinh thái cấp qua `LICHVIET_API_KEY` trong `.env`.
+- `GET /v1/reminders/due` (mặc định) và `POST /v1/reminders/fired`: dành cho notifier của hệ sinh thái.
+- `GET /v1/reminders/due?channel=ui` và `POST /v1/reminders/ack`: banner "Đã biết" trong giao diện. Bấm "Đã biết" **không** làm mất thông báo notifier phải gửi, và ngược lại.
+- Mỗi lần nhắc trả thêm `user_id` (đặt bằng `LICHVIET_USER_ID`, mặc định `default`) và `occurrence_iso` kèm độ lệch múi giờ.
 
 ## Lặp theo âm lịch hằng tháng
 
 Nói "cúng rằm mỗi tháng", "ăn chay mùng 1 hàng tháng" hoặc "ngày 15 âm lịch mỗi tháng" sẽ tạo việc `lunar_monthly` (rằm = ngày 15 âm). Tháng thiếu không có ngày 30 thì dùng ngày 29; tháng nhuận bị bỏ qua. Một câu chỉ nói được một ngày âm: "mùng 1 và rằm" phải tạo thành hai việc.
 
-## Nhắc việc: hai kênh độc lập
-
-- `GET /v1/reminders/due` (mặc định) và `POST /v1/reminders/fired`: dành cho notifier của hệ sinh thái.
-- `GET /v1/reminders/due?channel=ui` và `POST /v1/reminders/ack`: banner "Đã biết" trong giao diện. Bấm "Đã biết" **không** làm mất thông báo notifier phải gửi, và ngược lại.
-- Mỗi lần nhắc trả thêm `user_id` (đặt bằng `LICHVIET_USER_ID`) và `occurrence_iso` kèm độ lệch múi giờ (ví dụ `+07:00`). `/v1/events` có `start_iso`/`occurrence_iso`; `/v1/info` có `user_id`, `now_iso`. Các trường cũ không đổi.
-- Múi giờ đặt bằng `LICHVIET_TZ` (compose đọc từ `.env`). Tệp sao lưu ghi `tz`; nhập sang máy khác múi giờ thì kết quả có `tz_warning` (giờ giữ nguyên số).
-
 ## Vận hành AI
 
-- Hạ bậc model khi AI quá chậm là **tạm thời**: sau `AI_RETRY_DAYS` ngày (mặc định 7) không bị xin hạ thêm, container llm tự khởi động lại và thử bậc cao hơn.
-- Muốn cố định image llama.cpp, đặt `LLM_IMAGE=ghcr.io/ggml-org/llama.cpp@sha256:<digest>` trong `.env` (lấy digest bằng `docker pull` rồi `docker inspect`). Mặc định vẫn là tag `server` trôi theo bản mới.
-- Workflow publish chạy test trước; test lỗi thì không đẩy image.
+- Hạ bậc model khi AI quá chậm là **tạm thời**: sau `AI_RETRY_DAYS` ngày (mặc định 7) không bị xin hạ thêm, container llm tự khởi động lại và thử bậc cao hơn. Biến này không nằm trong form cài đặt SoloHost; muốn đổi phải sửa compose.
+- Tag `server` của llama.cpp trôi theo bản mới nhất. Trên SoloHost không có biến để ghim digest.
 
 ## Chạy test
+
     python -m unittest discover -s tests
 
-## Phát hành bản mới
-Đẩy một tag dạng `v*` (ví dụ `v0.1.0`). GitHub Actions build và đẩy image lên `ghcr.io/dacle7/licsolo:<tag>`. Sau đó cập nhật dòng `image:` trong compose trên Pi Desktop.
+CI (`.github/workflows/ci.yml`) chạy cùng lệnh này trên mỗi push và pull request.
 
-    git tag v0.1.0
-    git push origin v0.1.0
+## Phát hành bản mới
+
+1. Đảm bảo `main` đã xanh (CI chạy test).
+2. Tạo và đẩy tag dạng `v*`, ví dụ `v0.5.2`:
+
+       git tag v0.5.2
+       git push origin v0.5.2
+
+3. Workflow `publish.yml` chạy test trước; nếu test lỗi thì không đẩy image. Nếu test pass, nó đẩy `ghcr.io/dacle7/licsolo:<phiên bản>` và `latest`. Workflow `publish-stt.yml` đẩy `ghcr.io/dacle7/licsolo-stt:<phiên bản>`.
+4. Cập nhật tag `image:` của `app` và `stt` trong `solohost/docker-compose.yml` lên đúng phiên bản đó, rồi kiểm tra kéo được ẩn danh trước khi giao cho Pi Desktop. Compose luôn ghim phiên bản cụ thể, không dùng `latest`.
 
 ## Ranh giới
 - Lõi **không gửi** thông báo. Ứng dụng gọi `due_reminders()`, gửi qua kênh có sẵn, rồi gọi `mark_fired()`.
