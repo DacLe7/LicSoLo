@@ -137,7 +137,7 @@ class TestHttp(unittest.TestCase):
             d = urllib.request.Request(base + "/events/%d" % ev[0]["id"], method="DELETE")
             self.assertTrue(json.loads(urllib.request.urlopen(d).read())["deleted"])
         finally:
-            srv.shutdown()
+            srv.shutdown(); srv.server_close()
 
 
 class TestToday(unittest.TestCase):

@@ -6,7 +6,7 @@ Chạy test: `python -m unittest discover -s tests`.
 ## Hiện trạng (khảo sát lần đầu, 2026-10-21)
 
 - Python thuần (stdlib), SQLite, giao diện một trang trong `lichviet/ui.py`, API trong `lichviet/api.py`.
-- 93 test xanh lúc bắt đầu (lần 2: 117 test; lần 3: 133 test; lần 4: 139 test; lần 5: 162 test; lần 6: 168 test; lần 7: 181 test; lần 8: 197 test; lần 9: 218 test; lần 10: 231 test; lần 11: 236 test; lần 12: 243 test; lần 13: 245 test; lần 14: 254 test).
+- 93 test xanh lúc bắt đầu (lần 15: 264 test; lần 2: 117 test; lần 3: 133 test; lần 4: 139 test; lần 5: 162 test; lần 6: 168 test; lần 7: 181 test; lần 8: 197 test; lần 9: 218 test; lần 10: 231 test; lần 11: 236 test; lần 12: 243 test; lần 13: 245 test; lần 14: 254 test).
 - Phát hiện:
   - README ghi "không đặt khóa thì các endpoint mới trả 503" nhưng code (và test `test_no_key_configured_means_open`) mở hết. README sai.
   - `solohost/README.md` ghi image 0.5.1 trong khi compose ghim 0.5.2.
@@ -72,7 +72,7 @@ Chạy test: `python -m unittest discover -s tests`.
 - [ ] E2. Giao diện di động: nút đủ lớn (≥44px), danh sách không tràn, form Sửa một cột.
 - [ ] E3. Xem lịch theo tháng (lưới tháng có âm lịch).
 - [ ] E4. Tìm kiếm việc theo tên.
-- [ ] E5. Đóng socket trong test (ResourceWarning), tách helper server test dùng chung.
+- [x] E5. Đóng socket trong test (ResourceWarning): mọi máy chủ test gọi `server_close()`; chạy `-X dev` không còn cảnh báo. Phần tách helper chuyển sang E20.
 - [ ] E6. Hiệu năng: `due_reminders`/`list_range` quét toàn bộ bảng — lọc sơ bộ bằng SQL cho việc một lần.
 - [ ] E7. Chọn khoảng "Sắp tới" 7/30 ngày.
 - [ ] E8. Kiểm tra CSP/headers bảo mật cho trang (X-Content-Type-Options, frame-ancestors).
@@ -94,7 +94,7 @@ Chạy test: `python -m unittest discover -s tests`.
 - [ ] B22. "trả tiền nhà mùng 5 hàng tháng" đang hiểu là âm lịch (do "mùng"); việc tiền bạc/hóa đơn thường là dương lịch: cân nhắc chỉ coi âm khi có rằm/cúng/chay/âm, còn lại hỏi lại hoặc cảnh báo.
 - [ ] B23. "2h đêm mai" = 2h ngày mai (theo lịch) hay đêm nay rạng sáng mai? Đang lấy 2h ngày 22; cân nhắc cảnh báo khi giờ đêm 0–4h đi với "mai/nay".
 - [ ] D6. Service worker không gửi được khóa khi mở từ máy khác: nút "Đã biết" trên thông báo nhờ trang đang mở gửi ack (đã làm); nếu không có trang nào mở thì ack bị bỏ — chấp nhận, ghi trong ANDROID_PLAN.
-- [ ] E16. Hộp `ask()` dùng lại cho các thao tác khác cần hỏi: xóa cụm từ đã học, khôi phục sao lưu (ghi đè/gộp), tắt thông báo.
+- [x] E16. Hộp `ask()` dùng lại cho các thao tác khác cần hỏi: xóa cụm từ đã học, khôi phục sao lưu (ghi đè/gộp), tắt thông báo.
 - [x] E17. Sau khi xóa: thanh "Đã xóa … · Hoàn tác" trong vài giây (giữ bản sao việc vừa xóa ở trang, tạo lại bằng POST nếu bấm Hoàn tác).
 - [x] C13. Cài đặt cá nhân: ô "Nhắc trước mặc định" thêm "2 ngày"/"1 tuần" cho khớp form Sửa.
 - [ ] D7. HUONG_DAN mục 8: thêm ảnh chụp/sơ đồ chữ đơn giản (không ảnh nhị phân lớn) và mục "Không thấy thiết bị trong adb devices" (cáp chỉ sạc, trình điều khiển USB trên Windows).
@@ -107,8 +107,12 @@ Chạy test: `python -m unittest discover -s tests`.
 - [ ] B27. Tên việc gõ toàn chữ hoa ("HỌP") giữ nguyên; cân nhắc đổi về dạng câu khi cả tên đều hoa và dài hơn một từ viết tắt.
 - [ ] B28. "8h trưa" (giờ trưa < 11) đang đặt 8:00 kèm cảnh báo; cân nhắc hỏi lại "8 giờ sáng hay 8 giờ tối?" bằng nút chọn nhanh trong bản nháp.
 - [ ] B29. Cảnh báo "ít khi đi với buổi" nên có nút sửa nhanh (ví dụ "3 giờ tối" → nút "Đổi thành 3:00 sáng") thay vì phải mở form Sửa.
-- [ ] B30. "tháng giêng"/"tháng chạp" gõ không dấu ("mung 1 thang gieng") chưa hiểu (luật tên tháng chỉ chạy cho câu có dấu; mới làm cho "ram thang gieng").
+- [x] B30. "tháng giêng"/"tháng chạp" gõ không dấu ("mung 1 thang gieng"); chỉ đổi tên tháng khi có ngày/rằm đứng trước.
 - [x] D8. Trang không an toàn: ẩn hẳn nút micro (hoặc làm mờ kèm chú thích) thay vì chỉ báo khi bấm.
+- [ ] E20. Tách helper máy chủ test dùng chung (`tests/helpers.py`: dựng Service + ThreadingHTTPServer, tự `shutdown`+`server_close`), thay các bản chép trong test_core/test_backup/test_fixes/test_stt/test_remote_key.
+- [ ] B31. "giỗ 31/12 âm lịch 2026" (ngày âm 31 không có) đang rơi về dương lịch 31/12 và để "âm lịch 2026" trong tên: nên báo "ngày âm lịch không có ngày 31".
+- [ ] B32. Năm âm lịch nói kiểu can chi ("tháng chạp năm Bính Ngọ") chưa hiểu; cân nhắc bảng can chi ↔ năm.
+- [ ] E21. Hộp nhập sao lưu: đọc trước tệp trong trang (đếm số việc, ngày xuất) để hộp hỏi nêu "Tệp có 12 việc, xuất ngày 20/10/2026".
 
 ## Nhật ký
 
@@ -278,3 +282,17 @@ Chạy test: `python -m unittest discover -s tests`.
   có trong sao lưu nhờ vòng lặp chung theo `DEFAULT_SETTINGS`. Kiểm tra bật/tắt gom về `_BOOL_SETTINGS`.
 - Test: `tests/test_ram_period.py` (8 test), `test_settings` thêm bật/tắt nhắc giỗ sớm.
 - Tiếp theo nên làm: E16, E1/E2, E5, B25/B30.
+
+### Lần 15 — 2026-10-21
+- B30: `parser._month_names` đổi "tháng giêng/chạp" thành "tháng 1/12 âm lịch" cả khi gõ không dấu ("gio ong noi mung 8 thang chap",
+  "di chua mung 1 thang gieng"), nhưng chỉ khi có ngày hoặc rằm đứng trước: "họp tổng kết tháng chạp" giữ nguyên tên việc
+  (trước đây thành "Họp tổng kết tháng 12 âm lịch" và bị coi là chưa hiểu). Câu có dấu mà gõ "thang chap" thì không đoán.
+- Sửa lỗi cũ tìm ra khi thử: năm đứng sau "âm lịch" ("giỗ ông 8/12 âm lịch 2026") lọt vào tên và bị bỏ qua → nay là năm âm lịch, không lặp;
+  "tết 30 tháng chạp 2026" (tháng thiếu) báo "không tồn tại" → nay lấy ngày 29 kèm cảnh báo như khi không ghi năm.
+- E16: hộp hỏi trong trang trước khi "Quên" cụm từ đã học (nêu cụm sẽ thôi tự hiểu) và trước khi nhập bản sao lưu (nêu tên tệp,
+  nói rõ chỉ gộp thêm, giữ cài đặt). Test so lời giải thích với hành vi thật của `import_all`. Không có nút tắt thông báo trong app
+  (trình duyệt tự quản) nên không cần hỏi.
+- E5: thêm `server_close()` cho máy chủ test còn thiếu; hết ResourceWarning.
+- Tài liệu: HUONG_DAN (tên tháng gõ không dấu, năm âm lịch sau "âm lịch", hộp hỏi khi khôi phục).
+- Test: `tests/test_month_names.py` (6), `tests/test_ask_more.py` (4).
+- Tiếp theo nên làm: E1/E2 (trợ năng, di động), B25, E20, B31.

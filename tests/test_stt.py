@@ -39,12 +39,13 @@ class STTTest(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        cls.fake.shutdown()
+        cls.fake.shutdown(); cls.fake.server_close()
 
     def _api(self, stt):
         svc = Service(tempfile.mktemp(suffix=".db"), stt=stt)
         srv = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(svc))
         threading.Thread(target=srv.serve_forever, daemon=True).start()
+        self.addCleanup(srv.server_close)
         self.addCleanup(srv.shutdown)
         return "http://127.0.0.1:%d" % srv.server_address[1]
 

@@ -69,7 +69,7 @@ class TestHttpV1(unittest.TestCase):
         self.base = "http://127.0.0.1:%d" % self.srv.server_port
 
     def tearDown(self):
-        self.srv.shutdown()
+        self.srv.shutdown(); self.srv.server_close()
 
     def get(self, path):
         return json.loads(urllib.request.urlopen(self.base + path).read())

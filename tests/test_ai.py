@@ -29,7 +29,7 @@ class T(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        cls.srv.shutdown()
+        cls.srv.shutdown(); cls.srv.server_close()
 
     def svc(self, url):
         return Service(":memory:", clock=lambda: NOW, llm=LLMClient(url, timeout=3))
