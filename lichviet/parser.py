@@ -550,6 +550,10 @@ def _find_lunar(text: str, f: str):
     a, b = dm.span()
     for mk in re.finditer(r"\bam\s+lich\b|\bam\b", f):
         if "lich" in mk.group():
+            # "giỗ ông 8/12 âm lịch 2026": năm âm lịch đứng sau chữ "âm lịch"
+            ym = re.match(r"\s+(?:nam\s+)?(\d{4})\b", f[mk.end():]) if year is None and mk.start() >= b else None
+            if ym:
+                return day, month, int(ym.group(1)), (a, b), (mk.start(), mk.end() + ym.end())
             return day, month, year, (a, b), mk.span()
         gap = f[mk.end():a] if mk.end() <= a else f[b:mk.start()] if mk.start() >= b else None
         if gap is not None and gap.strip() in ("", "ngay"):
@@ -648,6 +652,27 @@ def _fix_ram(text: str):
     return new, new != text
 
 
+_MONTH_NAME_NUM = {"giêng": "1", "gieng": "1", "chạp": "12", "chap": "12"}
+
+
+def _month_names(text: str) -> str:
+    """"tháng giêng", "tháng chạp" là tên tháng âm lịch -> "tháng 1/12 âm lịch".
+    Chỉ đổi khi đứng sau ngày hoặc rằm ("mùng 8 tháng chạp", "rằm tháng giêng") để "họp tổng kết tháng chạp"
+    giữ nguyên tên việc. Cả câu gõ không dấu cũng hiểu ("mung 1 thang gieng"); câu có dấu thì phải đúng chữ."""
+    no_marks = fold(text) == text.lower()
+    if no_marks:
+        pat = r"(?i)\b(\d{1,2}|ram)(\s+)thang\s+(gieng|chap)\b(\s+(?:am|duong)\b)?"
+        unit, lunar = "thang", "am lich"
+    else:
+        pat = r"(?i)\b(\d{1,2}|rằm)(\s+)tháng\s+(giêng|chạp)\b(\s+(?:âm|dương)\b)?"
+        unit, lunar = "tháng", "âm lịch"
+
+    def rep(m):
+        out = "%s%s%s %s" % (m.group(1), m.group(2), unit, _MONTH_NAME_NUM[m.group(3).lower()])
+        return out + (m.group(4) if m.group(4) else " " + lunar)
+    return re.sub(pat, rep, text)
+
+
 def parse_vi(text: str, now: datetime) -> ParseResult:
     text, ram_typo = _fix_ram(unicodedata.normalize("NFC", text))
     r = _parse_vi(text, now)
@@ -663,10 +688,7 @@ def _parse_vi(text: str, now: datetime) -> ParseResult:
                   lambda m: m.group(1) + "h" + (m.group(2) or "") if int(m.group(1)) <= 24 else m.group(0), text)
     # "ngày mốt", "bữa mốt" (Nam Bộ) = ngày kia; "ngày một" (mùng 1) giữ nguyên vì có dấu khác
     text = re.sub(r"(?i)\b(?:ngày|bữa)\s+mốt\b", "ngày kia", text)
-    # "tháng giêng", "tháng chạp" là tên tháng âm lịch
-    text = re.sub(r"(?i)\btháng\s+giêng\b(?!\s*(?:âm|dương))", "tháng 1 âm lịch", text)
-    text = re.sub(r"(?i)\btháng\s+chạp\b(?!\s*(?:âm|dương))", "tháng 12 âm lịch", text)
-    text = re.sub(r"(?i)\btháng\s+(giêng|chạp)\b", lambda m: "tháng " + ("1" if m.group(1).lower() == "giêng" else "12"), text)
+    text = _month_names(text)
     text = re.sub(r"(?i)\brằm\s+tháng\s+(\d{1,2})(?:\s+âm(?:\s+lịch)?)?\b(?!\s*dương)", r"15 tháng \1 âm lịch", text)
     f = fold(text)
     if re.search(r"\bduong\b", f):  # nói rõ dương lịch: bỏ chữ đó khỏi tên việc, dùng luật thường
@@ -714,6 +736,9 @@ def _parse_vi(text: str, now: datetime) -> ParseResult:
     used29 = False
     if year:
         s = lunar_to_solar(day, month, year)
+        if s is None and day == 30:  # "tết 30 tháng chạp 2026" mà tháng thiếu: lấy ngày cuối tháng (29)
+            s = lunar_to_solar(29, month, year)
+            used29 = s is not None
     else:
         s, used29 = next_solar(day, month, now.date())
     if s is None:
