@@ -406,10 +406,14 @@ def _parse_core(text: str, now: datetime) -> ParseResult:
         f = _mask(f, m)
     if period is None and meal:   # "ăn tối 7h" = 19h, "ăn tối mai" = 19h mai; chữ vẫn ở lại trong tên
         period = "dem" if meal[0].group(1) == "khuya" else meal[0].group(1)
+    raw_hh = hh
     if hh is not None:
         if hh > 24 or mi > 59:
             r.warnings.append("giờ không hợp lệ")
             hh = None
+        elif period == "toi" and hh == 12:   # "12h tối nay" = nửa đêm, không phải 12h trưa
+            hh = 0
+            midnight12 = True
         elif period in ("chieu", "toi") and hh < 12:
             hh += 12
         elif period == "trua" and 1 <= hh < 6:
@@ -421,6 +425,13 @@ def _parse_core(text: str, now: datetime) -> ParseResult:
             hh += 12
         if hh == 24:
             hh = 0
+        # giờ nói ngược thói quen của buổi ("3 giờ tối", "15h sáng", "9h chiều"): vẫn đặt theo luật nhưng nhắc kiểm tra
+        odd = raw_hh is not None and hh is not None and not rng and not kem and (
+            (period == "toi" and 1 <= raw_hh <= 4) or (period == "sang" and raw_hh >= 13)
+            or (period == "chieu" and 9 <= raw_hh <= 11) or (period == "trua" and 6 <= raw_hh <= 10))
+        if odd:
+            r.warnings.append("giờ %d ít khi đi với buổi %s, tạm đặt %02d:%02d, bạn kiểm tra lại"
+                              % (raw_hh, _PERIOD_VI[period], hh, mi))
         if kem and hh is not None:   # "3 giờ kém 15": trừ sau khi đã áp buổi (chiều → 15 → 14:45)
             hh, mi = hh - 1, 60 - kem
             if hh < 0:
@@ -622,8 +633,30 @@ def _rel_words_to_digits(text: str) -> str:
     return re.sub(r"(?i)(\b(?:sau|trong|kéo\s+dài|mất)\s+)(\d{1,2})\s*(?:tiếng|giờ)\s+rưỡi\b", half, text)
 
 
+_RAM_NOTE = "đã hiểu \"ram\" là rằm (ngày 15 âm lịch), bấm Sửa nếu không phải"
+
+
+def _fix_ram(text: str):
+    """"ram" gõ thiếu dấu trước "tháng N"/"mỗi tháng" là rằm. Trả về (câu đã sửa, có cần nhắc không).
+    Cả câu không dấu: "cung ram thang 7" -> "15 thang 7 am lich" (giữ câu không dấu để các luật khác vẫn chạy).
+    Câu có dấu: "cúng ram mỗi tháng", "đi chùa ram tháng giêng" -> "rằm" kèm lời nhắc."""
+    if fold(text) == text.lower():
+        months = {"gieng": "1", "chap": "12"}
+        return re.sub(r"(?i)\bram\s+thang\s+(\d{1,2}|gieng|chap)(?:\s+am(?:\s+lich)?)?\b(?!\s*duong)",
+                      lambda m: "15 thang %s am lich" % months.get(m.group(1).lower(), m.group(1)), text), False
+    new = re.sub(r"\b[Rr]am(?=\s+(?:(?:mỗi|hằng|hàng)\s+tháng|tháng\s+(?:\d{1,2}|giêng|chạp))\b)", "rằm", text)
+    return new, new != text
+
+
 def parse_vi(text: str, now: datetime) -> ParseResult:
-    text = unicodedata.normalize("NFC", text)
+    text, ram_typo = _fix_ram(unicodedata.normalize("NFC", text))
+    r = _parse_vi(text, now)
+    if ram_typo and r.lunar:
+        r.warnings.append(_RAM_NOTE)
+    return r
+
+
+def _parse_vi(text: str, now: datetime) -> ParseResult:
     text = _rel_words_to_digits(text)
     # "9g sáng", "7g30" (gõ tắt giờ kiểu Nam Bộ) = 9h; "gói 4g", "sim 5g", "mạng 4g" là mạng điện thoại nên giữ nguyên
     text = re.sub(r"(?i)(?<!gói )(?<!goi )(?<!sim )(?<!mạng )(?<!mang )(?<!sóng )(?<!song )\b(\d{1,2})g(\d{2})?\b",

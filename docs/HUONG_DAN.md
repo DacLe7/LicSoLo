@@ -56,6 +56,8 @@ Mẹo:
 
 - Không nói giờ thì app lưu thành việc **cả ngày**.
 - Gõ không dấu ("hop 3h chieu mai") hay gõ tắt giờ ("9g sáng", "7g30 tối", "9 rưỡi sáng") app vẫn hiểu. Riêng "gói 4g", "sim 5g" được giữ nguyên là tên việc.
+  "ram tháng 7" (thiếu dấu) được hiểu là rằm tháng 7 âm lịch; nếu câu có dấu ở chỗ khác, app hiểu là rằm và hiện một dòng nhắc để bạn kiểm tra.
+- Giờ nói ngược thói quen của buổi ("3 giờ tối", "15h sáng", "9h chiều") vẫn được đặt theo luật (15:00, 15:00, 21:00) nhưng bản nháp có dòng nhắc kiểm tra lại. "12h tối nay" là nửa đêm (0:00 sáng hôm sau).
 - Mỗi câu một việc. Muốn nhắc cả mùng 1 và rằm thì tạo hai việc.
 - "Bữa hổm" là nói chung chung, app tạm hiểu là 3 ngày trước và báo cho bạn biết để sửa lại nếu cần.
 - App học cách nói của bạn: khi bạn xác nhận một câu mà Trợ lý AI giúp hiểu, lần sau nói giống vậy app tự hiểu, không cần hỏi AI nữa.

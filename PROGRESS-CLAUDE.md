@@ -6,7 +6,7 @@ Chạy test: `python -m unittest discover -s tests`.
 ## Hiện trạng (khảo sát lần đầu, 2026-10-21)
 
 - Python thuần (stdlib), SQLite, giao diện một trang trong `lichviet/ui.py`, API trong `lichviet/api.py`.
-- 93 test xanh lúc bắt đầu (lần 2: 117 test; lần 3: 133 test; lần 4: 139 test; lần 5: 162 test; lần 6: 168 test; lần 7: 181 test; lần 8: 197 test; lần 9: 218 test; lần 10: 231 test; lần 11: 236 test; lần 12: 243 test; lần 13: 245 test).
+- 93 test xanh lúc bắt đầu (lần 2: 117 test; lần 3: 133 test; lần 4: 139 test; lần 5: 162 test; lần 6: 168 test; lần 7: 181 test; lần 8: 197 test; lần 9: 218 test; lần 10: 231 test; lần 11: 236 test; lần 12: 243 test; lần 13: 245 test; lần 14: 253 test).
 - Phát hiện:
   - README ghi "không đặt khóa thì các endpoint mới trả 503" nhưng code (và test `test_no_key_configured_means_open`) mở hết. README sai.
   - `solohost/README.md` ghi image 0.5.1 trong khi compose ghim 0.5.2.
@@ -88,7 +88,7 @@ Chạy test: `python -m unittest discover -s tests`.
 - [x] B16. "tháng giêng", "tháng chạp" (âm lịch) đổi thành tháng 1/12 trong `digits_from_words` và bộ hiểu câu gõ tay.
 - [ ] B17. "bữa nay" sau khi sửa "bửa nay" chưa đi qua luật "bữa nay → hôm nay" (luật dựa trên từ gốc); kiểm tra bộ hiểu câu có hiểu "bữa nay" ở mọi vị trí.
 - [ ] B18. "tháng sau"/"tháng tới"/"năm sau" đứng một mình (không có ngày) vẫn là cụm chưa hiểu (unsure → hỏi AI): cân nhắc tạm đặt cùng ngày tháng sau kèm cảnh báo như "tháng trước".
-- [ ] B19. "3 giờ tối" nói ngược thói quen (3 giờ tối = 15h theo luật +12) — nên cảnh báo khi buổi và giờ không hợp (tối mà < 6h, sáng mà > 11h).
+- [x] B19. "3 giờ tối" nói ngược thói quen (3 giờ tối = 15h theo luật +12) — nên cảnh báo khi buổi và giờ không hợp (tối mà < 6h, sáng mà > 11h).
 - [x] B20. "đón con sau 2 giờ chiều": tên việc còn "sau" ở cuối; bỏ "sau/trước" đứng ngay trước giờ khỏi tên (cân nhắc lưu "sau" thành ghi chú).
 - [ ] B21. Nhiều thứ trong một câu: "học tiếng anh 7h tối thứ 3 và thứ 5" (đang lấy thứ 3, "và thứ 5" lọt vào tên): lặp hằng tuần nhiều ngày hoặc báo tạo từng việc.
 - [ ] B22. "trả tiền nhà mùng 5 hàng tháng" đang hiểu là âm lịch (do "mùng"); việc tiền bạc/hóa đơn thường là dương lịch: cân nhắc chỉ coi âm khi có rằm/cúng/chay/âm, còn lại hỏi lại hoặc cảnh báo.
@@ -101,10 +101,13 @@ Chạy test: `python -m unittest discover -s tests`.
 - [x] E10. Nút "Thử lại" trên thanh mất kết nối; tự tải lại danh sách khi nối lại được.
 - [ ] E18. Hoàn tác xóa tạo việc mới (id mới) nên mất các lần nhắc đã "Đã biết" và thiết bị đồng bộ thấy xóa + thêm; cân nhắc xóa mềm (cột `deleted`) để khôi phục giữ id.
 - [ ] E19. Thanh Hoàn tác: chỉ giữ việc xóa gần nhất; xóa liên tiếp hai việc thì việc đầu không hoàn tác được nữa — cân nhắc hàng đợi nhỏ.
-- [ ] B24. "ram thang 7" gõ không dấu cả câu chưa thành rằm tháng 7 âm lịch (luật "rằm tháng N" cần dấu); làm giống luật rằm hằng tháng (chỉ khi cả câu không dấu).
+- [x] B24. "ram thang 7" gõ không dấu cả câu chưa thành rằm tháng 7 âm lịch (luật "rằm tháng N" cần dấu); làm giống luật rằm hằng tháng (chỉ khi cả câu không dấu).
 - [ ] B25. Lỗi gõ phím thường gặp trong câu gõ tay: "mia" (mai), "chieu nai", "thu bai" — cân nhắc bảng sửa nhỏ chỉ áp khi từ đứng cạnh giờ/buổi (giống `dialect_fix`, xem B15).
-- [ ] B26. "cúng ram mỗi tháng" (câu có dấu nhưng gõ "ram") ra lặp tháng dương mà không có ngày: nên hỏi lại "ngày mấy" hoặc gợi ý "rằm".
+- [x] B26. "cúng ram mỗi tháng" (câu có dấu nhưng gõ "ram") ra lặp tháng dương mà không có ngày: nên hỏi lại "ngày mấy" hoặc gợi ý "rằm".
 - [ ] B27. Tên việc gõ toàn chữ hoa ("HỌP") giữ nguyên; cân nhắc đổi về dạng câu khi cả tên đều hoa và dài hơn một từ viết tắt.
+- [ ] B28. "8h trưa" (giờ trưa < 11) đang đặt 8:00 kèm cảnh báo; cân nhắc hỏi lại "8 giờ sáng hay 8 giờ tối?" bằng nút chọn nhanh trong bản nháp.
+- [ ] B29. Cảnh báo "ít khi đi với buổi" nên có nút sửa nhanh (ví dụ "3 giờ tối" → nút "Đổi thành 3:00 sáng") thay vì phải mở form Sửa.
+- [ ] B30. "tháng giêng"/"tháng chạp" gõ không dấu ("mung 1 thang gieng") chưa hiểu (luật tên tháng chỉ chạy cho câu có dấu; mới làm cho "ram thang gieng").
 - [x] D8. Trang không an toàn: ẩn hẳn nút micro (hoặc làm mờ kèm chú thích) thay vì chỉ báo khi bấm.
 
 ## Nhật ký
@@ -261,3 +264,15 @@ Chạy test: `python -m unittest discover -s tests`.
 - D8: trang không an toàn thì nút micro mờ ngay khi mở, `aria-disabled` + nhãn nêu lý do; bấm thì giải thích trước khi hỏi máy chủ giọng nói.
 - Tài liệu: HUONG_DAN thêm "mỗi sáng 7h", "mỗi chiều thứ sáu" vào bảng kiểu câu (test khóa câu ví dụ đã chạy) và mẹo gõ không dấu/gõ tắt.
 - Tiếp theo nên làm: E16, E1/E2, B24–B26, E5.
+
+### Lần 14 — 2026-10-21
+- B24: cả câu không dấu "cung ram thang 7", "le chua ram thang 7 am", "cung ram thang gieng/chap" → rằm tháng N âm lịch, lặp hằng năm
+  (`parser._fix_ram` đổi sang "15 thang N am lich", câu vẫn không dấu nên luật buổi "7h toi" vẫn chạy). `parse_vi` thành lớp bọc mỏng
+  quanh `_parse_vi` để thêm lời nhắc.
+- B26: câu có dấu nhưng gõ "ram" ngay trước "mỗi/hằng/hàng tháng" hoặc "tháng N/giêng/chạp" → "rằm" kèm cảnh báo "đã hiểu "ram" là rằm…".
+  "nâng cấp ram máy tính", "mua ram tháng sau" giữ nguyên.
+- B19: giờ nói ngược thói quen ("3 giờ tối" 1–4h, "15h sáng" ≥13h, "9h chiều" 9–11h, "8h trưa" 6–10h) vẫn đặt theo luật nhưng có cảnh báo
+  nêu giờ đã đặt; không cảnh báo cho khoảng giờ và "giờ kém". Sửa lỗi: "12h tối nay" trước đây ra 12:00 trưa, nay là 0:00 hôm sau như "12h đêm".
+- Tài liệu: HUONG_DAN mục kiểu câu thêm "ram tháng 7" và giờ ngược buổi.
+- Test: `tests/test_ram_period.py` (8 test).
+- Tiếp theo nên làm: E16, E1/E2, E5, B25/B30, C12.
