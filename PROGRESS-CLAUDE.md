@@ -6,7 +6,7 @@ Chạy test: `python -m unittest discover -s tests`.
 ## Hiện trạng (khảo sát lần đầu, 2026-10-21)
 
 - Python thuần (stdlib), SQLite, giao diện một trang trong `lichviet/ui.py`, API trong `lichviet/api.py`.
-- 93 test xanh lúc bắt đầu (lần 2: 117 test; lần 3: 133 test; lần 4: 139 test; lần 5: 162 test; lần 6: 168 test; lần 7: 181 test; lần 8: 197 test; lần 9: 218 test).
+- 93 test xanh lúc bắt đầu (lần 2: 117 test; lần 3: 133 test; lần 4: 139 test; lần 5: 162 test; lần 6: 168 test; lần 7: 181 test; lần 8: 197 test; lần 9: 218 test; lần 10: 231 test).
 - Phát hiện:
   - README ghi "không đặt khóa thì các endpoint mới trả 503" nhưng code (và test `test_no_key_configured_means_open`) mở hết. README sai.
   - `solohost/README.md` ghi image 0.5.1 trong khi compose ghim 0.5.2.
@@ -39,11 +39,11 @@ Chạy test: `python -m unittest discover -s tests`.
 - [x] B4. Cảnh báo trùng giờ ngay trong form Sửa (endpoint kiểm tra trùng, gọi khi đổi ngày/giờ).
 - [x] B5. Sửa việc đã lưu: `PATCH /v1/events/<id>`, nút Sửa trên từng việc trong danh sách.
 - [x] B6. Thêm luật sửa lỗi nghe theo vùng miền (l/n, tr/ch, s/x, dấu hỏi/ngã, "dzờ", "giờ" đọc "dờ"...), có test.
-- [ ] B7. Thêm nhiều câu test bộ phân tích (mục tiêu ≥150 câu, phân nhóm theo hiện tượng). Lần 7: bảng `tests/test_parser_phrases.py` (~50 câu, 5 nhóm); mở rộng tiếp bảng này.
+- [ ] B7. Thêm nhiều câu test bộ phân tích (mục tiêu ≥150 câu, phân nhóm theo hiện tượng). Lần 7: bảng `tests/test_parser_phrases.py` (~50 câu, 5 nhóm); lần 10: 111 câu, 9 nhóm + bảng âm lịch + bảng lặp/nhắc trước (test khóa ≥110). Còn ~40 câu: lỗi gõ, không dấu, câu dài nhiều mệnh đề.
 - [x] B8. "sáng sớm" (6h khi không nói giờ), "nửa đêm (nay/mai)" = 0h kết thúc ngày đó, buổi cách giờ bởi từ ngày ("tối chủ nhật 8h"); "ba giờ rưỡi", "trưa mai" vốn đã hiểu.
 - [x] B9. Khoảng giờ "từ 2h đến 4h chiều", "9h-11h30", "từ 7 tới 9h tối", "22h-2h" → giờ bắt đầu + thời lượng (buổi áp cho giờ kết thúc; "từ 11h đến 1h chiều" = 11h–13h).
 - [x] B10. Số viết bằng chữ trong cụm tương đối khi gõ tay (`parser._rel_words_to_digits`): "hai ngày nữa", "ba hôm trước", "sau mười lăm phút", "nửa tiếng", "một tiếng rưỡi nữa", "mùng hai tháng tới"; giữ nguyên "thứ hai tuần trước", "ngày mốt".
-- [ ] B11. "ăn tối", "ăn trưa", "ca sáng" là tên việc, không phải buổi khi đã có giờ khác ("ăn tối hôm bữa" → tên "Ăn").
+- [x] B11. "ăn tối", "ăn trưa", "ca sáng" là tên việc, không phải buổi khi đã có giờ khác ("ăn tối hôm bữa" → tên "Ăn"). Lần 10: giữ trong tên, buổi vẫn dùng đoán giờ ("ăn tối 7h" = 19h) nếu câu không nói buổi khác.
 - [x] B12. "đầu/cuối tuần trước", "đầu/cuối tháng trước", "tháng trước", "năm ngoái/năm trước/năm rồi" (tạm cùng ngày, có cảnh báo), "N tháng/năm nữa|trước", "sau N tháng", "20/11 năm sau", "ngày 5 tháng tới".
 
 ### C. Nhắc việc cá nhân, PWA, xuất lịch, cài đặt
@@ -63,7 +63,7 @@ Chạy test: `python -m unittest discover -s tests`.
 ### D. Android
 - [x] D1. `docs/ANDROID_PLAN.md`: USB + `adb reverse` (khuyến nghị demo), Tailscale + HTTPS, LAN HTTP (không khuyến nghị), PWA, mô hình nhỏ trên máy; bảng so sánh, đánh đổi riêng tư.
 - [ ] D2. Hướng dẫn từng bước `adb reverse` trong HUONG_DAN (bật gỡ lỗi USB, platform-tools, lệnh) — không đổi mặc định 127.0.0.1.
-- [ ] D3. Truy cập qua host trong `LICHVIET_ALLOWED_HOSTS` khi đã đặt `LICHVIET_API_KEY`: giao diện phải nhập khóa (không tin same-origin), có test.
+- [x] D3. Truy cập qua host trong `LICHVIET_ALLOWED_HOSTS` khi đã đặt `LICHVIET_API_KEY`: giao diện phải nhập khóa (không tin same-origin), có test.
 - [ ] D4. Trang không phải trang an toàn (http qua IP): mục Thông báo giải thích vì sao micro/thông báo/cài app tắt, trỏ tới ANDROID_PLAN.
 - [x] D5. Test khóa mặc định: compose chỉ mở 127.0.0.1, `serve()`/`LICHVIET_HOST` mặc định 127.0.0.1 (`tests/test_android_plan.py`).
 
@@ -85,11 +85,15 @@ Chạy test: `python -m unittest discover -s tests`.
 - [ ] B13. "sinh nhật" kèm thứ/ngày tương đối ("sinh nhật mẹ thứ bảy này") hiện không tự lặp (đúng, vì không rõ ngày cố định); cân nhắc hỏi lại.
 - [ ] B14. "ngày 20/11 hằng năm" không có tên việc: hỏi lại tên (đang trả need_info), thêm câu gợi ý cụ thể.
 - [ ] B15. Luật vùng miền (`speech.dialect_fix`) chỉ chạy cho chữ từ giọng nói; cân nhắc áp một phần an toàn cho câu gõ tay ("chủ nhựt", "tuần xau", "mơi").
-- [ ] B16. "tháng giêng", "tháng chạp" (âm lịch) đổi thành tháng 1/12 trong `digits_from_words` và bộ hiểu câu gõ tay.
+- [x] B16. "tháng giêng", "tháng chạp" (âm lịch) đổi thành tháng 1/12 trong `digits_from_words` và bộ hiểu câu gõ tay.
 - [ ] B17. "bữa nay" sau khi sửa "bửa nay" chưa đi qua luật "bữa nay → hôm nay" (luật dựa trên từ gốc); kiểm tra bộ hiểu câu có hiểu "bữa nay" ở mọi vị trí.
 - [ ] B18. "tháng sau"/"tháng tới"/"năm sau" đứng một mình (không có ngày) vẫn là cụm chưa hiểu (unsure → hỏi AI): cân nhắc tạm đặt cùng ngày tháng sau kèm cảnh báo như "tháng trước".
 - [ ] B19. "3 giờ tối" nói ngược thói quen (3 giờ tối = 15h theo luật +12) — nên cảnh báo khi buổi và giờ không hợp (tối mà < 6h, sáng mà > 11h).
-- [ ] B20. "đón con sau 2 giờ chiều": tên việc còn "sau" ở cuối; bỏ "sau/trước" đứng ngay trước giờ khỏi tên (cân nhắc lưu "sau" thành ghi chú).
+- [x] B20. "đón con sau 2 giờ chiều": tên việc còn "sau" ở cuối; bỏ "sau/trước" đứng ngay trước giờ khỏi tên (cân nhắc lưu "sau" thành ghi chú).
+- [ ] B21. Nhiều thứ trong một câu: "học tiếng anh 7h tối thứ 3 và thứ 5" (đang lấy thứ 3, "và thứ 5" lọt vào tên): lặp hằng tuần nhiều ngày hoặc báo tạo từng việc.
+- [ ] B22. "trả tiền nhà mùng 5 hàng tháng" đang hiểu là âm lịch (do "mùng"); việc tiền bạc/hóa đơn thường là dương lịch: cân nhắc chỉ coi âm khi có rằm/cúng/chay/âm, còn lại hỏi lại hoặc cảnh báo.
+- [ ] B23. "2h đêm mai" = 2h ngày mai (theo lịch) hay đêm nay rạng sáng mai? Đang lấy 2h ngày 22; cân nhắc cảnh báo khi giờ đêm 0–4h đi với "mai/nay".
+- [ ] D6. Service worker không gửi được khóa khi mở từ máy khác: nút "Đã biết" trên thông báo nhờ trang đang mở gửi ack (đã làm); nếu không có trang nào mở thì ack bị bỏ — chấp nhận, ghi trong ANDROID_PLAN.
 - [ ] E10. Nút "Thử lại" trên thanh mất kết nối; tự tải lại danh sách khi nối lại được.
 
 ## Nhật ký
@@ -198,5 +202,20 @@ Chạy test: `python -m unittest discover -s tests`.
 - D1/D5: `docs/ANDROID_PLAN.md`, README và FAQ trỏ tới; test khóa cổng mặc định.
 - Phát hiện (ghi trong ANDROID_PLAN): `_is_ui` tin trang same-origin nên khi mở ra mạng thì khóa API không bảo vệ giao diện → D3.
   Trang http qua IP không phải trang an toàn → micro/thông báo/PWA tắt → D4.
+
+### Lần 10 — 2026-10-21
+- B11: `_MEAL_BEFORE` ("ăn/bữa/ca/cơm/tiệc" + buổi): buổi ở lại trong tên việc, không bị coi là từ chỉ buổi sát giờ; nếu câu không nói
+  buổi khác thì vẫn dùng để đoán giờ ("ăn tối với sếp 7h mai" = 19h, trước đây 7h sáng; "ăn tối lúc 8h" = 20h). Câu có dấu phải đúng
+  chữ ("cà chua tối mai" không phải "ca").
+- Sửa lỗi cũ: "10h đêm", "11 giờ khuya", "9h đêm nay" bị hiểu là buổi sáng (chỉ 12h đêm được xử lý) → +12 cho 6–11h đêm (cả khoảng giờ).
+- "thứ bảy này", "chủ nhật này": hết lọt "này" vào tên, lấy lần gần nhất kể cả hôm nay. "thứ hai tuần này" vẫn là thứ hai của tuần này (có thể đã qua).
+- B16: "tháng giêng/chạp" → tháng 1/12 âm lịch ("rằm tháng giêng", "giỗ bà mùng 8 tháng chạp"); "rằm tháng 1 âm" hết bị bỏ sót.
+- B20: "trước/sau" đứng ngay trước cụm ngày giờ bỏ khỏi tên ("nộp hồ sơ trước ngày 30/10" → "Nộp hồ sơ").
+- B7: bảng câu 111 câu (nhóm bữa ăn/ca làm, giờ đêm, thứ trong tuần, câu thường ngày, âm lịch, lặp/nhắc trước).
+- D3: `api.host_is_local`; `_is_ui` không tin same-origin khi Host là địa chỉ mở thêm qua `LICHVIET_ALLOWED_HOSTS`. Trang có ô
+  "Nhập khóa để mở lịch" (hiện khi gặp 401), `j()`/fetch thô gửi `X-Lacviet-Key`, liên kết tải (sao lưu, .ics) tải bằng fetch kèm khóa,
+  service worker nhờ trang gửi ack khi bị 401. `serve()` cảnh báo trong log khi mở địa chỉ mà chưa đặt khóa. `tests/test_remote_key.py`.
+- Tài liệu: ANDROID_PLAN (bối cảnh + mục đã làm), README, HUONG_DAN (FAQ ô nhập khóa).
+- Tiếp theo nên làm: D2 (hướng dẫn adb reverse), D4, E13, C11, B7 (thêm ~40 câu).
 - Test: `tests/test_settings.py` (17), `tests/test_android_plan.py` (4).
 - Tiếp theo nên làm: B7 (thêm câu test), E13 (hộp xác nhận xóa trong trang), D2–D4, B11.
