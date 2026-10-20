@@ -93,6 +93,23 @@ def _next_anniversary(dd: int, mm: int, today: date, year: Optional[int] = None)
     return d if d >= today else date(today.year + 1, mm, dd)
 
 
+_PERIOD_VI = {"sang": "sáng", "trua": "trưa", "chieu": "chiều", "toi": "tối", "dem": "đêm", "khuya": "khuya"}
+_NEXT_UNITS = {"tuan", "thang", "nam", "lan", "dip", "ky"}
+
+
+def _shift_months(dt: datetime, n: int) -> datetime:
+    """Cộng/trừ n tháng, ngày cuối tháng thì kẹp lại (31/3 - 1 tháng = 28/2 hoặc 29/2)."""
+    y, mo = divmod(dt.year * 12 + dt.month - 1 + n, 12)
+    mo += 1
+    for dd in range(dt.day, 27, -1):
+        d = _valid_date(y, mo, dd)
+        if d:
+            break
+    else:
+        d = date(y, mo, dt.day)
+    return datetime.combine(d, dt.time()).replace(second=0, microsecond=0)
+
+
 def _parse_core(text: str, now: datetime) -> ParseResult:
     f = fold(text)
     f0_core = f
@@ -145,19 +162,32 @@ def _parse_core(text: str, now: datetime) -> ParseResult:
     rel = None
     rel_days = False
     # "sau 3 ngày", "3 ngày nữa", "2 tuần nữa"; "3 ngày trước", "1 tuần trước" (đã qua)
-    m = take(r"\bsau\s+(\d+)\s*(phut|gio|tieng|ngay|tuan)\b") or \
-        take(r"\b(\d+)\s*(phut|gio|tieng|ngay|tuan)\s+nua\b")
+    # "sau 2 giờ chiều" là mốc giờ, không phải 2 tiếng nữa; "ngày 5 tháng tới" là ngày cụ thể
+    not_clock = r"(?!\s*(?:sang|trua|chieu|toi|dem|khuya)\b)"
+    not_dom = r"(?<!ngay )(?<!mung )(?<!mong )"
+    m = take(r"\bsau\s+(\d+)\s*(phut|gio|tieng|ngay|tuan)\b" + not_clock) or \
+        take(r"\b" + not_dom + r"(\d+)\s*(phut|gio|tieng|ngay|tuan)\s+nua\b") or \
+        take(r"\b" + not_dom + r"(\d+)\s*(ngay|tuan)\s+toi\b")   # "3 giờ tới" dễ lẫn "3 giờ tối"
+    mm_ = None if m else (take(r"\bsau\s+(\d+)\s*(thang|nam)\b(?!\s*\d)") or
+                          take(r"\b" + not_dom + r"(\d+)\s*(thang|nam)\s+(?:nua|toi)\b"))
     if m:
         rel_days = m.group(2) in ("ngay", "tuan")
         rel = now + timedelta(minutes=_unit_min(int(m.group(1)), m.group(2)))
         if rel_days:
             rel = rel.replace(second=0, microsecond=0)
+    elif mm_:
+        rel_days = True
+        rel = _shift_months(now, int(mm_.group(1)) * (12 if mm_.group(2) == "nam" else 1))
     else:
-        m = take(r"\b(\d+)\s*(ngay|hom|tuan)\s+(?:ve\s+)?truoc\b")
+        m = take(r"\b(\d+)\s*(ngay|hom|tuan)\s+(?:ve\s+)?truoc\b") or \
+            take(r"\b" + not_dom + r"(\d+)\s*(thang|nam)\s+(?:ve\s+)?truoc\b")
         if m:
             rel_days = True
-            n = int(m.group(1)) * (7 if m.group(2) == "tuan" else 1)
-            rel = (now - timedelta(days=n)).replace(second=0, microsecond=0)
+            if m.group(2) in ("thang", "nam"):
+                rel = _shift_months(now, -int(m.group(1)) * (12 if m.group(2) == "nam" else 1))
+            else:
+                n = int(m.group(1)) * (7 if m.group(2) == "tuan" else 1)
+                rel = (now - timedelta(days=n)).replace(second=0, microsecond=0)
 
     # "cả ngày": chỉ là dấu hiệu việc không có giờ, không thuộc tên việc
     take(r"\bca\s+ngay\b")
@@ -169,11 +199,16 @@ def _parse_core(text: str, now: datetime) -> ParseResult:
     if m:
         dd, mm = int(m.group(1)), int(m.group(2))
         yy = int(m.group(3)) if m.group(3) else now.year
-        if r.repeat is None and not m.group(3) and _ANNIV.search(f0_core):
+        has_year = bool(m.group(3))
+        if not has_year:   # "20/11 năm sau", "5/3 năm ngoái"
+            my = take(r"\bnam\s+(sau|toi|ngoai|truoc|roi|nay)\b")
+            if my:
+                yy, has_year = now.year + {"sau": 1, "toi": 1, "nay": 0}.get(my.group(1), -1), True
+        if r.repeat is None and not has_year and _ANNIV.search(f0_core):
             r.repeat = "yearly"   # sinh nhật, kỷ niệm có ngày mà không nói năm: năm nào cũng có
             r.warnings.append("sinh nhật, ngày kỷ niệm: đã đặt lặp hằng năm, bấm Sửa nếu chỉ một lần")
         if r.repeat == "yearly":
-            d = _next_anniversary(dd, mm, now.date(), yy if m.group(3) else None)
+            d = _next_anniversary(dd, mm, now.date(), yy if has_year else None)
             if d is None:
                 r.warnings.append("ngày không hợp lệ")
             elif d.month == 2 and d.day == 29:
@@ -182,8 +217,14 @@ def _parse_core(text: str, now: datetime) -> ParseResult:
             d = _valid_date(yy, mm, dd)
             if d is None:
                 r.warnings.append("ngày không hợp lệ")
-            elif not m.group(3) and d < now.date():
+            elif not has_year and d < now.date():
                 d = _valid_date(yy + 1, mm, dd)
+    elif (m := take(r"\b(?:ngay|mung|mong)\s+(\d{1,2})\s+thang\s+(sau|toi|nay)\b")):
+        # "ngày 5 tháng tới", "mùng 10 tháng này"
+        base = _shift_months(now.replace(day=1), 0 if m.group(2) == "nay" else 1)
+        d = _valid_date(base.year, base.month, int(m.group(1)))
+        if d is None:
+            r.warnings.append("ngày không hợp lệ")
     if d is None and not r.warnings and r.repeat == "monthly":
         m = take(r"\b(?:ngay|mung|mong)\s+(\d{1,2})\b")
         if m and 1 <= int(m.group(1)) <= 31:
@@ -223,28 +264,37 @@ def _parse_core(text: str, now: datetime) -> ParseResult:
     if d is None and not r.warnings:
         # cụm mơ hồ: "cuối tuần (này/sau)", "đầu tuần sau", "cuối tháng", "đầu tháng sau"
         unit = "tuan"
-        m = take(r"\b(cuoi|dau)\s+tuan(?:\s+(nay|sau|toi)\b)?")
+        m = take(r"\b(cuoi|dau)\s+tuan(?:\s+(nay|sau|toi|truoc)\b)?")
         if not m:
             unit = "thang"  # "đầu tháng 11" là ngày cụ thể, để luật khác xử lý
-            m = take(r"\b(cuoi|dau)\s+thang(?:\s+(nay|sau|toi)\b|(?!\s*\d))")
+            m = take(r"\b(cuoi|dau)\s+thang(?:\s+(nay|sau|toi|truoc)\b|(?!\s*\d))")
         if m:
             edge, q = m.group(1), m.group(2)
             today = now.date()
             if unit == "tuan":
-                monday = today - timedelta(days=today.weekday()) + timedelta(days=7 if q in ("sau", "toi") else 0)
+                shift = {"sau": 7, "toi": 7, "truoc": -7}.get(q, 0)
+                monday = today - timedelta(days=today.weekday()) + timedelta(days=shift)
                 d = monday + timedelta(days=5 if edge == "cuoi" else 0)
-                if d < today:  # cuối tuần đang diễn ra thì lấy hôm nay, đầu tuần đã qua thì lấy tuần sau
+                if d < today and q != "truoc":  # cuối tuần đang diễn ra thì lấy hôm nay, đầu tuần đã qua thì lấy tuần sau
                     d = today if edge == "cuoi" else d + timedelta(days=7)
                 if edge == "cuoi":
                     r.warnings.append("\"cuối tuần\" tạm đặt thứ Bảy, bạn chỉnh nếu khác")
             else:
                 first = today.replace(day=1)
                 nxt = (first + timedelta(days=32)).replace(day=1)
-                base = nxt if q in ("sau", "toi") else first
+                prev = (first - timedelta(days=1)).replace(day=1)
+                base = nxt if q in ("sau", "toi") else prev if q == "truoc" else first
                 if edge == "dau":
                     d = base if q else nxt
                 else:
                     d = (base + timedelta(days=32)).replace(day=1) - timedelta(days=1)
+        else:
+            # ngày đã qua nhưng không rõ ngày: "tháng trước", "năm ngoái" -> tạm cùng ngày tháng/năm trước, có cảnh báo
+            m = take(r"\bthang\s+truoc\b") or take(r"\bnam\s+(?:ngoai|truoc|roi)\b")
+            if m:
+                d = _shift_months(now, -12 if m.group().startswith("nam") else -1).date()
+                r.warnings.append("\"%s\" không rõ là ngày nào, tạm đặt %s, bạn chỉnh lại nếu khác"
+                                  % (text[m.start():m.end()].lower(), d.strftime("%d/%m/%Y")))
     if d is None and not r.warnings:
         m = take(r"\b(?:thu\s+(hai|bay|ba|tu|nam|sau|[2-7])|(chu\s+nhat))\s*(tuan\s+(?:sau|toi|nay|truoc))?")
         if m or day is not None:
@@ -269,15 +319,23 @@ def _parse_core(text: str, now: datetime) -> ParseResult:
     hh = mi = None
     tspan = None
     kem = 0
+    rng = None
+    # khoảng giờ: "từ 2h đến 4h chiều", "9h-11h", "từ 8 tới 10h" -> giờ bắt đầu + thời lượng
+    m = take(r"(?<!thu )\btu\s+(\d{1,2})\s*(?:h|gio|:)?\s*(\d{2})?\s*(?:-|den|toi)\s*(\d{1,2})\s*(?:h(?![a-z])|gio|:)\s*(\d{2})?\b(?:\s*phut)?") or \
+        take(r"\b(\d{1,2})\s*(?:h|gio|:)\s*(\d{2})?\s*(?:-|den)\s*(\d{1,2})\s*(?:h(?![a-z])|gio|:)\s*(\d{2})?\b(?:\s*phut)?")
+    if m:
+        hh, mi = int(m.group(1)), int(m.group(2) or 0)
+        rng = (int(m.group(3)), int(m.group(4) or 0), hh)
+        tspan = (m.start(), m.end())
     # "3 giờ kém 15" = 2:45; "ba giờ kém mười lăm"
-    m = take(r"\b(?:(\d{1,2})\s*(?:h(?![a-z])|gio)|(mot|hai|ba|bon|nam|sau|bay|tam|chin|muoi(?:\s+(?:mot|hai))?)\s+gio)\s+kem\s+(\d{1,2}|hai\s+muoi\s+lam|hai\s+muoi|muoi\s+lam|muoi|nam)\b(?:\s*phut)?")
+    m = None if rng else take(r"\b(?:(\d{1,2})\s*(?:h(?![a-z])|gio)|(mot|hai|ba|bon|nam|sau|bay|tam|chin|muoi(?:\s+(?:mot|hai))?)\s+gio)\s+kem\s+(\d{1,2}|hai\s+muoi\s+lam|hai\s+muoi|muoi\s+lam|muoi|nam)\b(?:\s*phut)?")
     if m:
         hh = int(m.group(1)) if m.group(1) else NUMW[m.group(2).replace("  ", " ")]
         w = re.sub(r"\s+", " ", m.group(3))
         kem = int(w) if w.isdigit() else {"nam": 5, "muoi": 10, "muoi lam": 15, "hai muoi": 20, "hai muoi lam": 25}[w]
         mi = 0
         tspan = (m.start(), m.end())
-    else:
+    elif not rng:
         m = take(r"\b(?:(\d{1,2})\s*(?:h(?![a-z])|gio|:)|(mot|hai|ba|bon|nam|sau|bay|tam|chin|muoi(?:\s+(?:mot|hai))?)\s+gio)\s*(?:(\d{2})\b|(?<=h)(\d)\b|(ruoi)\b)?(?:\s*phut)?")
         if m:
             hh = int(m.group(1)) if m.group(1) else NUMW[m.group(2).replace("  ", " ")]
@@ -285,12 +343,30 @@ def _parse_core(text: str, now: datetime) -> ParseResult:
             tspan = (m.start(), m.end())
     period = None
     midnight12 = False
+    early = False
+    if take(r"\bnua\s+dem\b"):   # "nửa đêm (nay)" = 0 giờ kết thúc ngày đó
+        if hh is None:
+            hh, mi, midnight12 = 0, 0, True
+    ms_som = re.search(r"\bsang\s+(som)\b", f)
+    if ms_som:   # "sáng sớm": sớm hơn buổi sáng thường, chỉ dùng khi không nói giờ
+        early = True
+        spans.append(ms_som.span(1))
+        f = f[:ms_som.start(1)] + "   " + f[ms_som.end(1):]
     ms = list(re.finditer(r"\b(sang|trua|chieu|toi|dem|khuya)\b", f))
     # "tôi" là đại từ sau các động từ này ("gọi tôi 8h"), không phải buổi tối
     _PRON_BEFORE = {"goi", "nhac", "bao", "cho", "hoi", "voi", "keu", "gap", "nho", "dan", "cung"}
     ms = [x for x in ms if not (x.group(1) == "toi" and (f[:x.start()].split() or [""])[-1] in _PRON_BEFORE)]
+    # câu gõ có dấu: "hộ chiếu", "chiếu phim", "tới" không phải buổi
+    if f0_core != text.lower():
+        ms = [x for x in ms if text[x.start():x.end()].lower() == _PERIOD_VI[x.group(1)]]
+    # "tuần tới", "tháng tới", "năm tới": "tới" chứ không phải buổi tối
+    ms = [x for x in ms if not (x.group(1) == "toi" and (f0_core[:x.start()].split() or [""])[-1] in _NEXT_UNITS)]
     if tspan:  # chỉ lấy từ chỉ buổi sát cạnh giờ ("3h chiều", "tối 7h")
-        ms = [x for x in ms if 0 <= x.start() - tspan[1] <= 3 or 0 <= tspan[0] - x.end() <= 3]
+        # chỉ cách nhau bởi khoảng trắng (từ ngày như "chủ nhật", "mai" đã bị che): "tối chủ nhật 8h"
+        def gap(x):
+            g = f[tspan[1]:x.start()] if x.start() >= tspan[1] else f[x.end():tspan[0]] if x.end() <= tspan[0] else "x"
+            return len(g) if not g.strip() else None
+        ms = sorted((x for x in ms if gap(x) is not None), key=gap)
         if not ms:  # "tối nay 8h", "tối mai 8h": buổi đứng cạnh từ ngày thì vẫn áp cho giờ
             ms = list(re.finditer(r"\b(sang|trua|chieu|toi|dem|khuya)\s+(?:nay|mai|kia)\b", fold(text)))[-1:]  # "nay" đã bị che ở bước ngày
     else:
@@ -316,6 +392,20 @@ def _parse_core(text: str, now: datetime) -> ParseResult:
             hh, mi = hh - 1, 60 - kem
             if hh < 0:
                 hh = 23
+        if rng and hh is not None:
+            eh, em, raw = rng
+            if eh > 24 or em > 59:
+                r.warnings.append("giờ kết thúc không hợp lệ")
+            else:
+                e = (eh + 12 if period in ("chieu", "toi") and eh < 12 else
+                     eh + 12 if period == "trua" and 1 <= eh < 6 else eh) * 60 + em
+                if hh * 60 + mi > e:   # "từ 11h đến 1h chiều": buổi chỉ áp cho giờ kết thúc
+                    hh = raw
+                st = hh * 60 + mi
+                if e <= st:
+                    e += 720 if eh < 12 and e + 720 > st else 1440   # "từ 10h đến 2h" = 14h; "22h-2h" qua đêm
+                if r.duration_min is None:
+                    r.duration_min = e - st
 
     # 7) ghép ngày giờ
     if "ngày không hợp lệ" in r.warnings:   # "31/4": không đoán ngày, để thiếu ngày và hỏi lại
@@ -336,14 +426,14 @@ def _parse_core(text: str, now: datetime) -> ParseResult:
             d = cand.date() if cand > now else cand.date() + timedelta(days=1)
         r.start = datetime.combine(d, time(hh, mi))
     elif d is not None and period is not None:   # "sáng mai", "tối nay": có buổi thì không được bỏ
-        h = {"sang": 8, "trua": 12, "chieu": 15, "toi": 19, "dem": 22}[period]
+        h = {"sang": 6 if early else 8, "trua": 12, "chieu": 15, "toi": 19, "dem": 22}[period]
         r.start = datetime.combine(d, time(h, 0))
         r.warnings.append("chỉ nói buổi, tạm đặt %02d:00" % h)
     elif d is not None:
         r.start = datetime.combine(d, time(0, 0))
         r.all_day = True
     elif period is not None:
-        h = {"sang": 8, "trua": 12, "chieu": 15, "toi": 19, "dem": 22}[period]
+        h = {"sang": 6 if early else 8, "trua": 12, "chieu": 15, "toi": 19, "dem": 22}[period]
         cand = now.replace(hour=h, minute=0, second=0, microsecond=0)
         r.start = cand if cand > now else cand + timedelta(days=1)
         r.warnings.append("chỉ nói buổi, tạm đặt %02d:00" % h)
@@ -454,8 +544,51 @@ def _find_lunar_monthly(text: str, f: str):
     return days[0], blank
 
 
+_W1 = {"mot": 1, "hai": 2, "ba": 3, "bon": 4, "tu": 4, "nam": 5, "lam": 5, "sau": 6, "bay": 7, "tam": 8, "chin": 9}
+_NUMRX = (r"(?:(?:hai|ba|bon|nam|sau|bay|tam|chin)\s+muoi(?:\s+(?:mot|hai|ba|bon|tu|lam|nam|sau|bay|tam|chin))?"
+          r"|muoi(?:\s+(?:mot|hai|ba|bon|lam|nam|sau|bay|tam|chin))?|mot|hai|ba|bon|nam|sau|bay|tam|chin)")
+_RELUNIT = r"(?:phut|gio|tieng|ngay|hom|tuan|thang|nam)"
+# Số viết bằng chữ chỉ đổi khi chắc là số lượng: trước "đơn vị + nữa/trước/tới", sau "sau/trong/kéo dài/mất/nhắc trước".
+_REL_WORD_PATTERNS = (
+    r"(?<![a-z])(" + _NUMRX + r")(?=\s+" + _RELUNIT + r"(?:\s+ruoi)?\s+(?:nua|truoc|toi)\b)",
+    r"\b(?:sau|trong|keo\s+dai|mat|truoc)\s+(" + _NUMRX + r")(?=\s+" + _RELUNIT + r"\b)",
+    r"\b(?:ngay|mung|mong)\s+(" + _NUMRX + r")(?=\s+(?:thang\s+(?:sau|toi|nay)|(?:hang|moi)\s+thang)\b)",   # "mùng hai tháng tới", "mùng hai hàng tháng"
+)
+
+
+def _num_value(words: str) -> int:
+    w = words.split()
+    if w[0] == "muoi":
+        return 10 + (_W1[w[1]] if len(w) > 1 else 0)
+    if len(w) > 1 and w[1] == "muoi":
+        return _W1[w[0]] * 10 + (_W1[w[2]] if len(w) > 2 else 0)
+    return _W1[w[0]]
+
+
+def _rel_words_to_digits(text: str) -> str:
+    """Câu gõ tay: "hai ngày nữa" -> "2 ngày nữa", "ba hôm trước", "sau mười lăm phút", "nửa tiếng" -> "30 phút".
+    "thứ hai tuần trước", "mùng hai tháng tới", "ngày mốt" giữ nguyên."""
+    text = re.sub(r"(?i)\bnửa\s+(?:tiếng|giờ)\b", "30 phút", text)
+    f = fold(text)
+    hits = []
+    for k, p in enumerate(_REL_WORD_PATTERNS):
+        for m in re.finditer(p, f):
+            a, b = m.span(1)
+            prev = f[:a].split()[-1:] or [""]
+            if (k == 0 and prev[0] in ("thu", "mung", "mong", "ngay", "bua")) or text[a:b].lower() == "mốt":
+                continue
+            hits.append((a, b, _num_value(re.sub(r"\s+", " ", m.group(1)))))
+    for a, b, v in sorted(set(hits), reverse=True):
+        text = text[:a] + str(v) + text[b:]
+    # "1 tiếng rưỡi nữa", "trong 2 tiếng rưỡi" -> phút; "3 giờ rưỡi chiều" là giờ nên giữ nguyên
+    half = lambda m: "%s%d phút" % (m.group(1) or "", int(m.group(2)) * 60 + 30)
+    text = re.sub(r"(?i)()\b(\d{1,2})\s*(?:tiếng|giờ)\s+rưỡi\b(?=\s+(?:nữa|trước)\b)", half, text)
+    return re.sub(r"(?i)(\b(?:sau|trong|kéo\s+dài|mất)\s+)(\d{1,2})\s*(?:tiếng|giờ)\s+rưỡi\b", half, text)
+
+
 def parse_vi(text: str, now: datetime) -> ParseResult:
     text = unicodedata.normalize("NFC", text)
+    text = _rel_words_to_digits(text)
     # "ngày mốt", "bữa mốt" (Nam Bộ) = ngày kia; "ngày một" (mùng 1) giữ nguyên vì có dấu khác
     text = re.sub(r"(?i)\b(?:ngày|bữa)\s+mốt\b", "ngày kia", text)
     text = re.sub(r"(?i)\brằm\s+tháng\s+(\d{1,2})\b(?!\s*(?:âm|dương))", r"15 tháng \1 âm lịch", text)

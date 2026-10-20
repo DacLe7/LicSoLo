@@ -41,8 +41,11 @@ Nếu việc mới trùng giờ với việc đã có, bản nháp báo "Trùng 
 | Giờ cụ thể | "họp 3h chiều mai", "đón con 4h rưỡi chiều nay", "họp 3h kém 15 chiều mai" |
 | Thứ trong tuần | "đi chợ 8h sáng thứ bảy", "đi khám thứ năm tuần sau 9h" |
 | Ngày tháng | "nộp báo cáo 17h ngày 25/10" |
-| Sau một khoảng | "gọi điện cho mẹ 30 phút nữa", "trả sách 2 ngày nữa" |
-| Ngày đã qua (ghi lại) | "hôm kia", "hôm qua", "bữa hổm", "3 ngày trước", "tuần trước" |
+| Sau một khoảng | "gọi điện cho mẹ 30 phút nữa", "trả sách 2 ngày nữa", "tắt bếp mười lăm phút nữa", "tái khám 3 tháng nữa" |
+| Khoảng giờ (tự tính thời lượng) | "họp từ 2h đến 4h chiều mai", "học tiếng Anh 7h-9h tối thứ sáu" |
+| Nửa đêm, sáng sớm | "xem bóng nửa đêm nay" (0 giờ đêm nay); nói *sáng sớm* mà không kèm giờ thì tạm đặt 6 giờ |
+| Tháng, năm tới | "đi chùa ngày 5 tháng tới", "họp lớp 20/11 năm sau" |
+| Ngày đã qua (ghi lại) | "hôm kia", "hôm qua", "bữa hổm", "3 ngày trước", "ba hôm trước", "tuần trước", "đầu tháng trước", "tháng trước", "năm ngoái" |
 | Lặp mỗi ngày/tuần/tháng | "uống thuốc 7h tối mỗi ngày", "họp nhóm 9h thứ hai hằng tuần", "đóng tiền nhà ngày 5 mỗi tháng" |
 | Hằng năm (dương lịch) | "sinh nhật mẹ 20/11 hằng năm", "kỷ niệm ngày cưới 2/9 mỗi năm" |
 | Âm lịch hằng năm | "giỗ ông nội 15/8 âm lịch" |

@@ -127,7 +127,8 @@ details.more ul{margin:0 0 14px;padding-left:20px;font-size:14px}details.more li
 <p>Gõ hoặc nói một câu có việc cần làm và thời gian, bấm mũi tên (hoặc Enter). Trợ lý đưa ra bản nháp để bạn Lưu, Sửa hoặc Bỏ qua.</p>
 <h3>Giờ và ngày</h3><ul><li><q>họp 3h chiều mai</q>, <q>đón con 4h rưỡi chiều nay</q>, <q>họp 3h kém 15 chiều mai</q></li>
 <li><q>đi chợ 8h sáng thứ bảy</q>, <q>đi khám thứ năm tuần sau 9h</q>, <q>nộp báo cáo 17h ngày 25/10</q></li>
-<li><q>gọi điện cho mẹ 30 phút nữa</q>, <q>trả sách 2 ngày nữa</q>. Không nói giờ thì lưu thành việc cả ngày.</li></ul>
+<li><q>gọi điện cho mẹ 30 phút nữa</q>, <q>trả sách 2 ngày nữa</q>, <q>tái khám 3 tháng nữa</q>. Không nói giờ thì lưu thành việc cả ngày.</li>
+<li><q>họp từ 2h đến 4h chiều mai</q> (tự tính thời lượng), <q>xem bóng nửa đêm nay</q>, <q>đi chùa ngày 5 tháng tới</q></li></ul>
 <h3>Lặp lại</h3><ul><li><q>uống thuốc 7h tối mỗi ngày</q>, <q>họp nhóm 9h thứ hai hằng tuần</q>, <q>đóng tiền nhà ngày 5 mỗi tháng</q></li>
 <li><q>sinh nhật mẹ 20/11 hằng năm</q> (dương lịch). Nói <i>sinh nhật</i> hay <i>kỷ niệm</i> kèm ngày thì tự lặp hằng năm.</li></ul>
 <h3>Âm lịch</h3><ul><li><q>giỗ ông nội 15/8 âm lịch</q> (lặp hằng năm theo âm lịch)</li><li><q>cúng rằm mỗi tháng</q>, <q>ăn chay mùng 1 hàng tháng</q></li></ul>

@@ -6,7 +6,7 @@ Chạy test: `python -m unittest discover -s tests`.
 ## Hiện trạng (khảo sát lần đầu, 2026-10-21)
 
 - Python thuần (stdlib), SQLite, giao diện một trang trong `lichviet/ui.py`, API trong `lichviet/api.py`.
-- 93 test xanh lúc bắt đầu (lần 2: 117 test; lần 3: 133 test; lần 4: 139 test; lần 5: 162 test; lần 6: 168 test).
+- 93 test xanh lúc bắt đầu (lần 2: 117 test; lần 3: 133 test; lần 4: 139 test; lần 5: 162 test; lần 6: 168 test; lần 7: 181 test).
 - Phát hiện:
   - README ghi "không đặt khóa thì các endpoint mới trả 503" nhưng code (và test `test_no_key_configured_means_open`) mở hết. README sai.
   - `solohost/README.md` ghi image 0.5.1 trong khi compose ghim 0.5.2.
@@ -39,12 +39,12 @@ Chạy test: `python -m unittest discover -s tests`.
 - [x] B4. Cảnh báo trùng giờ ngay trong form Sửa (endpoint kiểm tra trùng, gọi khi đổi ngày/giờ).
 - [x] B5. Sửa việc đã lưu: `PATCH /v1/events/<id>`, nút Sửa trên từng việc trong danh sách.
 - [x] B6. Thêm luật sửa lỗi nghe theo vùng miền (l/n, tr/ch, s/x, dấu hỏi/ngã, "dzờ", "giờ" đọc "dờ"...), có test.
-- [ ] B7. Thêm nhiều câu test bộ phân tích (mục tiêu ≥150 câu, phân nhóm theo hiện tượng).
-- [ ] B8. "rưỡi" sau số chữ, "kém" trong nhiều dạng, "trưa mai", "sáng sớm", "nửa đêm".
-- [ ] B9. Khoảng giờ "từ 2h đến 4h chiều" → giờ bắt đầu + thời lượng.
-- [ ] B10. Số viết bằng chữ trong cụm tương đối khi gõ tay: "hai ngày nữa", "ba hôm trước", "mười lăm phút nữa".
+- [ ] B7. Thêm nhiều câu test bộ phân tích (mục tiêu ≥150 câu, phân nhóm theo hiện tượng). Lần 7: bảng `tests/test_parser_phrases.py` (~50 câu, 5 nhóm); mở rộng tiếp bảng này.
+- [x] B8. "sáng sớm" (6h khi không nói giờ), "nửa đêm (nay/mai)" = 0h kết thúc ngày đó, buổi cách giờ bởi từ ngày ("tối chủ nhật 8h"); "ba giờ rưỡi", "trưa mai" vốn đã hiểu.
+- [x] B9. Khoảng giờ "từ 2h đến 4h chiều", "9h-11h30", "từ 7 tới 9h tối", "22h-2h" → giờ bắt đầu + thời lượng (buổi áp cho giờ kết thúc; "từ 11h đến 1h chiều" = 11h–13h).
+- [x] B10. Số viết bằng chữ trong cụm tương đối khi gõ tay (`parser._rel_words_to_digits`): "hai ngày nữa", "ba hôm trước", "sau mười lăm phút", "nửa tiếng", "một tiếng rưỡi nữa", "mùng hai tháng tới"; giữ nguyên "thứ hai tuần trước", "ngày mốt".
 - [ ] B11. "ăn tối", "ăn trưa", "ca sáng" là tên việc, không phải buổi khi đã có giờ khác ("ăn tối hôm bữa" → tên "Ăn").
-- [ ] B12. "tháng trước", "năm ngoái", "đầu tuần trước" (ngày đã qua dạng mơ hồ) — hiện lọt vào tên việc.
+- [x] B12. "đầu/cuối tuần trước", "đầu/cuối tháng trước", "tháng trước", "năm ngoái/năm trước/năm rồi" (tạm cùng ngày, có cảnh báo), "N tháng/năm nữa|trước", "sau N tháng", "20/11 năm sau", "ngày 5 tháng tới".
 
 ### C. Nhắc việc cá nhân, PWA, xuất lịch, cài đặt
 - [ ] C1. PWA: `manifest.webmanifest`, biểu tượng 192/512, service worker (`/sw.js`) để cài app lên máy.
@@ -79,6 +79,9 @@ Chạy test: `python -m unittest discover -s tests`.
 - [ ] B15. Luật vùng miền (`speech.dialect_fix`) chỉ chạy cho chữ từ giọng nói; cân nhắc áp một phần an toàn cho câu gõ tay ("chủ nhựt", "tuần xau", "mơi").
 - [ ] B16. "tháng giêng", "tháng chạp" (âm lịch) đổi thành tháng 1/12 trong `digits_from_words` và bộ hiểu câu gõ tay.
 - [ ] B17. "bữa nay" sau khi sửa "bửa nay" chưa đi qua luật "bữa nay → hôm nay" (luật dựa trên từ gốc); kiểm tra bộ hiểu câu có hiểu "bữa nay" ở mọi vị trí.
+- [ ] B18. "tháng sau"/"tháng tới"/"năm sau" đứng một mình (không có ngày) vẫn là cụm chưa hiểu (unsure → hỏi AI): cân nhắc tạm đặt cùng ngày tháng sau kèm cảnh báo như "tháng trước".
+- [ ] B19. "3 giờ tối" nói ngược thói quen (3 giờ tối = 15h theo luật +12) — nên cảnh báo khi buổi và giờ không hợp (tối mà < 6h, sáng mà > 11h).
+- [ ] B20. "đón con sau 2 giờ chiều": tên việc còn "sau" ở cuối; bỏ "sau/trước" đứng ngay trước giờ khỏi tên (cân nhắc lưu "sau" thành ghi chú).
 - [ ] E10. Nút "Thử lại" trên thanh mất kết nối; tự tải lại danh sách khi nối lại được.
 
 ## Nhật ký
@@ -147,3 +150,17 @@ Chạy test: `python -m unittest discover -s tests`.
   Cố ý không tính số đọc bằng chữ là "giờ" để "xoài chín chưa", "ba chưa về" giữ nguyên; không sửa "dỗ" (từ thật).
 - Tài liệu: HUONG_DAN (luật vùng miền, nút khôi phục ở màn hình chào, FAQ lỗi database trên thanh báo).
 - Test: `tests/test_dialect_restore.py` (6 test, gồm danh sách từ thật phải giữ nguyên và đi hết đường giọng nói → bộ hiểu câu).
+
+### Lần 7 — 2026-10-21
+- B10: `_rel_words_to_digits` chạy đầu `parse_vi` (cả câu gõ tay lẫn giọng nói): đổi số chữ sang chữ số chỉ khi đứng trước "đơn vị + nữa/trước/tới",
+  sau "sau/trong/kéo dài/mất/trước", hoặc "mùng/ngày + số + tháng tới/hàng tháng"; "nửa tiếng" → 30 phút; "N tiếng rưỡi nữa" → phút.
+  Không đụng "thứ hai/năm…", "mốt", "3 giờ rưỡi chiều".
+- B12 + tháng/năm tương đối: `_shift_months` (kẹp cuối tháng); "N tháng/năm nữa|tới|trước", "sau N tháng"; "đầu/cuối tuần|tháng trước";
+  "tháng trước", "năm ngoái/trước/rồi" tạm cùng ngày, cảnh báo nêu ngày đã đặt; ngày + "năm sau/năm ngoái" đổi năm (không tự lặp sinh nhật);
+  "ngày 5 tháng tới/sau/này". "N giờ tới" cố ý không hiểu (dễ lẫn "giờ tối").
+- B8/B9: khoảng giờ có thời lượng; "sáng sớm"; "nửa đêm"; buổi chỉ cách giờ bằng khoảng trắng (từ ngày đã che) vẫn áp ("tối chủ nhật 8h" = 20h, trước đây 8h sáng).
+- Sửa lỗi cũ tìm ra khi thử: "tháng tới/tuần tới" bị hiểu là buổi tối (19h); "hộ chiếu", "chiếu phim" bị hiểu là buổi chiều (câu có dấu giờ so khớp
+  đúng chữ "chiều/tối/sáng…"); "sau 2 giờ chiều" bị hiểu thành 2 tiếng nữa.
+- Tài liệu: bảng kiểu câu HUONG_DAN và Hướng dẫn nhanh thêm khoảng giờ, nửa đêm, tháng tới, số chữ (test khóa câu ví dụ đã chạy qua).
+- Test: `tests/test_parser_phrases.py` (14 test, bảng câu theo nhóm).
+- Lưu ý: heredoc trong Bash vẫn làm hỏng `` kể cả trong chuỗi Python thường; sửa regex chỉ dùng Edit.
