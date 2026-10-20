@@ -256,6 +256,16 @@ def make_handler(svc: Service):
             if u.path == "/events":
                 return self._run(lambda: [with_iso(e) for e in svc.list_range(
                     datetime.fromisoformat(q["from"]), datetime.fromisoformat(q["to"]))])
+            if u.path == "/conflicts":
+                # form Sửa hỏi trước khi lưu: giờ này có trùng việc nào không (exclude = việc đang sửa)
+                def go():
+                    dur = int(q["duration_min"]) if q.get("duration_min") else None
+                    if dur is not None and not 0 < dur <= 10080:
+                        raise ValueError("duration_min phải từ 1 đến 10080 phút")
+                    ex = int(q["exclude"]) if q.get("exclude") else None
+                    return [{"id": c["id"], "title": c["title"], "occurrence": c["occurrence"]}
+                            for c in svc.conflicts(datetime.fromisoformat(q["start"]), dur, exclude_id=ex)]
+                return self._run(go)
             if u.path == "/ai/status":
                 return self._run(svc.llm.status)
             if u.path == "/reminders/due":
@@ -332,7 +342,9 @@ def make_handler(svc: Service):
                     b["start"] = datetime.fromisoformat(b["start"])
                     if b.get("lunar") is not None:
                         b["lunar"] = tuple(b["lunar"])
-                    return svc.create(**b)
+                    ev = svc.create(**b)
+                    return {**ev, "conflicts": [] if ev["all_day"] or ev.get("duplicate") else
+                            svc.conflicts(datetime.fromisoformat(ev["start"]), ev["duration_min"], exclude_id=ev["id"])}
                 return self._run(go)
             if u.path == "/reminders/ack":
                 def go():

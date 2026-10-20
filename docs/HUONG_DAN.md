@@ -44,6 +44,7 @@ Nếu việc mới trùng giờ với việc đã có, bản nháp báo "Trùng 
 | Sau một khoảng | "gọi điện cho mẹ 30 phút nữa", "trả sách 2 ngày nữa" |
 | Ngày đã qua (ghi lại) | "hôm kia", "hôm qua", "bữa hổm", "3 ngày trước", "tuần trước" |
 | Lặp mỗi ngày/tuần/tháng | "uống thuốc 7h tối mỗi ngày", "họp nhóm 9h thứ hai hằng tuần", "đóng tiền nhà ngày 5 mỗi tháng" |
+| Hằng năm (dương lịch) | "sinh nhật mẹ 20/11 hằng năm", "kỷ niệm ngày cưới 2/9 mỗi năm" |
 | Âm lịch hằng năm | "giỗ ông nội 15/8 âm lịch" |
 | Âm lịch hằng tháng | "cúng rằm mỗi tháng", "ăn chay mùng 1 hàng tháng" |
 | Nhắc trước | "đi đám cưới chủ nhật 11h trưa, nhắc tôi trước 1 ngày", thêm "báo trước 30 phút" vào cuối câu |
@@ -112,7 +113,7 @@ Bấm biểu tượng ổ khóa cạnh thanh địa chỉ trình duyệt, cho ph
 App báo còn thiếu "việc cần làm" hoặc "ngày giờ". Nói rõ hơn, ví dụ "họp 3h chiều mai". Bật Trợ lý AI trong Config sẽ giúp hiểu những câu khó hơn.
 
 **Sinh nhật có tự lặp hằng năm không?**
-Chưa. Hiện việc lặp hằng năm chỉ có theo âm lịch (giỗ, ngày lễ âm lịch). Sinh nhật theo dương lịch sẽ được bổ sung trong bản sau.
+Có. Câu có chữ *sinh nhật*, *kỷ niệm* hoặc *thôi nôi* kèm ngày (không ghi năm) được đặt lặp hằng năm theo dương lịch, ví dụ "sinh nhật mẹ 20/11"; bản nháp có dòng nhắc để bạn biết, chỉ một lần thì bấm Sửa và chọn *Không lặp*. Việc khác muốn lặp hằng năm thì thêm "hằng năm" hoặc "mỗi năm", hoặc chọn *Mỗi năm* trong ô Lặp khi sửa. Sinh nhật 29/2: năm không nhuận nhắc vào 28/2. Sinh nhật âm lịch thì thêm "âm lịch": "sinh nhật bà 10/3 âm lịch".
 
 **Dùng trên điện thoại được không?**
 App chỉ mở được trên chính máy cài Pi Desktop (địa chỉ 127.0.0.1), để dữ liệu không lộ ra mạng.

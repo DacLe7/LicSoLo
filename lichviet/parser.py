@@ -36,7 +36,7 @@ class ParseResult:
     start: Optional[datetime] = None
     all_day: bool = False
     duration_min: Optional[int] = None
-    repeat: Optional[str] = None          # daily | weekly | monthly | lunar_yearly
+    repeat: Optional[str] = None          # daily | weekly | monthly | yearly | lunar_yearly | lunar_monthly
     remind_before_min: Optional[int] = None
     warnings: list = field(default_factory=list)
     unsure: bool = False   # còn cụm ngày mà luật không hiểu
@@ -67,8 +67,35 @@ def _valid_date(y, m, d):
         return None
 
 
+_ANNIV = re.compile(r"\b(?:sinh\s+nhat|ky\s+niem|thoi\s+noi)\b")
+
+
+def _next_anniversary(dd: int, mm: int, today: date, year: Optional[int] = None) -> Optional[date]:
+    """Ngày bắt đầu cho việc lặp hằng năm theo dương lịch: lần gần nhất chưa qua.
+
+    29/2: lấy ngày 29/2 của năm nhuận gần nhất (có thể đã qua) để các năm không nhuận
+    rơi vào 28/2 mà năm nhuận vẫn đúng 29/2 (bung lịch lặp tính từ ngày bắt đầu).
+    """
+    if _valid_date(2000, mm, dd) is None:   # 2000 là năm nhuận: loại 31/4, 30/2...
+        return None
+    if (mm, dd) == (2, 29):
+        if year is not None:
+            return _valid_date(year, 2, 29)
+        y = today.year
+        while _valid_date(y, 2, 29) is None:
+            y -= 1
+        return date(y, 2, 29)
+    if year is not None:
+        d = _valid_date(year, mm, dd)
+        if d is None or d >= today:
+            return d
+    d = date(today.year, mm, dd)
+    return d if d >= today else date(today.year + 1, mm, dd)
+
+
 def _parse_core(text: str, now: datetime) -> ParseResult:
     f = fold(text)
+    f0_core = f
     spans = []  # (start, end) đã dùng, để cắt khỏi tiêu đề
     r = ParseResult()
 
@@ -98,6 +125,8 @@ def _parse_core(text: str, now: datetime) -> ParseResult:
     m = take(r"\b(?:moi|hang)\s+ngay\b")
     if m:
         r.repeat = "daily"
+    elif take(r"\b(?:moi|hang)\s+nam\b(?!\s*(?:phut|gio|tieng|ngay|hom|tuan|thang|lan)\b)"):
+        r.repeat = "yearly"   # "sinh nhật 20/11 hằng năm" (dương lịch); âm lịch đổi thành lunar_yearly ở parse_vi
     else:
         m = take(r"\b(?:moi|hang)\s+thang\b")
         if m:
@@ -140,11 +169,21 @@ def _parse_core(text: str, now: datetime) -> ParseResult:
     if m:
         dd, mm = int(m.group(1)), int(m.group(2))
         yy = int(m.group(3)) if m.group(3) else now.year
-        d = _valid_date(yy, mm, dd)
-        if d is None:
-            r.warnings.append("ngày không hợp lệ")
-        elif not m.group(3) and d < now.date():
-            d = _valid_date(yy + 1, mm, dd)
+        if r.repeat is None and not m.group(3) and _ANNIV.search(f0_core):
+            r.repeat = "yearly"   # sinh nhật, kỷ niệm có ngày mà không nói năm: năm nào cũng có
+            r.warnings.append("sinh nhật, ngày kỷ niệm: đã đặt lặp hằng năm, bấm Sửa nếu chỉ một lần")
+        if r.repeat == "yearly":
+            d = _next_anniversary(dd, mm, now.date(), yy if m.group(3) else None)
+            if d is None:
+                r.warnings.append("ngày không hợp lệ")
+            elif d.month == 2 and d.day == 29:
+                r.warnings.append("29/2 chỉ có ở năm nhuận, năm khác sẽ nhắc vào 28/2")
+        else:
+            d = _valid_date(yy, mm, dd)
+            if d is None:
+                r.warnings.append("ngày không hợp lệ")
+            elif not m.group(3) and d < now.date():
+                d = _valid_date(yy + 1, mm, dd)
     if d is None and not r.warnings and r.repeat == "monthly":
         m = take(r"\b(?:ngay|mung|mong)\s+(\d{1,2})\b")
         if m and 1 <= int(m.group(1)) <= 31:
@@ -459,7 +498,7 @@ def parse_vi(text: str, now: datetime) -> ParseResult:
         cleaned = _blank(cleaned, mspan)
     r = _parse_core(cleaned, now)
     r.lunar = (day, month)
-    if year is None and r.repeat is None:
+    if r.repeat == "yearly" or (year is None and r.repeat is None):
         r.repeat = "lunar_yearly"  # giỗ, sinh nhật âm: không ghi năm nghĩa là năm nào cũng có
     r.warnings = [w for w in r.warnings if w != "ngày không hợp lệ"]
 

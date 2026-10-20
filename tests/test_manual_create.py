@@ -67,7 +67,7 @@ class TestManualCreate(unittest.TestCase):
             self.assertEqual(self.count(), before)
 
     def test_bad_repeat_rejected(self):
-        c, body = self.post({"title": "Việc thử", "start": "2026-11-05T09:00:00", "repeat": "yearly"})
+        c, body = self.post({"title": "Việc thử", "start": "2026-11-05T09:00:00", "repeat": "hourly"})
         self.assertEqual(c, 400)
         self.assertIn("error", body)
 

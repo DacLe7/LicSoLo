@@ -126,7 +126,8 @@ details.more ul{margin:0 0 14px;padding-left:20px;font-size:14px}details.more li
 <h3>Giờ và ngày</h3><ul><li><q>họp 3h chiều mai</q>, <q>đón con 4h rưỡi chiều nay</q>, <q>họp 3h kém 15 chiều mai</q></li>
 <li><q>đi chợ 8h sáng thứ bảy</q>, <q>đi khám thứ năm tuần sau 9h</q>, <q>nộp báo cáo 17h ngày 25/10</q></li>
 <li><q>gọi điện cho mẹ 30 phút nữa</q>, <q>trả sách 2 ngày nữa</q>. Không nói giờ thì lưu thành việc cả ngày.</li></ul>
-<h3>Lặp lại</h3><ul><li><q>uống thuốc 7h tối mỗi ngày</q>, <q>họp nhóm 9h thứ hai hằng tuần</q>, <q>đóng tiền nhà ngày 5 mỗi tháng</q></li></ul>
+<h3>Lặp lại</h3><ul><li><q>uống thuốc 7h tối mỗi ngày</q>, <q>họp nhóm 9h thứ hai hằng tuần</q>, <q>đóng tiền nhà ngày 5 mỗi tháng</q></li>
+<li><q>sinh nhật mẹ 20/11 hằng năm</q> (dương lịch). Nói <i>sinh nhật</i> hay <i>kỷ niệm</i> kèm ngày thì tự lặp hằng năm.</li></ul>
 <h3>Âm lịch</h3><ul><li><q>giỗ ông nội 15/8 âm lịch</q> (lặp hằng năm theo âm lịch)</li><li><q>cúng rằm mỗi tháng</q>, <q>ăn chay mùng 1 hàng tháng</q></li></ul>
 <h3>Nhắc trước</h3><ul><li><q>đi đám cưới chủ nhật 11h trưa, nhắc tôi trước 1 ngày</q>, hoặc thêm <i>báo trước 30 phút</i> vào cuối câu</li></ul>
 <h3>Mẹo</h3><ul><li>Mỗi câu một việc. Muốn nhắc cả <i>mùng 1 và rằm</i> thì tạo thành hai việc.</li>
@@ -165,7 +166,7 @@ const fmt=iso=>fmtD(iso)+' '+fmtT(iso);
 const when=(iso,allDay)=>allDay?fmtD(iso)+' cả ngày':fmt(iso);
 const whenLong=(iso,allDay)=>{const d=new Date(iso);return WD[d.getDay()]+', '+fmtD(iso)+(allDay?' · cả ngày':' · '+fmtT(iso))};
 const local=d=>d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T00:00:00';
-const REP={daily:'mỗi ngày',weekly:'mỗi tuần',monthly:'mỗi tháng',lunar_yearly:'hằng năm'};
+const REP={daily:'mỗi ngày',weekly:'mỗi tuần',monthly:'mỗi tháng',yearly:'mỗi năm',lunar_yearly:'hằng năm'};
 const repText=(rep,ld,lm)=>!rep?'':rep==='lunar_yearly'?' · âm lịch '+(ld&&lm?p(ld)+'/'+p(lm)+', ':'')+'hằng năm':rep==='lunar_monthly'?' · âm lịch ngày '+(ld||'')+' hằng tháng':' · '+(REP[rep]||rep);
 const svg=d=>'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+d+'</svg>';
 const ICO={cal:svg('<rect x="3" y="4" width="18" height="17" rx="3"/><path d="M8 2v4M16 2v4M3 10h18"/>'),
@@ -304,15 +305,16 @@ async function due(){
     btn.disabled=true;try{await j('/reminders/ack',{method:'POST',body:JSON.stringify({event_id:+btn.dataset.e,occurrence:btn.dataset.o})});}catch(e){toast(e.message);}due();});
 }
 /* ---- hiểu câu + lưu ---- */
+const conflictNotes=l=>(l||[]).map(c=>'<div class="note">Trùng giờ với <b>'+esc(c.title)+'</b> ('+fmt(c.occurrence)+')</div>').join('');
 function show(html,cls){const d=$('draft');d.className=html?(cls||'draft'):'';d.innerHTML=html;d.hidden=!html;}
 function showSaved(ev){
   welcome(1);
   const far=(new Date(ev.start)-new Date())>7*864e5;
-  show('<div class="saved">'+(ev.duplicate?'Việc này đã có trong lịch, mình không lưu thêm.':'Đã lưu.')+(far?' Lần tới vào '+when(ev.start,ev.all_day)+', xa hơn 7 ngày nên chưa hiện trong danh sách bên dưới.':'')+'</div>','draft');
+  show('<div class="saved">'+(ev.duplicate?'Việc này đã có trong lịch, mình không lưu thêm.':'Đã lưu.')+(far?' Lần tới vào '+when(ev.start,ev.all_day)+', xa hơn 7 ngày nên chưa hiện trong danh sách bên dưới.':'')+'</div>'+conflictNotes(ev.conflicts),'draft');
   refresh();due();}
 /* ---- sửa bản nháp trước khi lưu: đi qua POST /events (cùng create() với Lưu, có kiểm tra trùng) ---- */
 const okDate=s=>{const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(s);if(!m)return false;const x=new Date(+m[1],+m[2]-1,+m[3]);return x.getMonth()===+m[2]-1&&x.getDate()===+m[3];};
-const REPOPT=[['','Không lặp'],['daily','Mỗi ngày'],['weekly','Mỗi tuần'],['monthly','Mỗi tháng']];
+const REPOPT=[['','Không lặp'],['daily','Mỗi ngày'],['weekly','Mỗi tuần'],['monthly','Mỗi tháng'],['yearly','Mỗi năm']];
 function openEdit(d,back,id){   // id: sửa việc đã lưu (PATCH); không có id: sửa bản nháp trước khi lưu (POST)
   const lunar=!!d.lunar,st=d.start||'',dateV=st.slice(0,10),timeV=st.slice(11,16);
   const opts=REPOPT.map(([v,l])=>'<option value="'+v+'"'+((d.repeat||'')===v?' selected':'')+'>'+l+'</option>').join('');
@@ -324,11 +326,19 @@ function openEdit(d,back,id){   // id: sửa việc đã lưu (PATCH); không c�
     +(lunar?'<p class="ai">Việc theo âm lịch giữ nguyên ngày âm, nên chỉ sửa được tên, giờ và nhắc trước.</p>'
       :'<label class="fl">Lặp<select id="e_r">'+opts+'</select></label>')
     +'<label class="fl">Nhắc trước (phút)<input id="e_m" type="number" min="0" max="10080" step="1" inputmode="numeric" value="'+(d.remind_before_min||'')+'"></label>'
-    +'<div class="note" id="e_err" hidden></div>'
+    +'<div id="e_cf" aria-live="polite"></div><div class="note" id="e_err" hidden></div>'
     +'<div class="actions"><button class="btn" type="submit">Lưu</button><button class="btn ghost" type="button" id="e_no">Hủy</button></div></form>');
   const f=$('ef'),err=$('e_err'),all=$('e_all'),btn=f.querySelector('button[type=submit]');
   const fail=m=>{err.textContent=m;err.hidden=false;};
-  all.onchange=()=>{$('e_hw').hidden=all.checked;};all.onchange();
+  let cfT=0,cfN=0;
+  const checkCf=()=>{clearTimeout(cfT);cfT=setTimeout(async()=>{   // báo trùng giờ ngay khi đổi ngày/giờ
+    const box=$('e_cf');if(!box)return;
+    const date=lunar?dateV:$('e_d').value,time=$('e_h').value,n=++cfN;
+    if(all.checked||!okDate(date)||!/^\d{2}:\d{2}$/.test(time)){box.innerHTML='';return;}
+    let l;try{l=await j('/conflicts?start='+date+'T'+time+':00'+(d.duration_min?'&duration_min='+d.duration_min:'')+(id?'&exclude='+id:''));}catch(x){return;}
+    if(n===cfN)box.innerHTML=conflictNotes(l);},300);};
+  all.onchange=()=>{$('e_hw').hidden=all.checked;checkCf();};all.onchange();
+  $('e_h').oninput=checkCf;if(!lunar)$('e_d').oninput=checkCf;
   $('e_no').onclick=back;
   f.onkeydown=e=>{if(e.key==='Escape'){e.preventDefault();back();}};
   f.onsubmit=async e=>{
@@ -348,7 +358,7 @@ function openEdit(d,back,id){   // id: sửa việc đã lưu (PATCH); không c�
       delete body.lunar;delete body.duration_min;if(lunar)delete body.repeat;
       let ev;try{ev=await j('/events/'+id,{method:'PATCH',body:JSON.stringify(body)});}
       catch(x){btn.disabled=false;return fail('Chưa lưu được: '+x.message);}
-      const c=(ev.conflicts||[]).map(c=>'<div class="note">Trùng giờ với <b>'+esc(c.title)+'</b> ('+fmt(c.occurrence)+')</div>').join('');
+      const c=conflictNotes(ev.conflicts);
       show('<div class="saved">Đã lưu thay đổi.</div>'+c,'draft');refresh();due();return;
     }
     try{
@@ -369,7 +379,7 @@ $('go').onclick=async()=>{
   const d=r.draft;
   if(r.status==='need_info'){
     show('<div class="who">Trợ lý</div><div>Mình chưa hiểu đủ, còn thiếu <b>'+r.missing.map(m=>m==='title'?'việc cần làm':'ngày giờ').join(', ')+'</b>. Bạn thử nói rõ hơn, ví dụ "họp 3h chiều mai".</div>');return;}
-  const conf=(r.conflicts||[]).map(c=>'<div class="note">Trùng giờ với <b>'+esc(c.title)+'</b> ('+fmt(c.occurrence)+')</div>').join('');
+  const conf=conflictNotes(r.conflicts);
   const warn=(d.warnings||[]).map(w=>'<div class="note">'+esc(w)+'</div>').join('');
   const AIL={ok:'AI đã trả lời',error:'AI lỗi',not_better:'AI trả lời nhưng chưa giúp được',off:'AI tắt',busy:'AI đang bận',paused:'AI tạm nghỉ'};
   const ainote=d.ai?'<div class="ai">'+esc(AIL[d.ai.status]||d.ai.status)+(d.ai.detail?' · '+esc(d.ai.detail):'')+(d.ai.raw&&d.ai.status!=='ok'?' · '+esc(d.ai.raw):'')+'</div>':'';

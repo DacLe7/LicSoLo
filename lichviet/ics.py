@@ -62,6 +62,8 @@ def render(items: list, now: datetime, tz, calname: str = "Lạc Việt") -> str
             desc.append("Âm lịch: %d/%d hằng năm" % (e["lunar_day"], e["lunar_month"]))
         elif e.get("repeat") == "lunar_monthly" and e.get("lunar_day"):
             desc.append("Âm lịch: ngày %d hằng tháng" % e["lunar_day"])
+        elif e.get("repeat") == "yearly":
+            desc.append("Lặp hằng năm")
         if desc:
             L.append("DESCRIPTION:" + esc("\n".join(desc)))
         if e.get("updated"):

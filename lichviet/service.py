@@ -27,7 +27,7 @@ class CursorTooOld(Exception):
 
 MAX_DEVICES = 20
 PLATFORMS = ("ios", "android", "other")
-REPEATS = (None, "daily", "weekly", "monthly", "lunar_yearly", "lunar_monthly")
+REPEATS = (None, "daily", "weekly", "monthly", "yearly", "lunar_yearly", "lunar_monthly")
 
 
 def _add_months(dt: datetime, n: int) -> datetime:
@@ -215,11 +215,14 @@ class Service:
             return
         step = {"daily": lambda i: s + timedelta(days=i),
                 "weekly": lambda i: s + timedelta(weeks=i),
-                "monthly": lambda i: _add_months(s, i)}[rep]
-        i = 0
-        if rep != "monthly":
+                "monthly": lambda i: _add_months(s, i),
+                "yearly": lambda i: _add_months(s, 12 * i)}[rep]   # 29/2 năm không nhuận thành 28/2
+        if rep in ("daily", "weekly"):
             unit = 1 if rep == "daily" else 7
             i = max(0, int((lo - s).total_seconds() // 86400) // unit - 1)
+        else:   # nhảy thẳng tới gần lo, không đi từng tháng từ ngày bắt đầu
+            months = (lo.year - s.year) * 12 + lo.month - s.month - 1
+            i = max(0, months if rep == "monthly" else months // 12)
         for _ in range(100000):
             o = step(i)
             if o >= hi:

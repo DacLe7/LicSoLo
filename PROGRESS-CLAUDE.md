@@ -6,7 +6,7 @@ Chạy test: `python -m unittest discover -s tests`.
 ## Hiện trạng (khảo sát lần đầu, 2026-10-21)
 
 - Python thuần (stdlib), SQLite, giao diện một trang trong `lichviet/ui.py`, API trong `lichviet/api.py`.
-- 93 test xanh lúc bắt đầu (lần 2: 117 test; lần 3: 133 test; lần 4: 139 test).
+- 93 test xanh lúc bắt đầu (lần 2: 117 test; lần 3: 133 test; lần 4: 139 test; lần 5: 162 test).
 - Phát hiện:
   - README ghi "không đặt khóa thì các endpoint mới trả 503" nhưng code (và test `test_no_key_configured_means_open`) mở hết. README sai.
   - `solohost/README.md` ghi image 0.5.1 trong khi compose ghim 0.5.2.
@@ -28,15 +28,15 @@ Chạy test: `python -m unittest discover -s tests`.
 - [x] A8. Hiện phiên bản app trong giao diện và `/v1/info`.
 - [x] A9. Lỗi không mở được database (`/data` không ghi được) báo rõ bằng tiếng Việt trong log, thoát có mã lỗi.
 - [x] A10. Trợ giúp trong app: mục "Hướng dẫn nhanh" gấp/mở, liệt kê các kiểu câu hiểu được.
-- [ ] A11. Khi làm xong B2/B3/C1/C2: cập nhật `docs/HUONG_DAN.md` (mục FAQ sinh nhật, thông báo hệ thống, cài PWA) và mục Hướng dẫn nhanh; test đã khóa câu ví dụ nên thêm câu mới vào bảng là được kiểm tra luôn.
+- [ ] A11. Khi làm xong C1/C2: cập nhật `docs/HUONG_DAN.md` (thông báo hệ thống, cài PWA; FAQ sinh nhật đã xong ở lần 5) và mục Hướng dẫn nhanh; test đã khóa câu ví dụ nên thêm câu mới vào bảng là được kiểm tra luôn.
 - [ ] A12. Màn hình chào: thêm một dòng "Tải bản sao lưu cũ? Khôi phục từ tệp" cho người cài lại app (mở thẳng mục Sao lưu).
 - [ ] A13. Trang báo "đang khởi động" khi `/health` trả 503 (database lỗi): hiện câu lỗi tiếng Việt từ `/health` trong thanh mất kết nối thay vì câu chung chung.
 
 ### B. Sửa giới hạn đã biết
 - [x] B1. Ngày tương đối đã qua: "hôm kia", "bữa hổm/bữa hôm/hôm bữa", "N ngày trước", "tuần trước", "thứ X tuần trước".
-- [ ] B2. Lặp hằng năm theo dương lịch (`yearly`): "sinh nhật 20/11 hằng năm", "mỗi năm"; 29/2 năm không nhuận dùng 28/2; xuất .ics; form Sửa.
-- [ ] B3. "sinh nhật", "kỷ niệm ngày cưới" có ngày mà không nói lặp: mặc định lặp hằng năm (có cảnh báo để người dùng biết).
-- [ ] B4. Cảnh báo trùng giờ ngay trong form Sửa (endpoint kiểm tra trùng, gọi khi đổi ngày/giờ).
+- [x] B2. Lặp hằng năm theo dương lịch (`yearly`): "sinh nhật 20/11 hằng năm", "mỗi năm"; 29/2 năm không nhuận dùng 28/2; xuất .ics; form Sửa.
+- [x] B3. "sinh nhật", "kỷ niệm ngày cưới" có ngày mà không nói lặp: mặc định lặp hằng năm (có cảnh báo để người dùng biết).
+- [x] B4. Cảnh báo trùng giờ ngay trong form Sửa (endpoint kiểm tra trùng, gọi khi đổi ngày/giờ).
 - [x] B5. Sửa việc đã lưu: `PATCH /v1/events/<id>`, nút Sửa trên từng việc trong danh sách.
 - [ ] B6. Thêm luật sửa lỗi nghe theo vùng miền (l/n, tr/ch, s/x, dấu hỏi/ngã, "dzờ", "giờ" đọc "dờ"...), có test.
 - [ ] B7. Thêm nhiều câu test bộ phân tích (mục tiêu ≥150 câu, phân nhóm theo hiện tượng).
@@ -69,9 +69,13 @@ Chạy test: `python -m unittest discover -s tests`.
 - [ ] E7. Chọn khoảng "Sắp tới" 7/30 ngày.
 - [ ] E8. Kiểm tra CSP/headers bảo mật cho trang (X-Content-Type-Options, frame-ancestors).
 - [ ] E9. Tách JavaScript của trang thành các hàm thuần thử được bằng `node` (định dạng ngày, repText), thêm test chạy bằng node nếu có.
-- [ ] E11. Form sửa bản nháp (POST /events) chưa trả `conflicts`: cho `POST /events` trả kèm trùng giờ, hiện trong form (gộp với B4).
+- [x] E11. Form sửa bản nháp (POST /events) chưa trả `conflicts`: cho `POST /events` trả kèm trùng giờ, hiện trong form (gộp với B4).
 - [ ] E12. Khi phát hành: tăng `__version__` (lichviet/__init__.py, đang 0.6.0) và tag image trong solohost/docker-compose.yml cùng lúc; thêm test so khớp hai số.
 - [ ] E13. Cửa sổ xác nhận xóa dùng `confirm()` của trình duyệt: đổi sang hộp xác nhận trong trang (đẹp hơn trên điện thoại, đọc được bằng trình đọc màn hình).
+- [ ] E14. Bung lịch lặp `yearly`/`monthly` đã nhảy thẳng tới gần `lo`; còn `list_range` đọc mọi dòng (xem E6).
+- [ ] E15. Kiểm tra trùng giờ chỉ xét một lần của việc đang sửa: việc lặp (mỗi ngày 9h) nên xét vài lần tới, báo "trùng vào thứ Hai 26/10".
+- [ ] B13. "sinh nhật" kèm thứ/ngày tương đối ("sinh nhật mẹ thứ bảy này") hiện không tự lặp (đúng, vì không rõ ngày cố định); cân nhắc hỏi lại.
+- [ ] B14. "ngày 20/11 hằng năm" không có tên việc: hỏi lại tên (đang trả need_info), thêm câu gợi ý cụ thể.
 - [ ] E10. Nút "Thử lại" trên thanh mất kết nối; tự tải lại danh sách khi nối lại được.
 
 ## Nhật ký
@@ -115,3 +119,17 @@ Chạy test: `python -m unittest discover -s tests`.
 - Test `tests/test_welcome_help.py`: mọi câu ví dụ trong giao diện (chip, lời chào, Hướng dẫn nhanh) và bảng kiểu câu trong HUONG_DAN.md đều phải
   ra bản nháp không cảnh báo, đúng kiểu lặp. Sửa câu ví dụ mà bộ hiểu câu không hiểu là test đỏ.
 - Phát hiện: "ăn chay mùng 1 hàng tháng" giữ "mùng 1" trong tên việc (chấp nhận được, tên vẫn có nghĩa).
+
+### Lần 5 — 2026-10-21
+- B2: kiểu lặp mới `yearly` (dương lịch). Bộ hiểu câu nhận "hằng năm/hàng năm/mỗi năm" (không nhầm "mỗi năm phút"); có năm sinh
+  ("5/3/1960 hằng năm") thì đổi sang lần tới; 29/2 lấy 29/2 của năm nhuận gần nhất làm ngày bắt đầu để năm không nhuận rơi vào 28/2
+  (`_add_months(s, 12*i)` giữ ngày gốc), có cảnh báo. Câu âm lịch có "hằng năm" vẫn là `lunar_yearly`.
+  Service: `REPEATS` thêm `yearly`; bung lịch tháng/năm nhảy thẳng tới gần `lo` (trước đây đi từng tháng từ ngày bắt đầu).
+  .ics ghi "Lặp hằng năm"; form Sửa có "Mỗi năm"; sao lưu/khôi phục giữ nguyên. Test cũ dùng "yearly" làm giá trị sai đổi sang "hourly".
+- B3: "sinh nhật", "kỷ niệm", "thôi nôi" + ngày cụ thể không ghi năm → tự lặp hằng năm, kèm cảnh báo "bấm Sửa nếu chỉ một lần".
+  Có năm ("tiệc sinh nhật 20/11/2026") hoặc ngày tương đối ("mai") thì không tự lặp.
+- B4 + E11: `GET /v1/conflicts?start=&duration_min=&exclude=`; form Sửa hỏi lại sau 300 ms mỗi khi đổi ngày/giờ/cả ngày, hiện ngay
+  trong form (`#e_cf`, aria-live). `POST /v1/events` trả kèm `conflicts`, hiện sau khi lưu. Gom chuỗi báo trùng thành `conflictNotes()`.
+- Tài liệu: HUONG_DAN (bảng kiểu câu + FAQ sinh nhật), Hướng dẫn nhanh trong app, API.md (giá trị `repeat`, endpoint mới).
+- Test: `tests/test_yearly_conflicts.py` (23 test).
+- Lưu ý: chuỗi `\b` trong heredoc Python vẫn bị đổi thành ký tự backspace; dùng Edit hoặc tệp script riêng.

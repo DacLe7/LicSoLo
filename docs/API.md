@@ -42,7 +42,7 @@ Mỗi phần tử:
 | `title`, `notes` (≤200 ký tự) | Nội dung hiển thị. |
 | `occurrence`, `fire_at` (+ `_iso`) | Giờ diễn ra và giờ cần nhắc. |
 | `kind` | `on_time`, `prepare_7d`, `prepare_1d` (giỗ nhắc trước 7 ngày và 1 ngày). |
-| `all_day`, `repeat`, `remind_before_min`, `days_left`, `user_id` | Như tên gọi. Việc cả ngày nhắc lúc 08:00. |
+| `all_day`, `repeat`, `remind_before_min`, `days_left`, `user_id` | Như tên gọi. `repeat` là `null`, `daily`, `weekly`, `monthly`, `yearly` (dương lịch; 29/2 năm không nhuận thành 28/2), `lunar_yearly` hoặc `lunar_monthly`. Việc cả ngày nhắc lúc 08:00. |
 
 **`POST /v1/reminders/fired`** `{"event_id", "occurrence": <key>}`: notifier đã gửi. Idempotent.
 **`POST /v1/reminders/delivered`** (khóa khi đã đặt LICHVIET_API_KEY) `{"device_id", "event_id", "key"}`: thiết bị đã hiển thị. Idempotent.
@@ -89,4 +89,6 @@ URL có `?key=` có thể lọt vào nhật ký của proxy: dùng `LICHVIET_ICS
 trải ngày, có `*_iso`), `GET /v1/export` / `POST /v1/import` (sao lưu JSON, nhập hoàn tác toàn bộ nếu lỗi, có `tz`),
 `POST /v1/parse` (hiểu câu tiếng Việt), `PATCH /v1/events/<id>` (sửa việc đã lưu, chỉ gửi trường cần đổi, trả kèm `conflicts`;
 `404` nếu không có, `400` nếu dữ liệu sai), `DELETE /v1/events/<id>`,
+`POST /v1/events` (tạo việc từ form, trả kèm `conflicts`), `GET /v1/conflicts?start=&duration_min=&exclude=` (việc có giờ trùng,
+mặc định dài 60 phút; `exclude` = id việc đang sửa; trả `[{"id", "title", "occurrence"}]`),
 `GET /health` (không cần khóa; kiểm tra database đọc/ghi được, trả `{"ok", "version", "db"}`; lỗi database: `503` kèm `error` tiếng Việt).
