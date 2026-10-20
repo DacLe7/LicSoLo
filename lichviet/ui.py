@@ -167,6 +167,7 @@ details.more .ck{display:flex;align-items:center;gap:8px;margin:0 0 10px;font-si
 <label class="fl">Nhắc trước mặc định (khi câu không nói nhắc trước)<select id="me_rm">
 <option value="">Không, nhắc đúng giờ</option></select></label>
 <label class="fl">Giờ nhắc việc cả ngày (việc không có giờ)<select id="me_ad"></select></label>
+<label class="ck"><input id="me_le" type="checkbox" checked> Nhắc giỗ, việc âm lịch hằng năm sớm (trước 7 ngày và 1 ngày) để kịp chuẩn bị</label>
 <div class="row"><button class="btn" type="submit">Lưu cài đặt</button><span id="memsg" role="status" aria-live="polite" style="font-size:13px;color:var(--mut)"></span></div>
 </form></details>
 <details class="more" id="set"><summary>Thông báo và cài app lên máy</summary>
@@ -245,16 +246,16 @@ const greetText=(h,name,n)=>{
   const hi=b?b+(name?', '+name:'')+'!':'Khuya rồi, '+(name?name+' ':'')+'nghỉ sớm nhé.';
   const sub=n==null?'':n?'Hôm nay có '+n+' việc trong lịch.':'Hôm nay chưa có việc nào trong lịch.';
   return [hi,sub];};
-let ME={name:'',greeting:true,default_remind_min:0,all_day_hour:8},TODAYN=null;
+let ME={name:'',greeting:true,default_remind_min:0,all_day_hour:8,lunar_early:true},TODAYN=null;
 const greet=()=>{const g=$('greet');if(!ME.greeting){g.hidden=true;return;}
   const [a,b]=greetText(new Date().getHours(),ME.name,TODAYN);g.innerHTML=esc(a)+(b?'<small>'+esc(b)+'</small>':'');g.hidden=false;};
 (()=>{const s=$('me_ad');for(let h=0;h<24;h++)s.add(new Option(p(h)+':00'+(h===8?' (mặc định)':''),String(h)));})();
 const fillMe=()=>{$('me_name').value=ME.name||'';$('me_greet').checked=!!ME.greeting;
   $('me_rm').innerHTML=remOpts(+ME.default_remind_min||0);   // cùng danh sách với form Sửa (có 2 ngày, 1 tuần)
-  $('me_ad').value=String(ME.all_day_hour);};
+  $('me_ad').value=String(ME.all_day_hour);$('me_le').checked=ME.lunar_early!==false;};
 const loadMe=async()=>{try{ME=await j('/settings');}catch(e){}fillMe();greet();};
 $('mef').onsubmit=async ev=>{ev.preventDefault();
-  const b={name:$('me_name').value.trim(),greeting:$('me_greet').checked,default_remind_min:+$('me_rm').value,all_day_hour:+$('me_ad').value};
+  const b={name:$('me_name').value.trim(),greeting:$('me_greet').checked,default_remind_min:+$('me_rm').value,all_day_hour:+$('me_ad').value,lunar_early:$('me_le').checked};
   const btn=$('mef').querySelector('button[type=submit]');btn.disabled=true;
   try{ME=await j('/settings',{method:'PATCH',body:JSON.stringify(b)});$('memsg').textContent='Đã lưu cài đặt.';fillMe();greet();}
   catch(e){$('memsg').textContent=e.message;}finally{btn.disabled=false;}};

@@ -109,6 +109,7 @@ Mục **Cài đặt cá nhân** ở cuối trang:
 - **Tên gọi**: app chào theo tên và theo buổi ở đầu trang ("Chào buổi sáng, Lan!") kèm số việc hôm nay. Bỏ dấu **Hiện lời chào** nếu không muốn.
 - **Nhắc trước mặc định**: câu không nói "nhắc trước" thì app tự nhắc sớm chừng đó (bản nháp ghi rõ "theo Cài đặt cá nhân"). Câu có nói thì theo câu.
 - **Giờ nhắc việc cả ngày**: việc không có giờ (sinh nhật, nộp thuế…) được nhắc lúc mấy giờ, mặc định 8:00 sáng.
+- **Nhắc giỗ sớm**: giỗ và việc âm lịch hằng năm được nhắc thêm trước 7 ngày và 1 ngày để kịp chuẩn bị. Bỏ dấu chọn nếu chỉ muốn nhắc đúng ngày.
 
 Cài đặt nằm trong tệp sao lưu. Khôi phục vào app mới cài thì lấy lại cài đặt cũ; app đã có cài đặt thì giữ nguyên cài đặt đang dùng.
 

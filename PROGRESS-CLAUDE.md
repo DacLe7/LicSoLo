@@ -6,7 +6,7 @@ Chạy test: `python -m unittest discover -s tests`.
 ## Hiện trạng (khảo sát lần đầu, 2026-10-21)
 
 - Python thuần (stdlib), SQLite, giao diện một trang trong `lichviet/ui.py`, API trong `lichviet/api.py`.
-- 93 test xanh lúc bắt đầu (lần 2: 117 test; lần 3: 133 test; lần 4: 139 test; lần 5: 162 test; lần 6: 168 test; lần 7: 181 test; lần 8: 197 test; lần 9: 218 test; lần 10: 231 test; lần 11: 236 test; lần 12: 243 test; lần 13: 245 test; lần 14: 253 test).
+- 93 test xanh lúc bắt đầu (lần 2: 117 test; lần 3: 133 test; lần 4: 139 test; lần 5: 162 test; lần 6: 168 test; lần 7: 181 test; lần 8: 197 test; lần 9: 218 test; lần 10: 231 test; lần 11: 236 test; lần 12: 243 test; lần 13: 245 test; lần 14: 254 test).
 - Phát hiện:
   - README ghi "không đặt khóa thì các endpoint mới trả 503" nhưng code (và test `test_no_key_configured_means_open`) mở hết. README sai.
   - `solohost/README.md` ghi image 0.5.1 trong khi compose ghim 0.5.2.
@@ -58,7 +58,7 @@ Chạy test: `python -m unittest discover -s tests`.
 - [x] C6. Lời chào theo tên và buổi trong ngày ở đầu trang, kèm số việc hôm nay.
 - [x] C7. Áp dụng "nhắc trước mặc định" khi câu không nói nhắc trước (bản nháp có `remind_default`).
 - [x] C11. (lần 11) Form Sửa: ô "Nhắc trước (phút)" đổi thành chọn nhanh (5/10/15/30 phút, 1 tiếng, 1 ngày) giống Cài đặt cá nhân.
-- [ ] C12. Cài đặt "nhắc giỗ trước 7 ngày/1 ngày" bật/tắt được (đang cố định trong `_stages`).
+- [x] C12. Cài đặt "nhắc giỗ trước 7 ngày/1 ngày" bật/tắt được (đang cố định trong `_stages`).
 
 ### D. Android
 - [x] D1. `docs/ANDROID_PLAN.md`: USB + `adb reverse` (khuyến nghị demo), Tailscale + HTTPS, LAN HTTP (không khuyến nghị), PWA, mô hình nhỏ trên máy; bảng so sánh, đánh đổi riêng tư.
@@ -274,5 +274,7 @@ Chạy test: `python -m unittest discover -s tests`.
 - B19: giờ nói ngược thói quen ("3 giờ tối" 1–4h, "15h sáng" ≥13h, "9h chiều" 9–11h, "8h trưa" 6–10h) vẫn đặt theo luật nhưng có cảnh báo
   nêu giờ đã đặt; không cảnh báo cho khoảng giờ và "giờ kém". Sửa lỗi: "12h tối nay" trước đây ra 12:00 trưa, nay là 0:00 hôm sau như "12h đêm".
 - Tài liệu: HUONG_DAN mục kiểu câu thêm "ram tháng 7" và giờ ngược buổi.
-- Test: `tests/test_ram_period.py` (8 test).
-- Tiếp theo nên làm: E16, E1/E2, E5, B25/B30, C12.
+- C12: cài đặt `lunar_early` (mặc định bật) trong Cài đặt cá nhân: tắt thì giỗ chỉ nhắc đúng ngày (ảnh hưởng `/reminders/*` và .ics);
+  có trong sao lưu nhờ vòng lặp chung theo `DEFAULT_SETTINGS`. Kiểm tra bật/tắt gom về `_BOOL_SETTINGS`.
+- Test: `tests/test_ram_period.py` (8 test), `test_settings` thêm bật/tắt nhắc giỗ sớm.
+- Tiếp theo nên làm: E16, E1/E2, E5, B25/B30.

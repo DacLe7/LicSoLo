@@ -76,6 +76,16 @@ class TestSettingsService(unittest.TestCase):
         self.assertEqual(up[0]["event_id"], e2["id"])
         self.assertEqual(up[0]["fire_at"], "2026-10-19T10:00:00")
 
+    def test_tat_nhac_gio_som(self):
+        # giỗ rằm tháng 10 âm (2026: 23/11 dương); xem mốc nhắc trong 40 ngày tới
+        self.s.create("Giỗ ông", datetime(2026, 11, 23), all_day=True, repeat="lunar_yearly", lunar=(15, 10))
+        kinds = lambda: sorted(x["kind"] for x in self.s.upcoming_reminders(days=40))
+        self.assertEqual(kinds(), ["on_time", "prepare_1d", "prepare_7d"])
+        self.assertTrue(self.s.update_settings(lunar_early=False)["lunar_early"] is False)
+        self.assertEqual(kinds(), ["on_time"])
+        with self.assertRaises(ValueError):
+            self.s.update_settings(lunar_early="tắt")
+
     def test_ics_theo_gio_nhac_ca_ngay(self):
         e = self.s.create("Sinh nhật mẹ", datetime(2026, 11, 20), all_day=True, repeat="yearly")
         self.s.update_settings(all_day_hour=7)
@@ -146,7 +156,7 @@ def _js_func(name):
 
 class TestSettingsUi(unittest.TestCase):
     def test_co_muc_cai_dat(self):
-        for i in ("me_name", "me_greet", "me_rm", "me_ad", "greet"):
+        for i in ("me_name", "me_greet", "me_rm", "me_ad", "me_le", "greet"):
             self.assertIn('id="%s"' % i, PAGE)
         self.assertIn("/settings", PAGE)
         self.assertIn("remind_default", PAGE)

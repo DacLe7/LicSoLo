@@ -41,7 +41,7 @@ Mỗi phần tử:
 | `event_id`, `key` | Truyền lại khi báo đã gửi/hiển thị. |
 | `title`, `notes` (≤200 ký tự) | Nội dung hiển thị. |
 | `occurrence`, `fire_at` (+ `_iso`) | Giờ diễn ra và giờ cần nhắc. |
-| `kind` | `on_time`, `prepare_7d`, `prepare_1d` (giỗ nhắc trước 7 ngày và 1 ngày). |
+| `kind` | `on_time`, `prepare_7d`, `prepare_1d` (giỗ nhắc trước 7 ngày và 1 ngày, tắt được bằng cài đặt `lunar_early`). |
 | `all_day`, `repeat`, `remind_before_min`, `days_left`, `user_id` | Như tên gọi. `repeat` là `null`, `daily`, `weekly`, `monthly`, `yearly` (dương lịch; 29/2 năm không nhuận thành 28/2), `lunar_yearly` hoặc `lunar_monthly`. Việc cả ngày nhắc lúc 08:00. |
 
 **`POST /v1/reminders/fired`** `{"event_id", "occurrence": <key>}`: notifier đã gửi. Idempotent.
@@ -98,7 +98,8 @@ và xử lý bấm thông báo (mở app, hoặc nút "Đã biết" gọi `POST 
 
 ## Cài đặt cá nhân
 
-`GET /v1/settings` → `{"name", "greeting", "default_remind_min", "all_day_hour"}` (mặc định `""`, `true`, `0`, `8`).
+`GET /v1/settings` → `{"name", "greeting", "default_remind_min", "all_day_hour", "lunar_early"}` (mặc định `""`, `true`, `0`, `8`, `true`).
+`lunar_early` (bật/tắt) quyết định giỗ (`lunar_yearly`) có thêm mốc `prepare_7d`, `prepare_1d` hay không.
 `PATCH /v1/settings` chỉ gửi trường cần đổi; giá trị sai trả `400` kèm câu tiếng Việt và không đổi gì.
 `name` tối đa 40 ký tự; `default_remind_min` 0–10080 phút, áp cho câu không nói nhắc trước (bản nháp có `remind_default: true`);
 `all_day_hour` 0–23 là giờ nhắc việc cả ngày (cả trong `/reminders/*` lẫn .ics). Cài đặt nằm trong `GET /v1/export`;

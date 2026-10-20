@@ -53,7 +53,8 @@ def db_error_vi(path: str, err: Exception) -> str:
     return "Không dùng được database %s: %s" % (path, why)
 
 
-DEFAULT_SETTINGS = {"name": "", "greeting": True, "default_remind_min": 0, "all_day_hour": 8}
+DEFAULT_SETTINGS = {"name": "", "greeting": True, "default_remind_min": 0, "all_day_hour": 8, "lunar_early": True}
+_BOOL_SETTINGS = {"greeting": "lời chào", "lunar_early": "nhắc giỗ sớm"}
 
 
 def _check_setting(key: str, v):
@@ -63,9 +64,9 @@ def _check_setting(key: str, v):
         if len(v) > 40:
             raise ValueError("tên gọi dài quá 40 ký tự")
         return v
-    if key == "greeting":
+    if key in _BOOL_SETTINGS:
         if not isinstance(v, bool):
-            raise ValueError("lời chào chỉ bật hoặc tắt")
+            raise ValueError("%s chỉ bật hoặc tắt" % _BOOL_SETTINGS[key])
         return v
     if isinstance(v, bool) or not isinstance(v, int):
         raise ValueError("%s phải là số nguyên" % ("nhắc trước mặc định" if key == "default_remind_min" else "giờ nhắc việc cả ngày"))
@@ -200,7 +201,7 @@ class Service:
 
     # ---------- cài đặt cá nhân ----------
     def settings(self) -> dict:
-        """Cài đặt cá nhân (tên, lời chào, nhắc trước mặc định, giờ nhắc việc cả ngày). Chưa đặt thì dùng mặc định."""
+        """Cài đặt cá nhân (tên, lời chào, nhắc trước mặc định, giờ nhắc việc cả ngày, nhắc giỗ sớm). Chưa đặt thì dùng mặc định."""
         row = self.con.execute("SELECT value FROM meta WHERE key='settings'").fetchone()
         try:
             saved = json.loads(row["value"]) if row else {}
@@ -611,7 +612,7 @@ class Service:
     def _stages(self, ev: dict) -> list:
         """Các mốc nhắc của một việc: (hậu tố khóa, nhắc trước bao lâu, loại)."""
         on_time = ("", timedelta(minutes=ev["remind_before_min"] or 0), "on_time")
-        if ev["repeat"] == "lunar_yearly":  # giỗ: nhắc sớm để còn chuẩn bị
+        if ev["repeat"] == "lunar_yearly" and self.settings()["lunar_early"]:  # giỗ: nhắc sớm để còn chuẩn bị (tắt được trong Cài đặt)
             return [("#7d", timedelta(days=7), "prepare_7d"),
                     ("#1d", timedelta(days=1), "prepare_1d"), on_time]
         return [on_time]
