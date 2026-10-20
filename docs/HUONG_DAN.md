@@ -145,7 +145,7 @@ App báo còn thiếu "việc cần làm" hoặc "ngày giờ". Nói rõ hơn, v
 Có. Câu có chữ *sinh nhật*, *kỷ niệm* hoặc *thôi nôi* kèm ngày (không ghi năm) được đặt lặp hằng năm theo dương lịch, ví dụ "sinh nhật mẹ 20/11"; bản nháp có dòng nhắc để bạn biết, chỉ một lần thì bấm Sửa và chọn *Không lặp*. Việc khác muốn lặp hằng năm thì thêm "hằng năm" hoặc "mỗi năm", hoặc chọn *Mỗi năm* trong ô Lặp khi sửa. Sinh nhật 29/2: năm không nhuận nhắc vào 28/2. Sinh nhật âm lịch thì thêm "âm lịch": "sinh nhật bà 10/3 âm lịch".
 
 **Dùng trên điện thoại được không?**
-App chỉ mở được trên chính máy cài Pi Desktop (địa chỉ 127.0.0.1), để dữ liệu không lộ ra mạng. Muốn có việc trên lịch điện thoại, bấm nút tải `.ics` cạnh việc đó rồi gửi tệp sang điện thoại và mở.
+App chỉ mở được trên chính máy cài Pi Desktop (địa chỉ 127.0.0.1), để dữ liệu không lộ ra mạng. Muốn có việc trên lịch điện thoại, bấm nút tải `.ics` cạnh việc đó rồi gửi tệp sang điện thoại và mở. Muốn thử app (cả giọng nói) từ điện thoại Android: cắm cáp USB và dùng `adb reverse`, xem [ANDROID_PLAN.md](ANDROID_PLAN.md); đừng mở cổng app ra Wi-Fi.
 
 **Không thấy thông báo trên máy dù đã bật?**
 Kiểm tra app còn mở (một thẻ hoặc cửa sổ app đã cài). Trên Windows, xem *Cài đặt → Hệ thống → Thông báo* đã cho phép Chrome/Edge chưa, và chế độ *Không làm phiền* có đang bật không.

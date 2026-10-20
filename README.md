@@ -3,6 +3,7 @@
 Ứng dụng quản lý lịch và nhắc việc bằng tiếng Việt, có hiển thị âm lịch và trợ lý AI tùy chọn. Viết bằng Python thuần (package `lichviet`, chỉ dùng thư viện chuẩn, lưu bằng SQLite). Đóng gói Docker và chạy trong Pi Desktop (xem [solohost/README.md](solohost/README.md)).
 
 **Người dùng:** đọc [Hướng dẫn sử dụng](docs/HUONG_DAN.md) (cài đặt, các kiểu câu, giọng nói, sao lưu, câu hỏi thường gặp).
+Muốn thử từ điện thoại Android: [docs/ANDROID_PLAN.md](docs/ANDROID_PLAN.md) (so sánh các cách và đánh đổi riêng tư).
 
 ## Chạy thử bằng Docker
 Build image cục bộ:

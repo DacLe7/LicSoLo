@@ -6,7 +6,7 @@ Chạy test: `python -m unittest discover -s tests`.
 ## Hiện trạng (khảo sát lần đầu, 2026-10-21)
 
 - Python thuần (stdlib), SQLite, giao diện một trang trong `lichviet/ui.py`, API trong `lichviet/api.py`.
-- 93 test xanh lúc bắt đầu (lần 2: 117 test; lần 3: 133 test; lần 4: 139 test; lần 5: 162 test; lần 6: 168 test; lần 7: 181 test; lần 8: 197 test).
+- 93 test xanh lúc bắt đầu (lần 2: 117 test; lần 3: 133 test; lần 4: 139 test; lần 5: 162 test; lần 6: 168 test; lần 7: 181 test; lần 8: 197 test; lần 9: 218 test).
 - Phát hiện:
   - README ghi "không đặt khóa thì các endpoint mới trả 503" nhưng code (và test `test_no_key_configured_means_open`) mở hết. README sai.
   - `solohost/README.md` ghi image 0.5.1 trong khi compose ghim 0.5.2.
@@ -53,14 +53,19 @@ Chạy test: `python -m unittest discover -s tests`.
 - [x] C4. Hiện URL đăng ký lịch `.ics` trong phần Cài đặt, giải thích cách thêm vào lịch điện thoại và giới hạn 127.0.0.1.
 - [ ] C8. Thông báo trên máy cho người dùng đã đóng thẻ: cân nhắc Periodic Background Sync (chỉ Chrome đã cài PWA) gọi `/reminders/due` từ service worker; không dùng push qua máy chủ ngoài.
 - [ ] C9. Biểu tượng trong danh sách: đổi nút tải .ics thành menu "…" (Sửa / Tải .ics / Xóa) trên màn hình hẹp để đỡ chật.
-- [ ] C10. Tệp sao lưu: kèm cài đặt trình duyệt (`lv_ntf_later`) không cần; nhưng khi làm C5 nhớ đưa cài đặt vào `export_all`/`import`.
-- [ ] C5. Cài đặt cá nhân (tên, lời chào, nhắc trước mặc định, giờ nhắc việc cả ngày) lưu trong database, có trong tệp sao lưu.
-- [ ] C6. Lời chào theo tên và buổi trong ngày ở đầu trang.
-- [ ] C7. Áp dụng "nhắc trước mặc định" khi câu không nói nhắc trước.
+- [x] C10. Cài đặt cá nhân nằm trong `export_all`; `import` chỉ lấy khi máy chưa đặt cài đặt (lần 9).
+- [x] C5. Cài đặt cá nhân (tên, lời chào, nhắc trước mặc định, giờ nhắc việc cả ngày) lưu trong bảng `meta` (khóa `settings`), có trong tệp sao lưu.
+- [x] C6. Lời chào theo tên và buổi trong ngày ở đầu trang, kèm số việc hôm nay.
+- [x] C7. Áp dụng "nhắc trước mặc định" khi câu không nói nhắc trước (bản nháp có `remind_default`).
+- [ ] C11. Form Sửa: ô "Nhắc trước (phút)" đổi thành chọn nhanh (5/10/15/30 phút, 1 tiếng, 1 ngày) giống Cài đặt cá nhân.
+- [ ] C12. Cài đặt "nhắc giỗ trước 7 ngày/1 ngày" bật/tắt được (đang cố định trong `_stages`).
 
 ### D. Android
-- [ ] D1. `docs/ANDROID_PLAN.md`: so sánh truy cập LAN (opt-in), PWA, mô hình nhỏ trên máy; đánh đổi riêng tư.
-- [ ] D2. Hướng dẫn bật truy cập LAN an toàn (opt-in, có khóa) — không đổi mặc định 127.0.0.1.
+- [x] D1. `docs/ANDROID_PLAN.md`: USB + `adb reverse` (khuyến nghị demo), Tailscale + HTTPS, LAN HTTP (không khuyến nghị), PWA, mô hình nhỏ trên máy; bảng so sánh, đánh đổi riêng tư.
+- [ ] D2. Hướng dẫn từng bước `adb reverse` trong HUONG_DAN (bật gỡ lỗi USB, platform-tools, lệnh) — không đổi mặc định 127.0.0.1.
+- [ ] D3. Truy cập qua host trong `LICHVIET_ALLOWED_HOSTS` khi đã đặt `LICHVIET_API_KEY`: giao diện phải nhập khóa (không tin same-origin), có test.
+- [ ] D4. Trang không phải trang an toàn (http qua IP): mục Thông báo giải thích vì sao micro/thông báo/cài app tắt, trỏ tới ANDROID_PLAN.
+- [x] D5. Test khóa mặc định: compose chỉ mở 127.0.0.1, `serve()`/`LICHVIET_HOST` mặc định 127.0.0.1 (`tests/test_android_plan.py`).
 
 ### E. Chất lượng, trợ năng, giao diện di động, hiệu năng
 - [ ] E1. Trợ năng: `aria-live` cho thông báo, nhãn cho ô nhập, viền focus rõ, độ tương phản.
@@ -182,3 +187,16 @@ Chạy test: `python -m unittest discover -s tests`.
 - Test: `tests/test_pwa_ics.py` (PNG hợp lệ + CRC, cú pháp sw.js bằng node, tệp PWA không cần khóa, .ics từng việc, địa chỉ feed theo khóa).
 - Tiếp theo nên làm: C5–C7 (cài đặt cá nhân), D1 (ANDROID_PLAN), B7 (thêm câu test), E13.
 
+
+### Lần 9 — 2026-10-21
+- C5/C6/C7/C10: `Service.settings()`/`update_settings()` (kiểm tra giá trị, lỗi tiếng Việt, giá trị hỏng trong database thì dùng mặc định);
+  `GET/PATCH /v1/settings`; `from_text` dùng nhắc trước mặc định khi câu không nói; việc cả ngày nhắc lúc `all_day_hour`
+  (cả `/reminders/*` và .ics: `event_calendar` trả `remind` đã trừ giờ nhắc, `ics.py` thôi tự trừ 480).
+  Giao diện: lời chào theo buổi + tên + số việc hôm nay (`greetText`, thử bằng node), mục "Cài đặt cá nhân", bản nháp ghi
+  "theo Cài đặt cá nhân", khôi phục báo đã lấy lại cài đặt.
+- Sửa lỗi cũ: `upcoming_reminders` bỏ sót việc cả ngày của hôm nay (lần xảy ra 0h đã qua nhưng giờ nhắc còn tới).
+- D1/D5: `docs/ANDROID_PLAN.md`, README và FAQ trỏ tới; test khóa cổng mặc định.
+- Phát hiện (ghi trong ANDROID_PLAN): `_is_ui` tin trang same-origin nên khi mở ra mạng thì khóa API không bảo vệ giao diện → D3.
+  Trang http qua IP không phải trang an toàn → micro/thông báo/PWA tắt → D4.
+- Test: `tests/test_settings.py` (17), `tests/test_android_plan.py` (4).
+- Tiếp theo nên làm: B7 (thêm câu test), E13 (hộp xác nhận xóa trong trang), D2–D4, B11.
