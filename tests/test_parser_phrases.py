@@ -59,7 +59,99 @@ CASES = {
         ("gọi điện tối chủ nhật 8h", "Gọi điện", D(2026, 10, 25, 20, 0), False),
         ("khám bệnh sáng thứ hai 7h", "Khám bệnh", D(2026, 10, 26, 7, 0), False),
     ],
+    # lần 10 (B11): "ăn tối", "ca sáng"... là tên việc, buổi vẫn dùng để đoán giờ khi không nói buổi khác
+    "bữa ăn, ca làm trong tên việc": [
+        ("ăn tối hôm bữa", "Ăn tối", D(2026, 10, 18, 19, 0), False),
+        ("ăn tối với sếp 7h mai", "Ăn tối với sếp", D(2026, 10, 22, 19, 0), False),
+        ("ăn trưa 12h thứ 6", "Ăn trưa", D(2026, 10, 23, 12, 0), False),
+        ("ăn trưa 1h", "Ăn trưa", D(2026, 10, 21, 13, 0), False),
+        ("đi ăn tối mai", "Đi ăn tối", D(2026, 10, 22, 19, 0), False),
+        ("ăn tối lúc 8h", "Ăn tối", D(2026, 10, 21, 20, 0), False),
+        ("ăn sáng 7h mai", "Ăn sáng", D(2026, 10, 22, 7, 0), False),
+        ("ca sáng 6h mai", "Ca sáng", D(2026, 10, 22, 6, 0), False),
+        ("ca chiều 2h thứ hai", "Ca chiều", D(2026, 10, 26, 14, 0), False),
+        ("ca đêm 10h thứ bảy", "Ca đêm", D(2026, 10, 24, 22, 0), False),
+        ("cơm tối nhà ngoại 6h chủ nhật", "Cơm tối nhà ngoại", D(2026, 10, 25, 18, 0), False),
+        ("bữa sáng với nhóm 7h30 thứ năm", "Bữa sáng với nhóm", D(2026, 10, 22, 7, 30), False),
+        ("tiệc tối 7h thứ sáu", "Tiệc tối", D(2026, 10, 23, 19, 0), False),
+        ("đi tiệc tối thứ bảy", "Đi tiệc tối", D(2026, 10, 24, 19, 0), False),
+        ("ăn tối 7h sáng mai", "Ăn tối", D(2026, 10, 22, 7, 0), False),   # buổi nói rõ thắng buổi trong tên
+        ("ăn tối tối mai", "Ăn tối", D(2026, 10, 22, 19, 0), False),
+        ("an toi 7h mai", "An toi", D(2026, 10, 22, 19, 0), False),   # gõ không dấu
+        ("cà chua tối mai", "Cà chua", D(2026, 10, 22, 19, 0), False),   # "cà" không phải "ca"
+    ],
+    "giờ đêm, khuya": [
+        ("trực 10h đêm mai", "Trực", D(2026, 10, 22, 22, 0), False),
+        ("đi ngủ 11h đêm nay", "Đi ngủ", D(2026, 10, 21, 23, 0), False),
+        ("9h đêm nay xem phim", "Xem phim", D(2026, 10, 21, 21, 0), False),
+        ("xem bóng đá 2h sáng mai", "Xem bóng đá", D(2026, 10, 22, 2, 0), False),
+        ("bay 2h đêm mai", "Bay", D(2026, 10, 22, 2, 0), False),
+    ],
+    "thứ trong tuần": [
+        ("đi bơi thứ bảy này", "Đi bơi", D(2026, 10, 24), True),
+        ("đi bơi thứ 7 này", "Đi bơi", D(2026, 10, 24), True),
+        ("đi bơi chủ nhật này", "Đi bơi", D(2026, 10, 25), True),
+        ("họp thứ tư này", "Họp", D(2026, 10, 21), True),
+        ("họp thứ hai tuần này", "Họp", D(2026, 10, 19), True),
+        ("họp thứ 2 tuần sau 8h", "Họp", D(2026, 10, 26, 8, 0), False),
+        ("đón con 4h30 chiều thứ sáu", "Đón con", D(2026, 10, 23, 16, 30), False),
+        ("chạy bộ 5h sáng thứ hai", "Chạy bộ", D(2026, 10, 26, 5, 0), False),
+    ],
+    "câu thường ngày": [
+        ("họp 9h sáng mai", "Họp", D(2026, 10, 22, 9, 0), False),
+        ("họp lúc 9 giờ sáng mai", "Họp", D(2026, 10, 22, 9, 0), False),
+        ("gọi mẹ 8 giờ tối nay", "Gọi mẹ", D(2026, 10, 21, 20, 0), False),
+        ("đi siêu thị chiều nay", "Đi siêu thị", D(2026, 10, 21, 15, 0), False),
+        ("họp 14h ngày 25/10", "Họp", D(2026, 10, 25, 14, 0), False),
+        ("khám răng 9h ngày 3/11", "Khám răng", D(2026, 11, 3, 9, 0), False),
+        ("nộp báo cáo 30/10", "Nộp báo cáo", D(2026, 10, 30), True),
+        ("đi đám cưới ngày 15 tháng 11", "Đi đám cưới", D(2026, 11, 15), True),
+        ("đi chợ hôm nay", "Đi chợ", D(2026, 10, 21), True),
+        ("đi chợ bữa nay", "Đi chợ", D(2026, 10, 21), True),
+        ("đi chợ ngày mai", "Đi chợ", D(2026, 10, 22), True),
+        ("họp ngày kia 10h", "Họp", D(2026, 10, 23, 10, 0), False),
+        ("họp lúc 15:30 mai", "Họp", D(2026, 10, 22, 15, 30), False),
+        ("họp ba giờ chiều mai", "Họp", D(2026, 10, 22, 15, 0), False),
+        ("đi khám 7 giờ kém 15 sáng mai", "Đi khám", D(2026, 10, 22, 6, 45), False),
+        ("dọn nhà cuối tuần này", "Dọn nhà", D(2026, 10, 24), True),
+        ("họp đầu tháng sau", "Họp", D(2026, 11, 1), True),
+        ("nộp hồ sơ trước ngày 30/10", "Nộp hồ sơ", D(2026, 10, 30), True),
+        ("đón con sau 2 giờ chiều", "Đón con", D(2026, 10, 21, 14, 0), False),
+        ("đi xem phim tối thứ sáu tuần sau", "Đi xem phim", D(2026, 10, 30, 19, 0), False),
+        ("họp 8h30 sáng thứ ba tuần tới", "Họp", D(2026, 10, 27, 8, 30), False),
+        ("họp trưa mai", "Họp", D(2026, 10, 22, 12, 0), False),
+        ("gặp khách 10 giờ 15 mai", "Gặp khách", D(2026, 10, 22, 10, 15), False),
+        ("nấu cơm 5 giờ chiều", "Nấu cơm", D(2026, 10, 21, 17, 0), False),
+        ("đi học 6h45 sáng mai", "Đi học", D(2026, 10, 22, 6, 45), False),
+        ("mua quà 25/12", "Mua quà", D(2026, 12, 25), True),
+        ("họp lớp 1/1/2027", "Họp lớp", D(2027, 1, 1), True),
+    ],
 }
+
+# (câu, tên việc, bắt đầu, kiểu lặp, nhắc trước phút)
+REPEAT_REMIND_CASES = [
+    ("uống thuốc 8h sáng mỗi ngày", "Uống thuốc", D(2026, 10, 22, 8, 0), "daily", None),
+    ("tưới cây 7h sáng hằng ngày", "Tưới cây", D(2026, 10, 22, 7, 0), "daily", None),
+    ("tập gym 6h tối thứ 2 hàng tuần", "Tập gym", D(2026, 10, 26, 18, 0), "weekly", None),
+    ("họp giao ban 8h thứ hai mỗi tuần", "Họp giao ban", D(2026, 10, 26, 8, 0), "weekly", None),
+    ("đi chợ phiên 8h sáng chủ nhật hàng tuần", "Đi chợ phiên", D(2026, 10, 25, 8, 0), "weekly", None),
+    ("cúng rằm mỗi tháng", "Cúng rằm", D(2026, 10, 24), "lunar_monthly", None),
+    ("đóng tiền điện ngày 10 hàng tháng", "Đóng tiền điện", D(2026, 11, 10), "monthly", None),
+    ("sinh nhật mẹ 20/11", "Sinh nhật mẹ", D(2026, 11, 20), "yearly", None),
+    ("kỷ niệm ngày cưới 14/2", "Kỷ niệm ngày cưới", D(2027, 2, 14), "yearly", None),
+    ("sinh nhật con 5/3 hằng năm", "Sinh nhật con", D(2027, 3, 5), "yearly", None),
+    ("nhắc tôi trước 30 phút họp 3h chiều mai", "Họp", D(2026, 10, 22, 15, 0), None, 30),
+    ("họp 3h chiều mai nhắc trước 1 tiếng", "Họp", D(2026, 10, 22, 15, 0), None, 60),
+    ("khám thai 9h thứ năm báo trước 2 tiếng", "Khám thai", D(2026, 10, 22, 9, 0), None, 120),
+]
+
+# (câu, tên việc, ngày âm, tháng âm, kiểu lặp, ngày dương lần tới)
+LUNAR_CASES = [
+    ("rằm tháng giêng đi chùa", "Đi chùa", 15, 1, "lunar_yearly", D(2027, 2, 20)),
+    ("đi chùa rằm tháng 1 âm", "Đi chùa", 15, 1, "lunar_yearly", D(2027, 2, 20)),
+    ("giỗ bà mùng 8 tháng chạp", "Giỗ bà", 8, 12, "lunar_yearly", D(2027, 1, 15)),
+    ("giỗ ông 10/3 âm lịch", "Giỗ ông", 10, 3, "lunar_yearly", D(2027, 4, 16)),
+]
 
 DURATIONS = {
     "họp từ 2h đến 4h chiều": 120,
@@ -82,6 +174,26 @@ class TestPhraseTable(unittest.TestCase):
         for text, dur in DURATIONS.items():
             with self.subTest(text=text):
                 self.assertEqual(parse_vi(text, NOW).duration_min, dur)
+
+    def test_lunar_cases(self):
+        for text, title, ld, lm, rep, start in LUNAR_CASES:
+            with self.subTest(text=text):
+                r = parse_vi(text, NOW)
+                self.assertEqual((r.title, r.lunar, r.repeat, r.start), (title, (ld, lm), rep, start), r.warnings)
+
+    def test_night_range(self):
+        r = parse_vi("trực từ 10h đến 11h đêm", NOW)
+        self.assertEqual((r.start, r.duration_min), (D(2026, 10, 21, 22, 0), 60))
+
+    def test_repeat_remind_cases(self):
+        for text, title, start, rep, remind in REPEAT_REMIND_CASES:
+            with self.subTest(text=text):
+                r = parse_vi(text, NOW)
+                self.assertEqual((r.title, r.start, r.repeat, r.remind_before_min), (title, start, rep, remind), r.warnings)
+
+    def test_table_size(self):
+        n = sum(map(len, CASES.values())) + len(LUNAR_CASES) + len(REPEAT_REMIND_CASES)
+        self.assertGreaterEqual(n, 110)
 
     def test_explicit_duration_wins_over_range(self):
         self.assertEqual(parse_vi("họp từ 2h đến 4h chiều kéo dài 30 phút", NOW).duration_min, 30)
