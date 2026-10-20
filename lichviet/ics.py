@@ -65,7 +65,7 @@ def _vevent(e: dict, o: datetime, tz, stamp: str, calname: str, uid: str, rrule=
         L.append("LAST-MODIFIED:" + _utc(datetime.fromisoformat(e["updated"]), tz))
     L.append("CATEGORIES:" + esc(calname))
     triggers = ["TRIGGER;VALUE=DATE-TIME:" + _utc(fa, tz) for fa in e.get("alarms", [])] if rrule is None else \
-        ["TRIGGER:" + _rel(m - 480 if e["all_day"] else m) for m in (remind or [])]   # cả ngày: app nhắc lúc 8h sáng
+        ["TRIGGER:" + _rel(m) for m in (remind or [])]   # việc cả ngày: remind đã tính giờ nhắc (mặc định 8h sáng)
     for t in triggers:
         L += ["BEGIN:VALARM", "ACTION:DISPLAY", "DESCRIPTION:" + esc(e["title"]), t, "END:VALARM"]
     L.append("END:VEVENT")

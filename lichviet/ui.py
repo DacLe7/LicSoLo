@@ -102,10 +102,15 @@ details.more ul{margin:0 0 14px;padding-left:20px;font-size:14px}details.more li
 .welcome .tries{display:flex;flex-wrap:wrap;gap:8px}.welcome .chip{background:var(--card)}
 .ph{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line);font-size:14px}
 .ph .x{flex:1;min-width:0;overflow-wrap:anywhere}.ph small{color:var(--mut)}
+.greet{margin:0 6px 12px;font-size:17px;font-weight:600}.greet small{display:block;font-size:13px;font-weight:400;color:var(--mut)}.greet[hidden]{display:none}
+details.more .fl{display:grid;gap:4px;font-size:13px;color:var(--mut);margin:0 0 10px}
+details.more .fl input,details.more .fl select{font:inherit;font-size:16px;color:var(--tx);background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:9px 12px;width:100%;min-width:0;min-height:44px}
+details.more .ck{display:flex;align-items:center;gap:8px;margin:0 0 10px;font-size:14.5px}details.more .ck input{width:20px;height:20px;margin:0}
 .foot{text-align:center;color:var(--mut);font-size:12px;padding:18px 0 6px}
 .mic-on{background:var(--warn)!important;color:#fff!important}
 @media(max-width:480px){.hero{padding:18px}.big{font-size:52px}.lunar .l2{font-size:18px}.composer{margin-left:4px;margin-right:4px}}
 </style></head><body><main>
+<p class="greet" id="greet" hidden aria-live="polite"></p>
 <section class="hero"><div class="big" id="dnum"></div><div><div class="wd" id="dwd"></div><div class="mo" id="dmo"></div></div>
 <div class="lunar"><div class="l1">Âm lịch</div><div class="l2" id="lday">&nbsp;</div><div class="l3" id="lyear"></div></div></section>
 <div class="composer">
@@ -140,7 +145,18 @@ details.more ul{margin:0 0 14px;padding-left:20px;font-size:14px}details.more li
 <h3>Mẹo</h3><ul><li>Mỗi câu một việc. Muốn nhắc cả <i>mùng 1 và rằm</i> thì tạo thành hai việc.</li>
 <li>Nút bút chì để sửa, nút thùng rác để xóa, nút mũi tên để tải việc về lịch điện thoại (.ics).</li>
 <li>Thông báo nhắc hiện ở đầu trang khi app đang mở. Bấm <i>Đã biết</i> để tắt. Bật <i>thông báo trên máy</i> để được nhắc cả khi đang ở cửa sổ khác.</li>
+<li>Muốn lúc nào cũng được nhắc sớm (ví dụ 15 phút), hoặc đổi giờ nhắc việc cả ngày: mở <i>Cài đặt cá nhân</i> ở cuối trang.</li>
 <li>Tải bản sao lưu thường xuyên, nhất là trước khi gỡ app.</li></ul></details>
+<details class="more" id="me"><summary>Cài đặt cá nhân</summary>
+<p>Lưu trong app trên máy này và có trong tệp sao lưu.</p>
+<form id="mef" novalidate>
+<label class="fl">Tên gọi của bạn (để chào hỏi)<input id="me_name" type="text" maxlength="40" autocomplete="nickname" placeholder="Ví dụ: Lan"></label>
+<label class="ck"><input id="me_greet" type="checkbox" checked> Hiện lời chào ở đầu trang</label>
+<label class="fl">Nhắc trước mặc định (khi câu không nói nhắc trước)<select id="me_rm">
+<option value="0">Không, nhắc đúng giờ</option><option value="5">5 phút</option><option value="10">10 phút</option><option value="15">15 phút</option><option value="30">30 phút</option><option value="60">1 tiếng</option><option value="120">2 tiếng</option><option value="1440">1 ngày</option></select></label>
+<label class="fl">Giờ nhắc việc cả ngày (việc không có giờ)<select id="me_ad"></select></label>
+<div class="row"><button class="btn" type="submit">Lưu cài đặt</button><span id="memsg" role="status" aria-live="polite" style="font-size:13px;color:var(--mut)"></span></div>
+</form></details>
 <details class="more" id="set"><summary>Thông báo và cài app lên máy</summary>
 <p id="ntfst" aria-live="polite"></p>
 <div class="row"><button class="btn" type="button" id="ntfbtn" hidden>Bật thông báo</button><button class="btn ghost" type="button" id="ntftest" hidden>Thử một thông báo</button></div>
@@ -200,6 +216,28 @@ const ICO={cal:svg('<rect x="3" y="4" width="18" height="17" rx="3"/><path d="M8
  dl:svg('<path d="M12 3v12M7 10l5 5 5-5M5 21h14"/>'),
  pen:svg('<path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4"/>')};
 function toast(m){$('toast').textContent=m||'';}
+/* ---- cài đặt cá nhân và lời chào ---- */
+const mins=m=>m%1440===0?m/1440+' ngày':m%60===0?m/60+' tiếng':m+' phút';
+const greetText=(h,name,n)=>{
+  const b=h<4||h>=22?'':h<11?'Chào buổi sáng':h<14?'Chào buổi trưa':h<18?'Chào buổi chiều':'Chào buổi tối';
+  const hi=b?b+(name?', '+name:'')+'!':'Khuya rồi, '+(name?name+' ':'')+'nghỉ sớm nhé.';
+  const sub=n==null?'':n?'Hôm nay có '+n+' việc trong lịch.':'Hôm nay chưa có việc nào trong lịch.';
+  return [hi,sub];};
+let ME={name:'',greeting:true,default_remind_min:0,all_day_hour:8},TODAYN=null;
+const greet=()=>{const g=$('greet');if(!ME.greeting){g.hidden=true;return;}
+  const [a,b]=greetText(new Date().getHours(),ME.name,TODAYN);g.innerHTML=esc(a)+(b?'<small>'+esc(b)+'</small>':'');g.hidden=false;};
+(()=>{const s=$('me_ad');for(let h=0;h<24;h++)s.add(new Option(p(h)+':00'+(h===8?' (mặc định)':''),String(h)));})();
+const fillMe=()=>{$('me_name').value=ME.name||'';$('me_greet').checked=!!ME.greeting;
+  const rm=$('me_rm'),v=String(ME.default_remind_min||0);
+  if(![...rm.options].some(o=>o.value===v))rm.add(new Option(mins(+v),v));rm.value=v;$('me_ad').value=String(ME.all_day_hour);};
+const loadMe=async()=>{try{ME=await j('/settings');}catch(e){}fillMe();greet();};
+$('mef').onsubmit=async ev=>{ev.preventDefault();
+  const b={name:$('me_name').value.trim(),greeting:$('me_greet').checked,default_remind_min:+$('me_rm').value,all_day_hour:+$('me_ad').value};
+  const btn=$('mef').querySelector('button[type=submit]');btn.disabled=true;
+  try{ME=await j('/settings',{method:'PATCH',body:JSON.stringify(b)});$('memsg').textContent='Đã lưu cài đặt.';fillMe();greet();}
+  catch(e){$('memsg').textContent=e.message;}finally{btn.disabled=false;}};
+setInterval(greet,600000);   // đổi lời chào theo buổi khi để trang mở lâu
+loadMe();
 /* ---- đầu trang: hôm nay ---- */
 let TODAY=null;   // ngày hôm nay theo máy chủ (múi giờ người dùng), không theo đồng hồ trình duyệt
 (async()=>{let t=new Date();
@@ -298,6 +336,7 @@ async function refresh(){
   const a=TODAY?new Date(TODAY+'T00:00:00'):new Date(),b=new Date(a);b.setDate(b.getDate()+7);
   let ev;try{ev=await j('/events?from='+local(a)+'&to='+local(b));net(true);}
   catch(e){net(false);if(!$('list').innerHTML)$('list').innerHTML='<div class="empty">Chưa tải được danh sách. '+esc(e.message)+'</div>';return;}
+  TODAYN=ev.filter(e=>e.occurrence.slice(0,10)===TODAY).length;greet();
   if(!ev.length){$('list').innerHTML='<div class="empty">Chưa có việc nào trong 7 ngày tới.</div>';return;}
   ev.sort((x,y)=>x.occurrence<y.occurrence?-1:1);
   let html='',cur='';
@@ -413,7 +452,7 @@ $('go').onclick=async()=>{
   const rep=repText(d.repeat,d.lunar&&d.lunar[0],d.lunar&&d.lunar[1]).replace(/^ · /,'');
   const facts='<div class="fact">'+ICO.cal+'<span>'+whenLong(d.start,d.all_day)+'</span></div>'
     +(rep?'<div class="fact">'+ICO.rep+'<span>'+esc(rep)+'</span></div>':'')
-    +(d.remind_before_min?'<div class="fact">'+ICO.bell+'<span>Nhắc trước '+d.remind_before_min+' phút</span></div>':'');
+    +(d.remind_before_min?'<div class="fact">'+ICO.bell+'<span>Nhắc trước '+mins(d.remind_before_min)+(d.remind_default?' (theo Cài đặt cá nhân)':'')+'</span></div>':'');
   const tags=(d.used_ai?'<span class="tag">AI hỗ trợ</span>':'')+(d.memory?'<span class="tag">theo cách nói đã nhớ</span>':'');
   const card='<div class="who">Trợ lý hiểu là</div><p class="dt">'+esc(d.title)+'</p><div class="facts">'+facts+'</div>'+(tags?'<div class="tags">'+tags+'</div>':'')+conf+warn+ainote
     +'<div class="actions"><button class="btn" id="ok">Lưu</button><button class="btn ghost" id="edit">Sửa</button><button class="btn ghost" id="no">Bỏ qua</button></div>';
@@ -504,6 +543,7 @@ $('rs').onchange=async e=>{
   try{const r=await fetch('/import',{method:'POST',body:await f.text()});const x=await r.json();
     $('bkmsg').textContent=r.ok?('Đã nhập '+x.added+' việc, bỏ qua '+x.skipped+' việc trùng, '+x.phrases+' cụm từ.'):(x.error||'Không nhập được');
     if(r.ok&&x.added)welcome(1);
+    if(r.ok&&x.settings){$('bkmsg').textContent+=' Đã lấy lại cài đặt cá nhân.';loadMe();}
     refresh();phr();}catch(err){$('bkmsg').textContent='Tệp không đọc được.';}
   e.target.value='';};
 </script></body></html>"""

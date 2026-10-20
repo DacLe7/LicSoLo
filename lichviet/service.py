@@ -7,6 +7,7 @@ kênh thông báo sẵn có, xong gọi mark_fired().
 """
 import calendar
 import difflib
+import json
 import os
 import re
 import threading
@@ -50,6 +51,29 @@ def db_error_vi(path: str, err: Exception) -> str:
     else:
         why = str(err)
     return "Không dùng được database %s: %s" % (path, why)
+
+
+DEFAULT_SETTINGS = {"name": "", "greeting": True, "default_remind_min": 0, "all_day_hour": 8}
+
+
+def _check_setting(key: str, v):
+    """Kiểm tra và chuẩn hóa một giá trị cài đặt."""
+    if key == "name":
+        v = " ".join(str(v or "").split())
+        if len(v) > 40:
+            raise ValueError("tên gọi dài quá 40 ký tự")
+        return v
+    if key == "greeting":
+        if not isinstance(v, bool):
+            raise ValueError("lời chào chỉ bật hoặc tắt")
+        return v
+    if isinstance(v, bool) or not isinstance(v, int):
+        raise ValueError("%s phải là số nguyên" % ("nhắc trước mặc định" if key == "default_remind_min" else "giờ nhắc việc cả ngày"))
+    if key == "default_remind_min" and not 0 <= v <= 10080:
+        raise ValueError("nhắc trước mặc định phải từ 0 tới 10080 phút (7 ngày)")
+    if key == "all_day_hour" and not 0 <= v <= 23:
+        raise ValueError("giờ nhắc việc cả ngày phải từ 0 tới 23")
+    return v
 
 
 class Service:
@@ -173,6 +197,39 @@ class Service:
                 pass
             raise RuntimeError(db_error_vi(self._db_path, e)) from e
         return {"db": "ok", "events": n}
+
+    # ---------- cài đặt cá nhân ----------
+    def settings(self) -> dict:
+        """Cài đặt cá nhân (tên, lời chào, nhắc trước mặc định, giờ nhắc việc cả ngày). Chưa đặt thì dùng mặc định."""
+        row = self.con.execute("SELECT value FROM meta WHERE key='settings'").fetchone()
+        try:
+            saved = json.loads(row["value"]) if row else {}
+        except ValueError:
+            saved = {}
+        out = dict(DEFAULT_SETTINGS)
+        for k, v in (saved if isinstance(saved, dict) else {}).items():
+            if k in DEFAULT_SETTINGS:
+                try:
+                    out[k] = _check_setting(k, v)
+                except ValueError:
+                    pass   # giá trị cũ hỏng: bỏ qua, giữ mặc định
+        return out
+
+    def update_settings(self, **fields) -> dict:
+        """Đổi một vài cài đặt; trường lạ hoặc giá trị sai thì báo lỗi tiếng Việt, không đổi gì."""
+        bad = set(fields) - set(DEFAULT_SETTINGS)
+        if bad:
+            raise ValueError("cài đặt không hợp lệ: %s" % ", ".join(sorted(bad)))
+        cur = self.settings()
+        for k, v in fields.items():
+            cur[k] = _check_setting(k, v)
+        self.con.execute("INSERT INTO meta(key,value) VALUES('settings',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                         (json.dumps(cur, ensure_ascii=False),))
+        self.con.commit()
+        return cur
+
+    def _settings_saved(self) -> bool:
+        return self.con.execute("SELECT 1 FROM meta WHERE key='settings'").fetchone() is not None
 
     # ---------- đọc ----------
     def event_count(self) -> int:
@@ -432,10 +489,16 @@ class Service:
                     self.llm.last = {**self.llm.last, "status": "not_better",
                                      "detail": "AI trả lời nhưng kết quả vẫn chưa hiểu được ngày giờ"}
             ai_note = dict(self.llm.last)
+        remind_default = False
+        if r.remind_before_min is None:   # câu không nói nhắc trước: dùng nhắc trước mặc định trong Cài đặt
+            dm = self.settings()["default_remind_min"]
+            if dm:
+                r.remind_before_min, remind_default = dm, True
         draft = {"title": r.title, "start": store.fmt(r.start) if r.start else None,
                  "all_day": r.all_day, "duration_min": r.duration_min, "repeat": r.repeat,
                  "remind_before_min": r.remind_before_min, "warnings": r.warnings, "used_ai": used_ai, "ai": ai_note,
-                 "lunar": list(r.lunar) if r.lunar else None, "memory": memo or None}
+                 "lunar": list(r.lunar) if r.lunar else None, "memory": memo or None,
+                 "remind_default": remind_default}
         if r.missing:
             return {"status": "need_info", "missing": r.missing, "draft": draft}
         now = self.clock()
@@ -457,7 +520,8 @@ class Service:
         evs = [dict(r) for r in self.con.execute("SELECT * FROM events ORDER BY id")]
         fired = [dict(r) for r in self.con.execute("SELECT * FROM fired")]
         return {"format": "lichviet-backup", "version": 1, "tz": str(get_tz()), "exported": store.fmt(self.clock()),
-                "events": evs, "fired": fired, "phrases": self.phrases(), "heard": self.heard_list()}
+                "events": evs, "fired": fired, "phrases": self.phrases(), "heard": self.heard_list(),
+                "settings": self.settings()}
 
     def import_all(self, data: dict) -> dict:
         """Nhập lại từ tệp sao lưu. Gộp thêm, không xóa gì: việc trùng (cùng tên, giờ, kiểu lặp) bị bỏ qua."""
@@ -526,6 +590,19 @@ class Service:
                                  (h["src"], h["dst"], int(h.get("hits") or 0), int(h.get("uses") or 0),
                                   h.get("created") or t, t))
         res = {"added": added, "skipped": skipped, "phrases": learned}
+        st = data.get("settings")
+        if isinstance(st, dict) and not self._settings_saved():   # máy mới cài lại: lấy cài đặt cũ; đã đặt rồi thì giữ nguyên
+            ok = {}
+            for k, v in st.items():
+                if k in DEFAULT_SETTINGS:
+                    try:
+                        ok[k] = _check_setting(k, v)
+                    except ValueError:
+                        pass
+            if ok:
+                cur = {**DEFAULT_SETTINGS, **ok}
+                self.con.execute("INSERT INTO meta(key,value) VALUES('settings',?)", (json.dumps(cur, ensure_ascii=False),))
+                res["settings"] = True
         if data.get("tz") and data["tz"] != str(get_tz()):   # giờ lưu không kèm múi giờ: báo để người dùng kiểm tra
             res["tz_warning"] = "tệp sao lưu dùng múi giờ %s, máy này dùng %s; giờ được giữ nguyên số, không quy đổi" % (data["tz"], get_tz())
         return res
@@ -540,8 +617,8 @@ class Service:
         return [on_time]
 
     def _fire_points(self, ev: dict, o: datetime) -> list:
-        """Mọi mốc nhắc của một lần xảy ra: (hậu tố khóa, loại, giờ nhắc). Việc cả ngày nhắc lúc 8h sáng."""
-        base = o.replace(hour=8, minute=0) if ev["all_day"] else o
+        """Mọi mốc nhắc của một lần xảy ra: (hậu tố khóa, loại, giờ nhắc). Việc cả ngày nhắc lúc all_day_hour (mặc định 8h sáng)."""
+        base = o.replace(hour=self.settings()["all_day_hour"], minute=0) if ev["all_day"] else o
         return [(suffix, kind, base - delta) for suffix, delta, kind in self._stages(ev)]
 
     def _item(self, ev: dict, o: datetime, suffix: str, kind: str, fire_at: datetime, now: datetime) -> dict:
@@ -624,7 +701,8 @@ class Service:
         out = []
         for row in self.con.execute("SELECT * FROM events"):
             ev = dict(row)
-            for o in self._occurrences(ev, now, end + timedelta(days=8)):
+            # lùi một ngày: việc cả ngày hôm nay bắt đầu lúc 0h (đã qua) nhưng nhắc lúc 8h (còn tới)
+            for o in self._occurrences(ev, now - timedelta(days=1), end + timedelta(days=8)):
                 for suffix, kind, fire_at in self._fire_points(ev, o):
                     if not (now <= fire_at <= end):
                         continue
@@ -739,7 +817,7 @@ class Service:
 
     def event_calendar(self, event_id: int) -> dict:
         """Một việc để tải về dạng .ics (thêm vào lịch điện thoại một lần, không đăng ký).
-        Lặp dương lịch có chuẩn RRULE thì trả "rrule" + "remind" (phút trước giờ, việc cả ngày tính từ 8h sáng);
+        Lặp dương lịch có chuẩn RRULE thì trả "rrule" + "remind" (phút trước giờ bắt đầu; việc cả ngày đã trừ giờ nhắc việc cả ngày);
         còn lại (một lần, âm lịch, ngày 29-31 hằng tháng, 29/2) trả các lần xảy ra sắp tới kèm giờ nhắc tuyệt đối."""
         ev = self.get(event_id)
         if not ev:
@@ -750,7 +828,8 @@ class Service:
                 "monthly": "FREQ=MONTHLY" if s.day <= 28 else None,   # RRULE bỏ qua tháng thiếu ngày 31, app thì lùi về cuối tháng
                 "yearly": None if (s.month, s.day) == (2, 29) else "FREQ=YEARLY"}.get(rep)
         if rule:
-            return {**ev, "rrule": rule, "remind": [int(d.total_seconds() // 60) for _, d, _ in self._stages(ev)]}
+            shift = self.settings()["all_day_hour"] * 60 if ev["all_day"] else 0   # cả ngày: tính từ giờ nhắc việc cả ngày
+            return {**ev, "rrule": rule, "remind": [int(d.total_seconds() // 60) - shift for _, d, _ in self._stages(ev)]}
         now = self.clock()
         if not rep:
             occ = [s]

@@ -99,6 +99,16 @@ Mục **Đồng bộ sang ứng dụng lịch khác** ở cuối trang cho một
 - Nếu máy tắt lúc đến giờ, lần mở sau app nhắc bù: việc một lần và ngày giỗ bị lỡ trong 7 ngày gần nhất; việc lặp mỗi ngày/tuần/tháng chỉ nhắc bù lần của hôm trước.
 - Việc lưu với giờ đã qua không bị nhắc.
 
+### Cài đặt cá nhân
+
+Mục **Cài đặt cá nhân** ở cuối trang:
+
+- **Tên gọi**: app chào theo tên và theo buổi ở đầu trang ("Chào buổi sáng, Lan!") kèm số việc hôm nay. Bỏ dấu **Hiện lời chào** nếu không muốn.
+- **Nhắc trước mặc định**: câu không nói "nhắc trước" thì app tự nhắc sớm chừng đó (bản nháp ghi rõ "theo Cài đặt cá nhân"). Câu có nói thì theo câu.
+- **Giờ nhắc việc cả ngày**: việc không có giờ (sinh nhật, nộp thuế…) được nhắc lúc mấy giờ, mặc định 8:00 sáng.
+
+Cài đặt nằm trong tệp sao lưu. Khôi phục vào app mới cài thì lấy lại cài đặt cũ; app đã có cài đặt thì giữ nguyên cài đặt đang dùng.
+
 ## 7. Sao lưu và khôi phục
 
 **Gỡ app khỏi Pi Desktop sẽ xóa dữ liệu.** Hãy sao lưu trước khi gỡ, và nên sao lưu định kỳ.
@@ -106,6 +116,8 @@ Mục **Đồng bộ sang ứng dụng lịch khác** ở cuối trang cho một
 1. Mở mục **Sao lưu và cụm từ đã học** ở cuối trang.
 2. Bấm **Tải bản sao lưu**: trình duyệt tải về tệp `lichviet-saoluu.json`. Cất tệp này ở nơi an toàn.
 3. Khôi phục: bấm **Khôi phục từ tệp** và chọn tệp sao lưu. Mới cài lại app (chưa có việc nào) thì màn hình chào có sẵn nút **Khôi phục từ tệp**, bấm là mở thẳng hộp chọn tệp.
+
+Tệp sao lưu gồm các việc, cụm từ đã học và Cài đặt cá nhân.
 
 Khôi phục chỉ **gộp thêm**, không xóa việc đang có. Việc trùng (cùng tên, cùng giờ, cùng kiểu lặp) được bỏ qua, nên khôi phục hai lần cũng không bị nhân đôi. Tệp hỏng thì app từ chối cả tệp, không nhập nửa chừng.
 

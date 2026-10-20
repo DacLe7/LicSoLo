@@ -96,6 +96,14 @@ còn lại liệt kê từng lần (âm lịch 10 lần, hằng tháng 24 lần)
 Biểu tượng PNG vẽ lúc chạy bằng thư viện chuẩn. Service worker không lưu đệm dữ liệu: chỉ trả trang "App chưa chạy" khi mất kết nối
 và xử lý bấm thông báo (mở app, hoặc nút "Đã biết" gọi `POST /reminders/ack`).
 
+## Cài đặt cá nhân
+
+`GET /v1/settings` → `{"name", "greeting", "default_remind_min", "all_day_hour"}` (mặc định `""`, `true`, `0`, `8`).
+`PATCH /v1/settings` chỉ gửi trường cần đổi; giá trị sai trả `400` kèm câu tiếng Việt và không đổi gì.
+`name` tối đa 40 ký tự; `default_remind_min` 0–10080 phút, áp cho câu không nói nhắc trước (bản nháp có `remind_default: true`);
+`all_day_hour` 0–23 là giờ nhắc việc cả ngày (cả trong `/reminders/*` lẫn .ics). Cài đặt nằm trong `GET /v1/export`;
+`POST /v1/import` chỉ lấy cài đặt từ tệp khi máy chưa đặt cài đặt nào (trả `"settings": true`).
+
 ## Khác
 
 `GET /v1/info` (`version`, `api`, `tz`, `user_id`, `events` = số việc đã lưu, `now_iso`, `features`, `auth.configured`), `GET /v1/events?from=&to=` (các lần xảy ra đã

@@ -240,12 +240,14 @@ def make_handler(svc: Service):
                 return self._send(200, {"app": "lichviet", "version": __version__, "api": API_VERSION, "tz": str(get_tz()),
                                         "now": svc.clock().isoformat(timespec="seconds"),
                                         "user_id": USER_ID, "events": svc.event_count(),
-                                        "features": ["changes", "upcoming", "devices", "delivered", "ics"],
+                                        "features": ["changes", "upcoming", "devices", "delivered", "ics", "settings"],
                                         "auth": {"header": "X-Lacviet-Key", "configured": bool(api_key)},
                                         "now_iso": svc.clock().replace(tzinfo=get_tz()).isoformat(timespec="seconds"),
                                         "time_format": "ISO 8601, giờ địa phương của tz (không kèm độ lệch)"})
             if u.path == "/export":
                 return self._run(svc.export_all)
+            if u.path == "/settings":
+                return self._run(svc.settings)
             if u.path == "/phrases":
                 return self._run(svc.phrases)
             if u.path == "/heard":
@@ -405,6 +407,8 @@ def make_handler(svc: Service):
             if not self._guard():
                 return
             u = self._url()
+            if u.path == "/settings":
+                return self._run(lambda: svc.update_settings(**self._body()))
             if u.path.startswith("/events/"):
                 def go():
                     try:
