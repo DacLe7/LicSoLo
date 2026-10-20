@@ -736,3 +736,28 @@ class Service:
             alarms = [fa for _, _, fa in self._fire_points(e, o) if fa > now - timedelta(days=1)]
             out.append({**e, "alarms": alarms})
         return out
+
+    def event_calendar(self, event_id: int) -> dict:
+        """Một việc để tải về dạng .ics (thêm vào lịch điện thoại một lần, không đăng ký).
+        Lặp dương lịch có chuẩn RRULE thì trả "rrule" + "remind" (phút trước giờ, việc cả ngày tính từ 8h sáng);
+        còn lại (một lần, âm lịch, ngày 29-31 hằng tháng, 29/2) trả các lần xảy ra sắp tới kèm giờ nhắc tuyệt đối."""
+        ev = self.get(event_id)
+        if not ev:
+            raise KeyError(event_id)
+        s = store.parse(ev["start"])
+        rep = ev["repeat"]
+        rule = {"daily": "FREQ=DAILY", "weekly": "FREQ=WEEKLY",
+                "monthly": "FREQ=MONTHLY" if s.day <= 28 else None,   # RRULE bỏ qua tháng thiếu ngày 31, app thì lùi về cuối tháng
+                "yearly": None if (s.month, s.day) == (2, 29) else "FREQ=YEARLY"}.get(rep)
+        if rule:
+            return {**ev, "rrule": rule, "remind": [int(d.total_seconds() // 60) for _, d, _ in self._stages(ev)]}
+        now = self.clock()
+        if not rep:
+            occ = [s]
+        else:
+            many = 24 if rep in ("monthly", "lunar_monthly") else 10
+            lo = max(s, now - timedelta(days=1))
+            occ = list(self._occurrences(ev, lo, lo + timedelta(days=366 * many + 400)))[:many]
+        items = [{**ev, "occurrence": store.fmt(o),
+                  "alarms": [fa for _, _, fa in self._fire_points(ev, o) if fa > now - timedelta(days=1)]} for o in occ]
+        return {**ev, "items": items}

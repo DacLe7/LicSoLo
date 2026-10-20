@@ -1,6 +1,8 @@
 PAGE = r"""<!doctype html>
 <html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Trợ lý thời gian</title>
+<link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#14231f">
+<link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/icon-192.png">
 <style>
 :root{--bg:#f3f1ec;--card:#fffdf9;--tx:#1d1b18;--mut:#78716c;--line:#e7e2d9;--acc:#c2410c;--acc2:#ea580c;--accsoft:#fff1e7;--ink:#14231f;--ink2:#1f3a33;--gold:#f5c26b;--warn:#9a3412;--warnbg:#ffedd5;--ok:#166534;--okbg:#e3f5e8;--sh:0 1px 2px rgba(28,25,23,.04),0 10px 30px -12px rgba(28,25,23,.18)}
 @media(prefers-color-scheme:dark){:root{--bg:#121110;--card:#1c1a18;--tx:#f2eee8;--mut:#a8a29e;--line:#2e2a26;--acc:#fb923c;--acc2:#fdba74;--accsoft:#2d1d12;--ink:#0d1a17;--ink2:#17322b;--warn:#fdba74;--warnbg:#3a2412;--ok:#86efac;--okbg:#12291b;--sh:none}}
@@ -67,7 +69,7 @@ textarea::placeholder{color:var(--mut)}
 .btn:disabled{opacity:.5}
 /* ---- nhắc ---- */
 .banner svg{width:20px;height:20px;flex:none}.banner{display:flex;align-items:center;gap:12px;background:var(--warnbg);color:var(--warn);border-radius:16px;padding:12px 14px;margin:14px 0 0}
-.banner .x{flex:1}.banner button{border:1px solid currentColor;background:transparent;color:inherit;border-radius:10px;padding:6px 12px;font-family:inherit;font-weight:600;font-size:13px;cursor:pointer}
+.banner .x{flex:1}.banner.ntf{flex-wrap:wrap;background:var(--accsoft);color:var(--tx)}.banner.ntf button{min-height:40px}.banner button{border:1px solid currentColor;background:transparent;color:inherit;border-radius:10px;padding:6px 12px;font-family:inherit;font-weight:600;font-size:13px;cursor:pointer}
 /* ---- lịch ---- */
 .sec{display:flex;align-items:baseline;justify-content:space-between;margin:28px 4px 8px}
 .sec h2{font-weight:700;font-size:18px;line-height:1.2;margin:0}
@@ -85,7 +87,7 @@ textarea::placeholder{color:var(--mut)}
 .ev .body{flex:1;min-width:0}.ev b{display:block;font-weight:600;overflow-wrap:anywhere}
 .ev .t{color:var(--mut);font-size:13px}
 .del{flex:none;border:0;background:transparent;color:var(--mut);cursor:pointer;width:34px;height:34px;border-radius:10px;display:grid;place-items:center;opacity:.6}
-.del.ed:hover{background:var(--line);color:var(--tx)}
+.del.ed:hover,.del.dl:hover{background:var(--line);color:var(--tx)}
 .del:hover{background:var(--warnbg);color:var(--warn);opacity:1}
 .del svg{width:17px;height:17px}
 .empty{color:var(--mut);text-align:center;padding:26px 0}
@@ -115,6 +117,8 @@ details.more ul{margin:0 0 14px;padding-left:20px;font-size:14px}details.more li
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <div class="vstat" id="vstat" hidden role="status" aria-live="polite"><div class="vt" id="vtxt"></div><div class="pbar"><i id="vbar"></i></div></div>
 <div class="banner" id="net" hidden role="alert">⚠<div class="x" id="nettxt">Mất kết nối với app, đang thử lại… Nếu lâu không được, kiểm tra app trong Pi Desktop.</div></div>
+<section class="banner ntf" id="ntf" hidden aria-labelledby="ntfh"><div class="x"><b id="ntfh">Bật thông báo trên máy?</b><br>Tới giờ nhắc, máy sẽ hiện thông báo kể cả khi bạn đang mở cửa sổ khác. Trình duyệt sẽ hỏi bạn cho phép.</div>
+<button type="button" id="ntfok">Bật thông báo</button><button type="button" id="ntfno">Để sau</button></section>
 <div id="due"></div>
 <div id="draft" hidden></div>
 <section class="welcome" id="welcome" hidden aria-labelledby="wh"><h2 id="wh">Chào bạn, mình là trợ lý thời gian</h2>
@@ -137,6 +141,13 @@ details.more ul{margin:0 0 14px;padding-left:20px;font-size:14px}details.more li
 <li>Nút bút chì để sửa, nút thùng rác để xóa việc đã lưu.</li>
 <li>Thông báo nhắc hiện ở đầu trang khi app đang mở. Bấm <i>Đã biết</i> để tắt.</li>
 <li>Tải bản sao lưu thường xuyên, nhất là trước khi gỡ app.</li></ul></details>
+<details class="more" id="set"><summary>Thông báo và cài app lên máy</summary>
+<p id="ntfst" aria-live="polite"></p>
+<div class="row"><button class="btn" type="button" id="ntfbtn" hidden>Bật thông báo</button><button class="btn ghost" type="button" id="ntftest" hidden>Thử một thông báo</button></div>
+<p>Thông báo chỉ hiện khi app đang mở trong trình duyệt hoặc đã cài lên máy (có thể thu nhỏ cửa sổ). Tắt hẳn trình duyệt thì nhắc sẽ hiện ở đầu trang lần mở sau.</p>
+<p id="instx">Cài app lên máy để mở nhanh như một phần mềm riêng: trong Chrome hoặc Edge, bấm biểu tượng cài đặt ở cuối thanh địa chỉ.</p>
+<div class="row"><button class="btn" type="button" id="inst" hidden>Cài app lên máy</button></div>
+<p>Nút tải lịch cạnh mỗi việc cho tệp .ics: mở tệp đó để thêm việc vào lịch của điện thoại hoặc Outlook.</p></details>
 <details class="more" id="more"><summary>Sao lưu và cụm từ đã học</summary>
 <p>Gỡ app khỏi Pi Desktop sẽ xóa dữ liệu. Hãy tải bản sao lưu trước khi gỡ, rồi khôi phục sau khi cài lại.</p>
 <div class="row"><a class="btn" id="bk" href="/export" download="lichviet-saoluu.json" style="text-decoration:none">Tải bản sao lưu</a>
@@ -180,6 +191,7 @@ const ICO={cal:svg('<rect x="3" y="4" width="18" height="17" rx="3"/><path d="M8
  rep:svg('<path d="M17 2l4 4-4 4M3 11V9a3 3 0 013-3h15M7 22l-4-4 4-4M21 13v2a3 3 0 01-3 3H3"/>'),
  bell:svg('<path d="M6 8a6 6 0 0112 0c0 7 3 9 3 9H3s3-2 3-9M10 21a2 2 0 004 0"/>'),
  x:svg('<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>'),
+ dl:svg('<path d="M12 3v12M7 10l5 5 5-5M5 21h14"/>'),
  pen:svg('<path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4"/>')};
 function toast(m){$('toast').textContent=m||'';}
 /* ---- đầu trang: hôm nay ---- */
@@ -290,6 +302,7 @@ async function refresh(){
     html+='<div class="ev"><div class="time'+(e.all_day?' all':'')+'">'+(e.all_day?'Cả ngày':fmtT(e.occurrence))+'</div>'
       +'<div class="bar'+((e.repeat==='lunar_yearly'||e.repeat==='lunar_monthly')?' lunar':e.repeat?' rep':'')+'"></div>'
       +'<div class="body"><b>'+esc(e.title)+'</b>'+(rep?'<span class="t">'+esc(rep)+'</span>':'')+'</div>'
+      +'<a class="del dl" href="/events/'+e.id+'.ics" download title="Tải về lịch điện thoại (.ics)" aria-label="Tải '+esc(e.title)+' về lịch điện thoại">'+ICO.dl+'</a>'
       +'<button class="del ed" title="Sửa" aria-label="Sửa '+esc(e.title)+'" data-id="'+e.id+'">'+ICO.pen+'</button>'
       +'<button class="del" title="Xóa" aria-label="Xóa '+esc(e.title)+'" data-id="'+e.id+'" data-rep="'+(e.repeat||'')+'">'+ICO.x+'</button></div>';
   });
@@ -307,9 +320,10 @@ async function refresh(){
 async function due(){
   let d;try{d=await j('/reminders/due?channel=ui',null,20000);net(true);}catch(e){net(false);return;}
   const soon=x=>x.kind&&x.kind!=='on_time';
+  Notif.push(d,soon);
   $('due').innerHTML=d.map(x=>'<div class="banner">'+ICO.bell+'<div class="x">'+(soon(x)?'Còn '+x.days_left+' ngày: ':'Đến giờ: ')+'<b>'+esc(x.title)+'</b> · '+when(x.occurrence,x.all_day)+'</div><button data-e="'+x.event_id+'" data-o="'+esc(x.key||x.occurrence)+'">Đã biết</button></div>').join('');
   document.querySelectorAll('#due button').forEach(btn=>btn.onclick=async()=>{
-    btn.disabled=true;try{await j('/reminders/ack',{method:'POST',body:JSON.stringify({event_id:+btn.dataset.e,occurrence:btn.dataset.o})});}catch(e){toast(e.message);}due();});
+    btn.disabled=true;Notif.close(btn.dataset.e+'|'+btn.dataset.o);try{await j('/reminders/ack',{method:'POST',body:JSON.stringify({event_id:+btn.dataset.e,occurrence:btn.dataset.o})});}catch(e){toast(e.message);}due();});
 }
 /* ---- hiểu câu + lưu ---- */
 const conflictNotes=l=>(l||[]).map(c=>'<div class="note">Trùng giờ với <b>'+esc(c.title)+'</b> ('+fmt(c.occurrence)+')</div>').join('');
@@ -411,6 +425,51 @@ $('go').onclick=async()=>{
   };
   show(card);bindCard();
 };
+/* ---- thông báo hệ thống (tùy chọn): chỉ xin quyền khi người dùng bấm, nhắc hiện thành thông báo của máy ---- */
+const store={get:k=>{try{return localStorage.getItem(k);}catch(e){return null;}},set:(k,v)=>{try{localStorage.setItem(k,v);}catch(e){}}};
+const Notif={reg:null,
+  can(){return 'Notification' in window&&window.isSecureContext;},
+  ok(){return this.can()&&Notification.permission==='granted';},
+  async init(){
+    if('serviceWorker' in navigator&&window.isSecureContext){
+      try{this.reg=await navigator.serviceWorker.register('/sw.js');}catch(e){}
+      navigator.serviceWorker.addEventListener('message',e=>{if(e.data==='due')due();});}
+    this.ui();},
+  ui(){
+    const st=this.can()?Notification.permission:'none';
+    $('ntf').hidden=st!=='default'||store.get('lv_ntf_later')==='1';
+    $('ntfbtn').hidden=st!=='default';$('ntftest').hidden=st!=='granted';
+    $('ntfst').textContent=st==='granted'?'Thông báo trên máy đang bật.':st==='denied'?'Trình duyệt đang chặn thông báo của app. Muốn bật lại, bấm biểu tượng ổ khóa cạnh địa chỉ trang, chọn cho phép Thông báo rồi tải lại trang.'
+      :st==='default'?'Thông báo trên máy chưa bật. Nhắc việc vẫn hiện ở đầu trang khi app đang mở.':'Cửa sổ này không hỗ trợ thông báo của máy. Nhắc việc vẫn hiện ở đầu trang.';},
+  async ask(){
+    try{await Notification.requestPermission();}catch(e){}
+    this.ui();
+    if(this.ok()){toast('Đã bật thông báo. Tới giờ nhắc, máy sẽ hiện thông báo.');due();}
+    else if(this.can()&&Notification.permission==='denied')toast('Bạn đã chặn thông báo. Nhắc việc vẫn hiện ở đầu trang khi app đang mở.');},
+  seen(){try{return JSON.parse(store.get('lv_ntf_seen')||'[]');}catch(e){return [];}},
+  show(title,opt){
+    if(this.reg&&this.reg.showNotification)return this.reg.showNotification(title,opt).catch(()=>{});
+    try{delete opt.actions;const n=new Notification(title,opt);n.onclick=()=>{window.focus();n.close();};}catch(e){}},
+  push(list,soon){   // mỗi lần nhắc chỉ hiện một lần trên máy này (nhớ trong localStorage)
+    if(!this.ok()||!list.length)return;
+    const seen=this.seen();let ch=false;
+    list.forEach(x=>{const k=x.event_id+'|'+(x.key||x.occurrence);if(seen.includes(k))return;seen.push(k);ch=true;
+      this.show((soon(x)?'Còn '+x.days_left+' ngày: ':'Đến giờ: ')+x.title,
+        {body:when(x.occurrence,x.all_day)+(x.notes?' · '+x.notes:''),tag:'lv-'+k,icon:'/icon-192.png',lang:'vi',requireInteraction:true,
+         data:{event_id:x.event_id,key:x.key||x.occurrence},actions:[{action:'ack',title:'Đã biết'}]});});
+    if(ch)store.set('lv_ntf_seen',JSON.stringify(seen.slice(-300)));},
+  async close(k){   // bấm Đã biết trong trang thì gỡ thông báo tương ứng trên máy
+    if(!this.reg||!this.reg.getNotifications)return;
+    try{(await this.reg.getNotifications({tag:'lv-'+k})).forEach(n=>n.close());}catch(e){}}};
+$('ntfok').onclick=$('ntfbtn').onclick=()=>Notif.ask();
+$('ntfno').onclick=()=>{store.set('lv_ntf_later','1');Notif.ui();toast('Bạn có thể bật sau trong mục "Thông báo và cài app lên máy" ở cuối trang.');};
+$('ntftest').onclick=()=>Notif.show('Thử thông báo',{body:'Thông báo của trợ lý thời gian hiện như thế này.',tag:'lv-test',icon:'/icon-192.png',lang:'vi'});
+/* Cài app lên máy (PWA): Chrome/Edge báo có thể cài thì hiện nút. */
+let instEv=null;
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();instEv=e;$('inst').hidden=false;});
+$('inst').onclick=async()=>{if(!instEv)return;instEv.prompt();try{await instEv.userChoice;}catch(e){}instEv=null;$('inst').hidden=true;};
+window.addEventListener('appinstalled',()=>{$('inst').hidden=true;$('instx').textContent='App đã được cài lên máy.';});
+Notif.init();
 refresh();due();setInterval(due,30000);
 
 /* ---- sao lưu và cụm từ đã học ---- */

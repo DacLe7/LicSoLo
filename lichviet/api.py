@@ -12,6 +12,7 @@ from .ui import PAGE
 from .lunar import solar_to_lunar
 from .tz import get_tz
 from . import ics
+from . import pwa
 from . import __version__
 
 log = logging.getLogger("lichviet.api")
@@ -110,11 +111,13 @@ def make_handler(svc: Service):
                 return self._fail_auth(401, "thiếu hoặc sai khóa (header X-Lacviet-Key)")
             return True   # chưa đặt khóa: mở (required chỉ còn ý nghĩa khi bật khóa)
 
-        def _send_raw(self, code, body: bytes, ctype: str):
+        def _send_raw(self, code, body: bytes, ctype: str, headers=None, cache="no-store"):
             self.send_response(code)
             self.send_header("Content-Type", ctype)
             self.send_header("Content-Length", str(len(body)))
-            self.send_header("Cache-Control", "no-store")
+            self.send_header("Cache-Control", cache)
+            for k, v in (headers or {}).items():
+                self.send_header(k, v)
             self.end_headers()
             self.wfile.write(body)
 
@@ -190,8 +193,8 @@ def make_handler(svc: Service):
                 self._send(403, {"error": "yêu cầu từ trang khác bị từ chối"})
                 return False
             u = self._url()
-            if u.path in ("/health", "/", "/index.html"):
-                return True
+            if u.path in ("/health", "/", "/index.html") or u.path in pwa.FILES:
+                return True   # trang, manifest, biểu tượng, service worker: không chứa dữ liệu người dùng
             # Mọi API khác đi qua khóa khi đã đặt LICHVIET_API_KEY; chưa đặt thì mở.
             q = {k: v[0] for k, v in parse_qs(u.query).items()}
             return self._auth(required=False, q=q, ics_ok=u.path.endswith("/calendar.ics"))
@@ -227,6 +230,10 @@ def make_handler(svc: Service):
                 self.end_headers()
                 self.wfile.write(b)
                 return
+            if u.path in pwa.FILES:
+                make, ctype = pwa.FILES[u.path]
+                # service worker luôn hỏi lại để bản mới có hiệu lực ngay; biểu tượng được giữ một ngày
+                return self._send_raw(200, make(), ctype, cache="no-cache" if u.path.endswith((".js", ".webmanifest")) else "max-age=86400")
             if u.path == "/today":
                 return self._run(lambda: today_info(svc.clock()))
             if u.path == "/info":
@@ -256,6 +263,15 @@ def make_handler(svc: Service):
             if u.path == "/events":
                 return self._run(lambda: [with_iso(e) for e in svc.list_range(
                     datetime.fromisoformat(q["from"]), datetime.fromisoformat(q["to"]))])
+            if u.path.startswith("/events/") and u.path.endswith(".ics"):
+                # tải một việc về lịch điện thoại/máy tính (nhập một lần, không phải đăng ký)
+                try:
+                    eid = int(u.path[len("/events/"):-len(".ics")])
+                    body = ics.render_event(svc.event_calendar(eid), svc.clock(), get_tz()).encode("utf-8")
+                except (ValueError, KeyError):
+                    return self._send(404, {"error": "không tìm thấy việc này"})
+                return self._send_raw(200, body, "text/calendar; charset=utf-8",
+                                      {"Content-Disposition": 'attachment; filename="lichviet-%d.ics"' % eid})
             if u.path == "/conflicts":
                 # form Sửa hỏi trước khi lưu: giờ này có trùng việc nào không (exclude = việc đang sửa)
                 def go():
