@@ -116,6 +116,7 @@ details.more .fl input,details.more .fl select{font:inherit;font-size:16px;color
 details.more .ck{display:flex;align-items:center;gap:8px;margin:0 0 10px;font-size:14.5px}details.more .ck input{width:20px;height:20px;margin:0}
 .foot{text-align:center;color:var(--mut);font-size:12px;padding:18px 0 6px}
 .mic-on{background:var(--warn)!important;color:#fff!important}
+.ib.off{opacity:.45;filter:grayscale(1)}
 @media(max-width:480px){.hero{padding:18px}.big{font-size:52px}.lunar .l2{font-size:18px}.composer{margin-left:4px;margin-right:4px}}
 </style></head><body><main>
 <p class="greet" id="greet" hidden aria-live="polite"></p>
@@ -164,7 +165,7 @@ details.more .ck{display:flex;align-items:center;gap:8px;margin:0 0 10px;font-si
 <label class="fl">Tên gọi của bạn (để chào hỏi)<input id="me_name" type="text" maxlength="40" autocomplete="nickname" placeholder="Ví dụ: Lan"></label>
 <label class="ck"><input id="me_greet" type="checkbox" checked> Hiện lời chào ở đầu trang</label>
 <label class="fl">Nhắc trước mặc định (khi câu không nói nhắc trước)<select id="me_rm">
-<option value="0">Không, nhắc đúng giờ</option><option value="5">5 phút</option><option value="10">10 phút</option><option value="15">15 phút</option><option value="30">30 phút</option><option value="60">1 tiếng</option><option value="120">2 tiếng</option><option value="1440">1 ngày</option></select></label>
+<option value="">Không, nhắc đúng giờ</option></select></label>
 <label class="fl">Giờ nhắc việc cả ngày (việc không có giờ)<select id="me_ad"></select></label>
 <div class="row"><button class="btn" type="submit">Lưu cài đặt</button><span id="memsg" role="status" aria-live="polite" style="font-size:13px;color:var(--mut)"></span></div>
 </form></details>
@@ -249,8 +250,8 @@ const greet=()=>{const g=$('greet');if(!ME.greeting){g.hidden=true;return;}
   const [a,b]=greetText(new Date().getHours(),ME.name,TODAYN);g.innerHTML=esc(a)+(b?'<small>'+esc(b)+'</small>':'');g.hidden=false;};
 (()=>{const s=$('me_ad');for(let h=0;h<24;h++)s.add(new Option(p(h)+':00'+(h===8?' (mặc định)':''),String(h)));})();
 const fillMe=()=>{$('me_name').value=ME.name||'';$('me_greet').checked=!!ME.greeting;
-  const rm=$('me_rm'),v=String(ME.default_remind_min||0);
-  if(![...rm.options].some(o=>o.value===v))rm.add(new Option(mins(+v),v));rm.value=v;$('me_ad').value=String(ME.all_day_hour);};
+  $('me_rm').innerHTML=remOpts(+ME.default_remind_min||0);   // cùng danh sách với form Sửa (có 2 ngày, 1 tuần)
+  $('me_ad').value=String(ME.all_day_hour);};
 const loadMe=async()=>{try{ME=await j('/settings');}catch(e){}fillMe();greet();};
 $('mef').onsubmit=async ev=>{ev.preventDefault();
   const b={name:$('me_name').value.trim(),greeting:$('me_greet').checked,default_remind_min:+$('me_rm').value,all_day_hour:+$('me_ad').value};
@@ -271,10 +272,10 @@ let TODAY=null;   // ngày hôm nay theo máy chủ (múi giờ người dùng),
 const Voice={rec:null,chunks:[],stream:null,on:false,timer:null,
   async start(){
     if(this.on){this.stop();return;}
+    if(window.isSecureContext===false){toast(INSECURE);return;}
     let st={};try{st=await j('/stt/status');}catch(e){toast(e.message);return;}
     if(!st.enabled){toast('Nhập bằng giọng nói chưa bật. Vào Config của app, chọn "Nhập bằng giọng nói" rồi lưu.');return;}
     if(!st.ready){toast('Giọng nói chưa sẵn sàng, bạn gõ tạm nhé. Tiến độ hiện ngay bên dưới.');VStat.show(st);VStat.poll();return;}
-    if(window.isSecureContext===false){toast(INSECURE);return;}
     if(!navigator.mediaDevices||!window.MediaRecorder){toast('Cửa sổ này không hỗ trợ ghi âm.');return;}
     try{this.stream=await navigator.mediaDevices.getUserMedia({audio:true});}
     catch(e){toast(e.name==='NotFoundError'?'Chưa thấy micro trên máy này.':'Chưa được cấp quyền micro.');return;}
@@ -524,6 +525,9 @@ $('go').onclick=async()=>{
 /* ---- thông báo hệ thống (tùy chọn): chỉ xin quyền khi người dùng bấm, nhắc hiện thành thông báo của máy ---- */
 /* Trang mở qua http bằng địa chỉ IP (không phải localhost) không phải "trang an toàn": trình duyệt tắt micro, thông báo, cài app. */
 const INSECURE='Bạn đang mở app qua địa chỉ mạng (http://…), không phải localhost, nên trình duyệt tắt micro, thông báo trên máy và cài app. Lịch và nhắc trong trang vẫn dùng bình thường. Muốn có đủ các tính năng này trên điện thoại, mở bằng localhost qua cáp USB (Hướng dẫn sử dụng, mục 8).';
+if(window.isSecureContext===false){   // micro không dùng được: làm mờ và ghi lý do, bấm vẫn hiện giải thích
+  const mic=$('mic');mic.classList.add('off');mic.setAttribute('aria-disabled','true');
+  mic.title='Micro bị trình duyệt tắt vì không mở bằng localhost (bấm để xem cách bật)';mic.setAttribute('aria-label',mic.title);}
 const store={get:k=>{try{return localStorage.getItem(k);}catch(e){return null;}},set:(k,v)=>{try{localStorage.setItem(k,v);}catch(e){}}};
 const Notif={reg:null,
   can(){return 'Notification' in window&&window.isSecureContext;},

@@ -81,6 +81,15 @@ class TestPageBits(unittest.TestCase):
         self.assertIn("window.isSecureContext===false?INSECURE", js)                      # mục Thông báo
         self.assertIn("mục 8", re.search(r"const INSECURE='([^']*)'", js).group(1))
 
+    def test_micro_mo_khi_trang_khong_an_toan(self):
+        """D8: nút micro làm mờ ngay khi mở trang, có nhãn đọc màn hình nêu lý do; bấm thì giải thích trước khi hỏi máy chủ."""
+        js = script()
+        self.assertIn(".ib.off{", PAGE)
+        self.assertIn("mic.classList.add('off');mic.setAttribute('aria-disabled','true');", js)
+        self.assertIn("mic.setAttribute('aria-label',mic.title)", js)
+        start = js.index("async start(){")
+        self.assertLess(js.index("toast(INSECURE)", start), js.index("j('/stt/status')", start))
+
 
 if __name__ == "__main__":
     unittest.main()

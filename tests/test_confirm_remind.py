@@ -58,6 +58,15 @@ console.log(JSON.stringify([null,0,15,45,10080].map(v=>pick(remOpts(v)))));"""
         self.assertEqual(vals, sorted(vals))
         self.assertEqual(len(out[3]), len(out[2]) + 1)
         self.assertIn(["1440", False, "1 ngày"], out[2])
+        self.assertIn(["2880", False, "2 ngày"], out[2])
+
+    def test_cai_dat_dung_chung_danh_sach(self):
+        """C13: ô "Nhắc trước mặc định" trong Cài đặt cá nhân dựng từ remOpts như form Sửa (có 2 ngày, 1 tuần);
+        lựa chọn "không" có giá trị rỗng, gửi lên thành 0."""
+        js = script()
+        self.assertIn("$('me_rm').innerHTML=remOpts(", js)
+        self.assertIn("default_remind_min:+$('me_rm').value", js)
+        self.assertIsNone(re.search(r'<select id="me_rm">.*?value="1440"', PAGE, re.S))
 
 
 if __name__ == "__main__":

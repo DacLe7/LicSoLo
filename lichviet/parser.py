@@ -159,6 +159,18 @@ def _parse_core(text: str, now: datetime) -> ParseResult:
                 if m:
                     r.repeat = "weekly"
                     day = WEEKDAYS["cn" if m.group(2) else m.group(1)]
+                else:
+                    # "mỗi sáng 7h", "hằng tối" = mỗi ngày; "mỗi sáng thứ hai" = hằng tuần (thứ để luật thứ trong tuần đọc).
+                    # Chỉ bỏ chữ "mỗi/hằng", giữ buổi để đoán giờ. Câu có dấu phải đúng chữ ("mời tối" không phải "mỗi tối").
+                    for m in re.finditer(r"\b(?:moi|hang)\s+(?=(?:sang|trua|chieu|toi|dem)\b)", f):
+                        if f0_core != text.lower() and not re.match(r"(?i)(?:mỗi|hằng|hàng)\s", text[m.start():]):
+                            continue
+                        weekday = re.match(r"(?:sang|trua|chieu|toi|dem)\s+(?:thu\s+(?:hai|ba|tu|nam|sau|bay|[2-7])|chu\s+nhat)\b",
+                                           f[m.end():])
+                        r.repeat = "weekly" if weekday else "daily"
+                        spans.append(m.span())
+                        f = _mask(f, m)
+                        break
 
     # 4) sau N phút/giờ/ngày  (tương đối so với bây giờ)
     rel = None
@@ -340,7 +352,8 @@ def _parse_core(text: str, now: datetime) -> ParseResult:
         mi = 0
         tspan = (m.start(), m.end())
     elif not rng:
-        m = take(r"\b(?:(\d{1,2})\s*(?:h(?![a-z])|gio|:)|(mot|hai|ba|bon|nam|sau|bay|tam|chin|muoi(?:\s+(?:mot|hai))?)\s+gio)\s*(?:(\d{2})\b|(?<=h)(\d)\b|(ruoi)\b)?(?:\s*phut)?")
+        # "9 rưỡi sáng" (bỏ chữ giờ) cũng là giờ
+        m = take(r"\b(?:(\d{1,2})\s*(?:h(?![a-z])|gio|:|(?=\s+ruoi\b))|(mot|hai|ba|bon|nam|sau|bay|tam|chin|muoi(?:\s+(?:mot|hai))?)\s+gio)\s*(?:(\d{2})\b|(?<=h)(\d)\b|(ruoi)\b)?(?:\s*phut)?")
         if m:
             hh = int(m.group(1)) if m.group(1) else NUMW[m.group(2).replace("  ", " ")]
             mi = 30 if m.group(5) else int(m.group(3) or m.group(4) or 0)
@@ -469,7 +482,7 @@ def _parse_core(text: str, now: datetime) -> ParseResult:
         for i in range(a, b):
             keep[i] = False
     rest = "".join(c if k else " " for c, k in zip(text, keep))
-    rest = re.sub(r"\s+", " ", rest).strip(" ,.;:-")
+    rest = re.sub(r"\s+", " ", rest).strip(" ,.;:-!?")
     ff = fold(rest)
     for m in re.finditer("nhạc|nhà", rest.lower()):  # "nhạc", "nhà" không phải "nhắc", "nha" (từ đệm)
         ff = ff[:m.start() + 2] + "x" + ff[m.start() + 3:]
@@ -487,7 +500,7 @@ def _parse_core(text: str, now: datetime) -> ParseResult:
     if re.search(r"\b(?:ngay\s+mot|mung\s*\d|dau\s+thang|cuoi\s+thang|cuoi\s+tuan|thang\s+(?:sau|toi|\d+)|tuan\s+(?:sau|toi|nay)|nam\s+(?:sau|toi)|hom\s+qua)\b", ff):
         r.unsure = True
         r.warnings.append("có thể chưa hiểu cụm ngày trong câu, bạn kiểm tra lại")
-    r.title = rest.strip(" ,.;:-")
+    r.title = rest.strip(" ,.;:-!?")
     if r.title:
         r.title = r.title[0].upper() + r.title[1:]
     return r
@@ -546,7 +559,9 @@ def _find_lunar_monthly(text: str, f: str):
         return None
     low = text.lower()
     days, blank = [], [mon.span()]
-    for m in re.finditer(r"\brằm\b", low):
+    # cả câu gõ không dấu ("cung ram moi thang"): "ram" là rằm; câu có dấu thì phải đúng chữ "rằm"
+    no_marks = f == low
+    for m in re.finditer(r"\bram\b" if no_marks else r"\brằm\b", f if no_marks else low):
         days.append(15)
     for m in re.finditer(r"\b(?:mùng|mồng)\s*(\d{1,2}|một)\b", low):
         days.append(1 if m.group(1) == "một" else int(m.group(1)))
@@ -610,6 +625,9 @@ def _rel_words_to_digits(text: str) -> str:
 def parse_vi(text: str, now: datetime) -> ParseResult:
     text = unicodedata.normalize("NFC", text)
     text = _rel_words_to_digits(text)
+    # "9g sáng", "7g30" (gõ tắt giờ kiểu Nam Bộ) = 9h; "gói 4g", "sim 5g", "mạng 4g" là mạng điện thoại nên giữ nguyên
+    text = re.sub(r"(?i)(?<!gói )(?<!goi )(?<!sim )(?<!mạng )(?<!mang )(?<!sóng )(?<!song )\b(\d{1,2})g(\d{2})?\b",
+                  lambda m: m.group(1) + "h" + (m.group(2) or "") if int(m.group(1)) <= 24 else m.group(0), text)
     # "ngày mốt", "bữa mốt" (Nam Bộ) = ngày kia; "ngày một" (mùng 1) giữ nguyên vì có dấu khác
     text = re.sub(r"(?i)\b(?:ngày|bữa)\s+mốt\b", "ngày kia", text)
     # "tháng giêng", "tháng chạp" là tên tháng âm lịch

@@ -126,6 +126,71 @@ CASES = {
         ("mua quà 25/12", "Mua quà", D(2026, 12, 25), True),
         ("họp lớp 1/1/2027", "Họp lớp", D(2027, 1, 1), True),
     ],
+    # lần 13: gõ không dấu (bàn phím chưa bật bộ gõ)
+    "gõ không dấu": [
+        ("hop 9h sang mai", "Hop", D(2026, 10, 22, 9, 0), False),
+        ("goi me 8h toi nay", "Goi me", D(2026, 10, 21, 20, 0), False),
+        ("di cho chieu nay", "Di cho", D(2026, 10, 21, 15, 0), False),
+        ("kham rang thu 6 tuan sau", "Kham rang", D(2026, 10, 30), True),
+        ("nop bao cao ngay 30/10", "Nop bao cao", D(2026, 10, 30), True),
+        ("di da lat sau 3 ngay", "Di da lat", D(2026, 10, 24), True),
+        ("hop ngay kia 10h", "Hop", D(2026, 10, 23, 10, 0), False),
+        ("don con 4h30 chieu thu sau", "Don con", D(2026, 10, 23, 16, 30), False),
+        ("hop luc 15:30 mai", "Hop", D(2026, 10, 22, 15, 30), False),
+        ("an trua 12h thu 6", "An trua", D(2026, 10, 23, 12, 0), False),
+        ("di boi thu bay nay", "Di boi", D(2026, 10, 24), True),
+        ("nop thue 3 thang nua", "Nop thue", D(2027, 1, 21), True),
+        ("hop luc 14h ngay 25/10", "Hop", D(2026, 10, 25, 14, 0), False),
+        ("di ngu 11h dem nay", "Di ngu", D(2026, 10, 21, 23, 0), False),
+        ("di sieu thi toi chu nhat", "Di sieu thi", D(2026, 10, 25, 19, 0), False),
+        ("an cuoi ngay 15 thang 11", "An cuoi", D(2026, 11, 15), True),
+    ],
+    "gõ tắt, dấu câu, chữ hoa": [
+        ("họp 9g sáng mai", "Họp", D(2026, 10, 22, 9, 0), False),          # "9g" = 9 giờ (Nam Bộ)
+        ("họp 7g30 tối mai", "Họp", D(2026, 10, 22, 19, 30), False),
+        ("họp 9 h sáng mai", "Họp", D(2026, 10, 22, 9, 0), False),
+        ("họp 9giờ sáng mai", "Họp", D(2026, 10, 22, 9, 0), False),
+        ("họp lúc 9 rưỡi sáng mai", "Họp", D(2026, 10, 22, 9, 30), False),
+        ("đón con 4 rưỡi chiều mai", "Đón con", D(2026, 10, 22, 16, 30), False),
+        ("họp  9h   sáng   mai", "Họp", D(2026, 10, 22, 9, 0), False),
+        ("Họp 9h Sáng Mai", "Họp", D(2026, 10, 22, 9, 0), False),
+        ("HỌP 9H SÁNG MAI", "HỌP", D(2026, 10, 22, 9, 0), False),
+        ("họp 9h sáng mai.", "Họp", D(2026, 10, 22, 9, 0), False),
+        ("họp 9h sáng mai!", "Họp", D(2026, 10, 22, 9, 0), False),
+        ("họp 9h sáng mai?", "Họp", D(2026, 10, 22, 9, 0), False),
+        ("mai đi chơi nhé!!", "Đi chơi", D(2026, 10, 22), True),
+        ("họp, 9h sáng mai", "Họp", D(2026, 10, 22, 9, 0), False),
+        ("đăng ký gói 4g mai", "Đăng ký gói 4g", D(2026, 10, 22), True),   # "4g" là mạng, không phải 4 giờ
+        ("mua sim 5g thứ bảy", "Mua sim 5g", D(2026, 10, 24), True),
+    ],
+    "câu dài nhiều mệnh đề": [
+        ("mai 9h sáng họp với khách hàng ở văn phòng công ty", "Họp với khách hàng ở văn phòng công ty",
+         D(2026, 10, 22, 9, 0), False),
+        ("sáng mai lúc 9 giờ họp với khách hàng, nhớ mang theo hợp đồng", "Họp với khách hàng, nhớ mang theo hợp đồng",
+         D(2026, 10, 22, 9, 0), False),
+        ("chiều thứ sáu này 3h đi đón con ở trường rồi ghé siêu thị", "Đi đón con ở trường rồi ghé siêu thị",
+         D(2026, 10, 23, 15, 0), False),
+        ("tối nay 8h gọi điện cho bố mẹ ở quê hỏi thăm sức khỏe", "Gọi điện cho bố mẹ ở quê hỏi thăm sức khỏe",
+         D(2026, 10, 21, 20, 0), False),
+        ("nhắc tôi 7h sáng mai uống thuốc huyết áp sau khi ăn sáng", "Uống thuốc huyết áp sau khi ăn sáng",
+         D(2026, 10, 22, 7, 0), False),
+        ("thứ hai tuần sau 8h30 họp giao ban với phòng kinh doanh", "Họp giao ban với phòng kinh doanh",
+         D(2026, 10, 26, 8, 30), False),
+        ("ngày 15/11 lúc 10h đi đám cưới bạn thân ở nhà hàng", "Đi đám cưới bạn thân ở nhà hàng",
+         D(2026, 11, 15, 10, 0), False),
+        ("nhớ giúp tôi chiều mai 3h đi lấy hàng ở bưu điện nhé", "Đi lấy hàng ở bưu điện", D(2026, 10, 22, 15, 0), False),
+        ("tối thứ bảy tuần này 7h đi ăn sinh nhật bạn ở quán nướng", "Đi ăn sinh nhật bạn ở quán nướng",
+         D(2026, 10, 24, 19, 0), False),
+        ("thứ năm tuần sau 2h chiều đi phỏng vấn ở công ty mới, mang theo hồ sơ",
+         "Đi phỏng vấn ở công ty mới, mang theo hồ sơ", D(2026, 10, 29, 14, 0), False),
+        ("ngày 30/10 hạn chót nộp báo cáo quý cho phòng kế toán", "Hạn chót nộp báo cáo quý cho phòng kế toán",
+         D(2026, 10, 30), True),
+        ("khoảng 3h chiều nay ghé ngân hàng rút tiền", "Ghé ngân hàng rút tiền", D(2026, 10, 21, 15, 0), False),
+        ("trưa mai 12h ăn trưa với khách hàng ở nhà hàng gần công ty", "Ăn trưa với khách hàng ở nhà hàng gần công ty",
+         D(2026, 10, 22, 12, 0), False),
+        ("nhắc em 10 phút nữa tắt bếp kẻo cháy nồi canh", "Tắt bếp kẻo cháy nồi canh", D(2026, 10, 21, 10, 10), False),
+        ("mời tối nay 7h ăn cơm", "Mời ăn cơm", D(2026, 10, 21, 19, 0), False),   # "mời" không phải "mỗi"
+    ],
 }
 
 # (câu, tên việc, bắt đầu, kiểu lặp, nhắc trước phút)
@@ -143,6 +208,22 @@ REPEAT_REMIND_CASES = [
     ("nhắc tôi trước 30 phút họp 3h chiều mai", "Họp", D(2026, 10, 22, 15, 0), None, 30),
     ("họp 3h chiều mai nhắc trước 1 tiếng", "Họp", D(2026, 10, 22, 15, 0), None, 60),
     ("khám thai 9h thứ năm báo trước 2 tiếng", "Khám thai", D(2026, 10, 22, 9, 0), None, 120),
+    # lần 13: "mỗi sáng", "hằng tối" = mỗi ngày; "mỗi chiều thứ sáu" = hằng tuần
+    ("mỗi sáng 7h uống thuốc", "Uống thuốc", D(2026, 10, 22, 7, 0), "daily", None),
+    ("mỗi tối 9h đọc sách", "Đọc sách", D(2026, 10, 21, 21, 0), "daily", None),
+    ("hằng sáng 6h tập thể dục", "Tập thể dục", D(2026, 10, 22, 6, 0), "daily", None),
+    ("moi sang 7h uong thuoc", "Uong thuoc", D(2026, 10, 22, 7, 0), "daily", None),
+    ("mỗi chiều thứ sáu 5h đá bóng", "Đá bóng", D(2026, 10, 23, 17, 0), "weekly", None),
+    ("mỗi sáng thứ hai 8h họp giao ban toàn công ty", "Họp giao ban toàn công ty", D(2026, 10, 26, 8, 0), "weekly", None),
+    ("mỗi sáng chủ nhật đi chợ", "Đi chợ", D(2026, 10, 25, 8, 0), "weekly", None),
+    ("mỗi thứ hai 8h họp", "Họp", D(2026, 10, 26, 8, 0), "weekly", None),
+    ("hop giao ban 8h30 sang thu hai hang tuan", "Hop giao ban", D(2026, 10, 26, 8, 30), "weekly", None),
+    ("tuoi cay 6h chieu moi ngay", "Tuoi cay", D(2026, 10, 21, 18, 0), "daily", None),
+    ("dong tien dien ngay 10 hang thang", "Dong tien dien", D(2026, 11, 10), "monthly", None),
+    ("kham thai 9h thu nam bao truoc 2 tieng", "Kham thai", D(2026, 10, 22, 9, 0), None, 120),
+    ("goi dien cho ba 7h toi mai nhac truoc 15 phut", "Goi dien cho ba", D(2026, 10, 22, 19, 0), None, 15),
+    ("họp lúc 9h sáng mai, nhắc trước 30 phút nha", "Họp", D(2026, 10, 22, 9, 0), None, 30),
+    ("cung ram moi thang", "Cung ram", D(2026, 10, 24), "lunar_monthly", None),   # không dấu: "ram" là rằm
 ]
 
 # (câu, tên việc, ngày âm, tháng âm, kiểu lặp, ngày dương lần tới)
@@ -151,6 +232,7 @@ LUNAR_CASES = [
     ("đi chùa rằm tháng 1 âm", "Đi chùa", 15, 1, "lunar_yearly", D(2027, 2, 20)),
     ("giỗ bà mùng 8 tháng chạp", "Giỗ bà", 8, 12, "lunar_yearly", D(2027, 1, 15)),
     ("giỗ ông 10/3 âm lịch", "Giỗ ông", 10, 3, "lunar_yearly", D(2027, 4, 16)),
+    ("gio ong 10/3 am lich", "Gio ong", 10, 3, "lunar_yearly", D(2027, 4, 16)),
 ]
 
 DURATIONS = {
@@ -193,7 +275,7 @@ class TestPhraseTable(unittest.TestCase):
 
     def test_table_size(self):
         n = sum(map(len, CASES.values())) + len(LUNAR_CASES) + len(REPEAT_REMIND_CASES)
-        self.assertGreaterEqual(n, 110)
+        self.assertGreaterEqual(n, 170)
 
     def test_explicit_duration_wins_over_range(self):
         self.assertEqual(parse_vi("họp từ 2h đến 4h chiều kéo dài 30 phút", NOW).duration_min, 30)

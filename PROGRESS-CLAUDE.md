@@ -6,7 +6,7 @@ Chạy test: `python -m unittest discover -s tests`.
 ## Hiện trạng (khảo sát lần đầu, 2026-10-21)
 
 - Python thuần (stdlib), SQLite, giao diện một trang trong `lichviet/ui.py`, API trong `lichviet/api.py`.
-- 93 test xanh lúc bắt đầu (lần 2: 117 test; lần 3: 133 test; lần 4: 139 test; lần 5: 162 test; lần 6: 168 test; lần 7: 181 test; lần 8: 197 test; lần 9: 218 test; lần 10: 231 test; lần 11: 236 test; lần 12: 243 test).
+- 93 test xanh lúc bắt đầu (lần 2: 117 test; lần 3: 133 test; lần 4: 139 test; lần 5: 162 test; lần 6: 168 test; lần 7: 181 test; lần 8: 197 test; lần 9: 218 test; lần 10: 231 test; lần 11: 236 test; lần 12: 243 test; lần 13: 245 test).
 - Phát hiện:
   - README ghi "không đặt khóa thì các endpoint mới trả 503" nhưng code (và test `test_no_key_configured_means_open`) mở hết. README sai.
   - `solohost/README.md` ghi image 0.5.1 trong khi compose ghim 0.5.2.
@@ -39,7 +39,7 @@ Chạy test: `python -m unittest discover -s tests`.
 - [x] B4. Cảnh báo trùng giờ ngay trong form Sửa (endpoint kiểm tra trùng, gọi khi đổi ngày/giờ).
 - [x] B5. Sửa việc đã lưu: `PATCH /v1/events/<id>`, nút Sửa trên từng việc trong danh sách.
 - [x] B6. Thêm luật sửa lỗi nghe theo vùng miền (l/n, tr/ch, s/x, dấu hỏi/ngã, "dzờ", "giờ" đọc "dờ"...), có test.
-- [ ] B7. Thêm nhiều câu test bộ phân tích (mục tiêu ≥150 câu, phân nhóm theo hiện tượng). Lần 7: bảng `tests/test_parser_phrases.py` (~50 câu, 5 nhóm); lần 10: 111 câu, 9 nhóm + bảng âm lịch + bảng lặp/nhắc trước (test khóa ≥110). Còn ~40 câu: lỗi gõ, không dấu, câu dài nhiều mệnh đề.
+- [x] B7. Thêm nhiều câu test bộ phân tích (mục tiêu ≥150 câu, phân nhóm theo hiện tượng). Lần 7: bảng `tests/test_parser_phrases.py` (~50 câu, 5 nhóm); lần 10: 111 câu, 9 nhóm + bảng âm lịch + bảng lặp/nhắc trước (test khóa ≥110). Lần 13: 174 câu (thêm nhóm gõ không dấu, gõ tắt/dấu câu/chữ hoa, câu dài nhiều mệnh đề, "mỗi sáng/hằng tối"), test khóa ≥170.
 - [x] B8. "sáng sớm" (6h khi không nói giờ), "nửa đêm (nay/mai)" = 0h kết thúc ngày đó, buổi cách giờ bởi từ ngày ("tối chủ nhật 8h"); "ba giờ rưỡi", "trưa mai" vốn đã hiểu.
 - [x] B9. Khoảng giờ "từ 2h đến 4h chiều", "9h-11h30", "từ 7 tới 9h tối", "22h-2h" → giờ bắt đầu + thời lượng (buổi áp cho giờ kết thúc; "từ 11h đến 1h chiều" = 11h–13h).
 - [x] B10. Số viết bằng chữ trong cụm tương đối khi gõ tay (`parser._rel_words_to_digits`): "hai ngày nữa", "ba hôm trước", "sau mười lăm phút", "nửa tiếng", "một tiếng rưỡi nữa", "mùng hai tháng tới"; giữ nguyên "thứ hai tuần trước", "ngày mốt".
@@ -96,12 +96,16 @@ Chạy test: `python -m unittest discover -s tests`.
 - [ ] D6. Service worker không gửi được khóa khi mở từ máy khác: nút "Đã biết" trên thông báo nhờ trang đang mở gửi ack (đã làm); nếu không có trang nào mở thì ack bị bỏ — chấp nhận, ghi trong ANDROID_PLAN.
 - [ ] E16. Hộp `ask()` dùng lại cho các thao tác khác cần hỏi: xóa cụm từ đã học, khôi phục sao lưu (ghi đè/gộp), tắt thông báo.
 - [x] E17. Sau khi xóa: thanh "Đã xóa … · Hoàn tác" trong vài giây (giữ bản sao việc vừa xóa ở trang, tạo lại bằng POST nếu bấm Hoàn tác).
-- [ ] C13. Cài đặt cá nhân: ô "Nhắc trước mặc định" thêm "2 ngày"/"1 tuần" cho khớp form Sửa.
+- [x] C13. Cài đặt cá nhân: ô "Nhắc trước mặc định" thêm "2 ngày"/"1 tuần" cho khớp form Sửa.
 - [ ] D7. HUONG_DAN mục 8: thêm ảnh chụp/sơ đồ chữ đơn giản (không ảnh nhị phân lớn) và mục "Không thấy thiết bị trong adb devices" (cáp chỉ sạc, trình điều khiển USB trên Windows).
 - [x] E10. Nút "Thử lại" trên thanh mất kết nối; tự tải lại danh sách khi nối lại được.
 - [ ] E18. Hoàn tác xóa tạo việc mới (id mới) nên mất các lần nhắc đã "Đã biết" và thiết bị đồng bộ thấy xóa + thêm; cân nhắc xóa mềm (cột `deleted`) để khôi phục giữ id.
 - [ ] E19. Thanh Hoàn tác: chỉ giữ việc xóa gần nhất; xóa liên tiếp hai việc thì việc đầu không hoàn tác được nữa — cân nhắc hàng đợi nhỏ.
-- [ ] D8. Trang không an toàn: ẩn hẳn nút micro (hoặc làm mờ kèm chú thích) thay vì chỉ báo khi bấm.
+- [ ] B24. "ram thang 7" gõ không dấu cả câu chưa thành rằm tháng 7 âm lịch (luật "rằm tháng N" cần dấu); làm giống luật rằm hằng tháng (chỉ khi cả câu không dấu).
+- [ ] B25. Lỗi gõ phím thường gặp trong câu gõ tay: "mia" (mai), "chieu nai", "thu bai" — cân nhắc bảng sửa nhỏ chỉ áp khi từ đứng cạnh giờ/buổi (giống `dialect_fix`, xem B15).
+- [ ] B26. "cúng ram mỗi tháng" (câu có dấu nhưng gõ "ram") ra lặp tháng dương mà không có ngày: nên hỏi lại "ngày mấy" hoặc gợi ý "rằm".
+- [ ] B27. Tên việc gõ toàn chữ hoa ("HỌP") giữ nguyên; cân nhắc đổi về dạng câu khi cả tên đều hoa và dài hơn một từ viết tắt.
+- [x] D8. Trang không an toàn: ẩn hẳn nút micro (hoặc làm mờ kèm chú thích) thay vì chỉ báo khi bấm.
 
 ## Nhật ký
 
@@ -246,3 +250,14 @@ Chạy test: `python -m unittest discover -s tests`.
   (giữ lặp, âm lịch, nhắc trước, ghi chú, thời lượng). Việc mới có id mới (xem E18).
 - Test: `tests/test_undo_net.py` (7; chạy `undoBody` bằng node trên việc thật lấy từ `/v1/events`, xóa rồi tạo lại, so từng trường).
 - Tiếp theo nên làm: E16, B7 (thêm ~40 câu), E1/E2, C13.
+
+### Lần 13 — 2026-10-21
+- B7: thử ~70 câu mới, thêm vào bảng `tests/test_parser_phrases.py` (174 câu). Lỗi tìm ra và đã sửa:
+  "mỗi sáng 7h uống thuốc", "hằng tối", "mỗi chiều thứ sáu" không lặp và để chữ "Mỗi" trong tên (giờ: mỗi ngày, hoặc hằng tuần khi có thứ;
+  câu có dấu phải đúng chữ "mỗi/hằng/hàng" để "mời tối nay" không bị hiểu nhầm); "9g sáng", "7g30" (gõ tắt Nam Bộ) không hiểu
+  (đổi sang "h" trước khi phân tích, trừ "gói/sim/mạng/sóng 4g"); "9 rưỡi sáng" không có chữ "giờ"; dấu "!"/"?" cuối câu lọt vào tên;
+  "cung ram moi thang" (cả câu không dấu) mất ngày.
+- C13: ô "Nhắc trước mặc định" dựng bằng `remOpts` như form Sửa (thêm 2 ngày, 1 tuần); lựa chọn "không" giá trị rỗng gửi lên thành 0.
+- D8: trang không an toàn thì nút micro mờ ngay khi mở, `aria-disabled` + nhãn nêu lý do; bấm thì giải thích trước khi hỏi máy chủ giọng nói.
+- Tài liệu: HUONG_DAN thêm "mỗi sáng 7h", "mỗi chiều thứ sáu" vào bảng kiểu câu (test khóa câu ví dụ đã chạy) và mẹo gõ không dấu/gõ tắt.
+- Tiếp theo nên làm: E16, E1/E2, B24–B26, E5.

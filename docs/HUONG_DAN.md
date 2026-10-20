@@ -46,7 +46,7 @@ Nếu việc mới trùng giờ với việc đã có, bản nháp báo "Trùng 
 | Nửa đêm, sáng sớm | "xem bóng nửa đêm nay" (0 giờ đêm nay); nói *sáng sớm* mà không kèm giờ thì tạm đặt 6 giờ |
 | Tháng, năm tới | "đi chùa ngày 5 tháng tới", "họp lớp 20/11 năm sau" |
 | Ngày đã qua (ghi lại) | "hôm kia", "hôm qua", "bữa hổm", "3 ngày trước", "ba hôm trước", "tuần trước", "đầu tháng trước", "tháng trước", "năm ngoái" |
-| Lặp mỗi ngày/tuần/tháng | "uống thuốc 7h tối mỗi ngày", "họp nhóm 9h thứ hai hằng tuần", "đóng tiền nhà ngày 5 mỗi tháng" |
+| Lặp mỗi ngày/tuần/tháng | "uống thuốc 7h tối mỗi ngày", "mỗi sáng 7h uống thuốc", "họp nhóm 9h thứ hai hằng tuần", "mỗi chiều thứ sáu 5h đá bóng", "đóng tiền nhà ngày 5 mỗi tháng" |
 | Hằng năm (dương lịch) | "sinh nhật mẹ 20/11 hằng năm", "kỷ niệm ngày cưới 2/9 mỗi năm" |
 | Âm lịch hằng năm | "giỗ ông nội 15/8 âm lịch" |
 | Âm lịch hằng tháng | "cúng rằm mỗi tháng", "ăn chay mùng 1 hàng tháng" |
@@ -55,6 +55,7 @@ Nếu việc mới trùng giờ với việc đã có, bản nháp báo "Trùng 
 Mẹo:
 
 - Không nói giờ thì app lưu thành việc **cả ngày**.
+- Gõ không dấu ("hop 3h chieu mai") hay gõ tắt giờ ("9g sáng", "7g30 tối", "9 rưỡi sáng") app vẫn hiểu. Riêng "gói 4g", "sim 5g" được giữ nguyên là tên việc.
 - Mỗi câu một việc. Muốn nhắc cả mùng 1 và rằm thì tạo hai việc.
 - "Bữa hổm" là nói chung chung, app tạm hiểu là 3 ngày trước và báo cho bạn biết để sửa lại nếu cần.
 - App học cách nói của bạn: khi bạn xác nhận một câu mà Trợ lý AI giúp hiểu, lần sau nói giống vậy app tự hiểu, không cần hỏi AI nữa.
