@@ -22,3 +22,6 @@ PROMPT_*.md
 
 # Bản vá tạm, đã nằm trong main
 *.patch
+
+# Cấu hình Claude Code cục bộ
+.claude/settings.local.json
