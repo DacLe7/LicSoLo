@@ -76,8 +76,8 @@ Thời gian trả về là giờ địa phương theo `LICHVIET_TZ`, không kèm
 ## Xác thực API
 
 - **Khóa tùy chọn.** `LICHVIET_API_KEY` (≥16 ký tự) bật khóa cho các endpoint cần khóa. Gửi qua header `X-Lacviet-Key: <khóa>` hoặc `Authorization: Bearer <khóa>`. Sai hoặc thiếu: `401`.
-- **Không đặt khóa:** các endpoint cũ mở như các bản trước. Các endpoint mới (đồng bộ, thiết bị, mốc nhắc sắp tới, lịch `.ics`) trả `503` `chưa cấu hình LICHVIET_API_KEY`, để không mở mặc định.
-- **Trên SoloHost, khóa chưa được nối vào container.** Compose không truyền `LICHVIET_API_KEY`, nên các endpoint cần khóa trả 503. Muốn dùng khóa thật phải thêm biến vào compose và khai báo trong `config_options.yml`.
+- **Không đặt khóa:** mọi endpoint mở, kể cả đồng bộ (`/v1/events/changes`), thiết bị, mốc nhắc sắp tới và lịch `.ics` (đọc trong `lichviet/api.py`, có test `test_no_key_configured_means_open`). Cổng vẫn chỉ nghe `127.0.0.1` và chặn Host lạ. Chỉ khi đặt `LICHVIET_API_KEY` thì các endpoint này mới cần khóa.
+- **Trên SoloHost, khóa chưa được nối vào container.** Compose không truyền `LICHVIET_API_KEY`, nên không thể bật khóa: app luôn chạy ở chế độ mở. Muốn dùng khóa thật phải thêm biến vào compose và khai báo trong `config_options.yml`.
 - `LICHVIET_ICS_KEY` (tùy chọn, ≥16 ký tự) chỉ mở `GET /v1/calendar.ics?key=…` để đăng ký lịch qua URL.
 - App từ chối yêu cầu từ trang web khác (Origin khác Host, `Sec-Fetch-Site: cross-site`) và Host là tên miền có dấu chấm (chống DNS rebinding). Host `localhost`, `127.0.0.1`, `::1` và tên không có dấu chấm (tên service Docker) được phép. Host khác thì thêm vào `LICHVIET_ALLOWED_HOSTS` (cách nhau dấu phẩy). Trên SoloHost, biến này chưa được truyền vào container.
 - `/health` luôn mở. Nội dung JSON tối đa 10 MB.
@@ -102,8 +102,10 @@ Nói "cúng rằm mỗi tháng", "ăn chay mùng 1 hàng tháng" hoặc "ngày 1
 ## Lịch âm
 
 Đổi âm - dương dùng múi giờ Việt Nam (UTC+7) với thuật toán thiên văn của Hồ Ngọc Đức, không dùng thư viện lịch Trung Quốc (UTC+8)
-vì có năm lệch một ngày so với lịch Việt. Kết quả đã được đối chiếu với tính thiên văn trên 507 tháng, từ năm 2000 đến 2040
-(phép đối chiếu này do người phát triển thực hiện; kịch bản đối chiếu chưa nằm trong repo). Việc lặp theo âm lịch (giỗ, `lunar_yearly`, và `lunar_monthly`) bỏ qua tháng nhuận;
+vì có năm lệch một ngày so với lịch Việt. Kết quả được đối chiếu với tính toán thiên văn độc lập (thư viện `ephem`) trên 507 tháng, từ năm 2000 đến 2040: không lệch tháng nào.
+Chạy lại: `pip install ephem` rồi `python tools/verify_lunar.py [năm_đầu] [năm_cuối]` (mã thoát 1 nếu có tháng lệch).
+Hai tháng có trăng mới sát nửa đêm giờ Việt Nam (dưới 10 phút) là 27/11/2008 và 21/4/2031; các tháng này nhạy với sai số tính toán.
+Việc lặp theo âm lịch (giỗ, `lunar_yearly`, và `lunar_monthly`) bỏ qua tháng nhuận;
 tháng thiếu không có ngày 30 thì dùng ngày 29.
 
 ## App Android

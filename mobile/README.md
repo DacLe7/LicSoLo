@@ -1,5 +1,9 @@
 # Trợ lý thời gian: app Android demo cho LicSoLo
 
+> **Cảnh báo.** Release `mobile-v0.1.0` có **đồng bộ nền** (`@capacitor/background-runner`) **chưa kiểm chứng trên máy thật**
+> (chỉ có test tự động và CI build). Bản APK đã thử trên điện thoại là bản build đầu tiên, chưa có đồng bộ nền.
+> Nếu thông báo lệch giờ hoặc bị nhắc hai lần, **tắt công tắc "Đồng bộ nền" trong Cài đặt**. Khi đó app chỉ hẹn thông báo lúc bạn mở app, như bản đã thử.
+
 Bản demo chạy trên điện thoại thật. Gõ hoặc nói một việc, xem thẻ "Trợ lý hiểu là", lưu vào LicSoLo.
 Mọi việc trong LicSoLo hiện trong **lịch hệ thống** (lịch riêng "Trợ lý thời gian") và được hẹn **thông báo cục bộ**,
 nên vẫn nhắc đúng giờ khi khóa màn hình hoặc khi máy tính đã tắt (miễn là app đã đồng bộ trước đó).
