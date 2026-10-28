@@ -6,7 +6,7 @@
   "description": "App Android demo cho LicSoLo: nói/gõ việc, đồng bộ vào lịch hệ thống và hẹn thông báo",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc --noEmit && vite build && vite build --config vite.runner.config.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "icons": "node scripts/make-icons.mjs",
@@ -15,8 +15,10 @@
   "dependencies": {
     "@capacitor/android": "8.5.3",
     "@capacitor/app": "8.1.2",
+    "@capacitor/background-runner": "3.0.0",
     "@capacitor/core": "8.5.3",
     "@capacitor/local-notifications": "8.3.1",
+    "@capacitor/network": "8.0.1",
     "@capacitor/preferences": "8.0.1"
   },
   "devDependencies": {

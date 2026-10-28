@@ -1,7 +1,9 @@
 import { App } from "@capacitor/app";
+import { Network } from "@capacitor/network";
 import "./style.css";
 import { Api } from "./api";
-import { DEFAULT_URL, LvSystem, calendarPort, checkPerms, notifierPort, prefs, removeEverything, requestPerms } from "./native";
+import { KEY } from "./config";
+import { DEFAULT_URL, LvSystem, calendarPort, checkPerms, notifierPort, prefs, removeEverything, requestPerms, saveDeviceOffset, sharedRefs } from "./native";
 import type { PermReport, PermState } from "./native";
 import { createSync } from "./sync";
 import type { NewEvent, ParseDraft, ParseResult, SyncResult } from "./types";
@@ -35,7 +37,8 @@ const ICO = {
 let serverUrl = DEFAULT_URL;
 let lastSync: number | null = null;
 const api = new Api(() => serverUrl);
-const runSync = createSync({ api, calendar: calendarPort, notifier: notifierPort });
+const runSync = createSync({ api, calendar: calendarPort, notifier: notifierPort, shared: sharedRefs });
+const SYNC_EVERY_MS = 60_000;
 let today = ""; // "2026-10-28" theo server
 
 const fmtStamp = (ms: number) => {
@@ -56,15 +59,17 @@ async function doSync(): Promise<SyncResult> {
   syncing = true;
   setSyncLine("Đang đồng bộ…");
   try {
+    void saveDeviceOffset().catch(() => undefined);
     const r = await runSync();
     if (r.error) {
       setSyncLine("Chưa kết nối được máy tính. " + lastText(), true);
     } else {
       lastSync = Date.now();
-      await prefs.set("lastSync", String(lastSync));
+      await prefs.set(KEY.lastSync, String(lastSync));
       const problems = [r.calendarError && "lịch: " + r.calendarError, r.notifyError && "thông báo: " + r.notifyError].filter(Boolean);
       setSyncLine(problems.length ? `Đồng bộ chưa trọn vẹn (${problems.join("; ")}). ${lastText()}` : `Đã đồng bộ ${r.occurrences.length} việc, hẹn ${r.scheduled} lần nhắc. ${lastText()}`, problems.length > 0);
-      void renderSettings();
+      // chỉ vẽ lại khi đang xem Cài đặt và không ai đang gõ (đồng bộ định kỳ không được giật ô nhập)
+      if (!$("tab-settings").hidden && document.activeElement?.tagName !== "INPUT") void renderSettings();
     }
     return r;
   } finally {
@@ -299,6 +304,10 @@ const pill = (s: PermState) => `<span class="pill ${s === "granted" ? "granted" 
 
 async function renderSettings() {
   const perms = await checkPerms();
+  const bgOn = (await prefs.get(KEY.bgEnabled)) !== "0";
+  const lastBg = Number(await prefs.get(KEY.bgLastRun)) || 0;
+  const bgErr = (await prefs.get(KEY.bgLastError)) || "";
+  const bgText = (lastBg ? "Lần đồng bộ nền gần nhất: " + fmtStamp(lastBg) : "Chưa có lần đồng bộ nền nào") + (bgErr ? ` (lần cuối lỗi: ${bgErr})` : "");
   $("tab-settings").innerHTML = `<div class="set">
     <div class="card"><h3>Máy chủ LicSoLo</h3>
       <input id="s_url" type="url" inputmode="url" autocapitalize="off" value="${esc(serverUrl)}">
@@ -314,13 +323,18 @@ async function renderSettings() {
       <p>Làm cho <b>cả app này lẫn Tailscale</b>, nếu không hệ thống có thể tắt app khi khóa màn hình:</p>
       <ol><li>Bật <b>Tự khởi động</b>.</li><li>Pin: chọn <b>Không hạn chế</b>.</li><li>Đừng vuốt tắt app khỏi danh sách gần đây nếu không cần.</li></ol>
       <div class="actions"><button class="btn ghost" id="s_auto">Mở Tự khởi động</button><button class="btn ghost" id="s_bat">Mở cài đặt pin</button></div></div>
+    <div class="card"><h3>Đồng bộ nền</h3>
+      <label class="row"><span>Mỗi 15 phút, kể cả khi đóng app</span><input type="checkbox" id="s_bg"${bgOn ? " checked" : ""}></label>
+      <p>${esc(bgText)}</p>
+      <p>Chạy nền chỉ <b>hẹn thêm thông báo</b> cho việc mới. Lịch hệ thống chỉ được cập nhật khi bạn mở app. Hệ thống (nhất là HyperOS) có thể hoãn hoặc chặn việc chạy nền nếu pin bị hạn chế.</p>
+      <div class="actions"><button class="btn ghost" id="s_bat2">Mở cài đặt pin</button></div></div>
     <div class="card"><h3>Lịch trên điện thoại</h3>
       <p>Việc của LicSoLo hiện trong lịch hệ thống, ở lịch "Trợ lý thời gian" (chỉ đọc; muốn sửa thì xóa và tạo lại trong app).</p>
       <div class="actions"><button class="btn warn" id="s_wipe">Xóa lịch khỏi điện thoại</button></div></div></div>`;
   const msg = (t: string) => { $("s_msg").textContent = t; };
   $("s_save").onclick = async () => {
     serverUrl = $<HTMLInputElement>("s_url").value.trim() || DEFAULT_URL;
-    await prefs.set("serverUrl", serverUrl);
+    await prefs.set(KEY.serverUrl, serverUrl);
     msg("Đã lưu. Bấm Đồng bộ ngay để thử.");
   };
   $("s_sync").onclick = async () => {
@@ -336,6 +350,8 @@ async function renderSettings() {
   $("s_exact").onclick = () => void LvSystem.openExactAlarmSettings();
   $("s_auto").onclick = () => void LvSystem.openAutostart();
   $("s_bat").onclick = () => void LvSystem.openBatterySettings();
+  $("s_bat2").onclick = () => void LvSystem.openBatterySettings();
+  $<HTMLInputElement>("s_bg").onchange = (e) => { void prefs.set(KEY.bgEnabled, (e.target as HTMLInputElement).checked ? "1" : "0"); };
   $("s_wipe").onclick = async () => {
     if (!confirm("Xóa lịch \"Trợ lý thời gian\" khỏi điện thoại và hủy mọi thông báo đã hẹn? Việc trong LicSoLo vẫn còn nguyên.")) return;
     try { await removeEverything(); msg("Đã xóa lịch và hủy thông báo."); } catch (e) { msg("Chưa xóa được: " + (e instanceof Error ? e.message : e)); }
@@ -344,7 +360,7 @@ async function renderSettings() {
 
 /* ---------- lần chạy đầu: xin quyền, mỗi quyền một dòng giải thích ---------- */
 async function onboardIfNeeded() {
-  if ((await prefs.get("onboarded")) === "1") return;
+  if ((await prefs.get(KEY.onboarded)) === "1") return;
   const box = $("onboard");
   box.hidden = false;
   box.innerHTML = `<h1>Chào bạn</h1><p>App cần vài quyền để làm đúng việc của nó:</p>
@@ -353,13 +369,24 @@ async function onboardIfNeeded() {
     <div class="item"><b>Báo thức chính xác</b><span>Để thông báo nổ đúng phút, không bị trễ do hệ thống tiết kiệm pin.</span></div>
     <div class="item"><b>Micro</b><span>Để bạn nói việc cần nhớ thay vì gõ. Hệ thống sẽ hỏi khi bạn bấm nút mic lần đầu.</span></div>
     <div class="actions"><button class="btn" id="ob_go">Cấp quyền</button><button class="btn ghost" id="ob_skip">Để sau</button></div>`;
-  const finish = async () => { await prefs.set("onboarded", "1"); box.hidden = true; void doSync().then(() => refreshList()); };
+  const finish = async () => { await prefs.set(KEY.onboarded, "1"); box.hidden = true; void doSync().then(() => refreshList()); };
   $("ob_skip").onclick = () => void finish();
   $("ob_go").onclick = async () => {
     const perms: PermReport = await requestPerms({ calendar: true, notifications: true });
     if (perms.exactAlarm !== "granted" && perms.exactAlarm !== "unknown") await LvSystem.openExactAlarmSettings();
     await finish();
   };
+}
+
+/* ---------- đồng bộ định kỳ khi app đang mở ---------- */
+let loop: ReturnType<typeof setInterval> | undefined;
+function startLoop() {
+  stopLoop();
+  loop = setInterval(() => { void doSync(); }, SYNC_EVERY_MS);
+}
+function stopLoop() {
+  if (loop !== undefined) clearInterval(loop);
+  loop = undefined;
 }
 
 /* ---------- khởi động ---------- */
@@ -377,17 +404,22 @@ function bindUi() {
       if (b.dataset.tab === "settings") void renderSettings();
     };
   });
-  void App.addListener("appStateChange", (s) => { if (s.isActive) void doSync().then(() => refreshList()); });
+  void App.addListener("appStateChange", (s) => {
+    if (s.isActive) { void doSync().then(() => refreshList()); startLoop(); } else stopLoop();
+  });
+  // mạng nối lại thì đồng bộ ngay (app đang mở)
+  void Network.addListener("networkStatusChange", (st) => { if (st.connected) void doSync().then(() => refreshList()); });
+  startLoop();
 }
 
 async function boot() {
   bindUi();
-  serverUrl = (await prefs.get("serverUrl")) || DEFAULT_URL;
-  const ls = await prefs.get("lastSync");
+  serverUrl = (await prefs.get(KEY.serverUrl)) || DEFAULT_URL;
+  const ls = await prefs.get(KEY.lastSync);
   lastSync = ls ? Number(ls) : null;
   setSyncLine(lastText());
   await onboardIfNeeded();
-  if ((await prefs.get("onboarded")) === "1") void doSync().then(() => refreshList());
+  if ((await prefs.get(KEY.onboarded)) === "1") void doSync().then(() => refreshList());
 }
 
 void boot();

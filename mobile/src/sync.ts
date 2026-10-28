@@ -1,19 +1,17 @@
 import type {
-  CalendarDiff, CalendarItem, CalendarPort, ManagedEntry, NotifierPort, Occurrence, ReminderPoint,
-  ServerInfo, SyncApi, SyncResult,
+  CalendarDiff, CalendarItem, CalendarPort, ManagedEntry, NotifierPort, Occurrence, ServerInfo, SyncApi, SyncResult,
 } from "./types";
-import { DAY, MIN, dayStart, offsetOf, parts, stamp } from "./timeutil";
+import { DAY, MIN, parts } from "./timeutil";
+import { eventRef, fetchOccurrences, pruneRefs, refMapOf, reminderPoints, withIds, withoutTaken } from "./reminders";
+import type { RefMap } from "./reminders";
 
 /* Đồng bộ một chiều LicSoLo -> lịch hệ thống + thông báo cục bộ. Không chạm vào điện thoại thật:
  * mọi thứ bên ngoài (HTTP, lịch, thông báo) đi qua cổng được truyền vào, nên kiểm thử bằng giả lập. */
 
-export const PAST_DAYS = 7;
-export const AHEAD_DAYS = 120;
-export const LUNAR_AHEAD_DAYS = 400;
-export const NOTIFY_WINDOW_DAYS = 30;
-export const MAX_NOTIFICATIONS = 200;
 export const DEFAULT_DURATION_MIN = 60;
-export const ALL_DAY_REMIND_HOUR = 8;
+
+// mốc nhắc và việc lấy từ server nằm ở reminders.ts (dùng chung với runner nền)
+export * from "./reminders";
 
 /** Hash 53 bit (cyrb53), đủ để nhận ra nội dung việc đã đổi. */
 export function hashText(s: string): string {
@@ -27,19 +25,6 @@ export function hashText(s: string): string {
   h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
   return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(16);
 }
-
-/** id thông báo: số nguyên dương 31 bit, ổn định theo ref (FNV-1a). */
-export function notificationId(ref: string): number {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < ref.length; i++) {
-    h ^= ref.charCodeAt(i);
-    h = Math.imul(h, 0x01000193);
-  }
-  return (h >>> 0) & 0x7fffffff;
-}
-
-/** Cùng dạng với UID trong .ics của server: lv-<id>-<yyyymmddHHMM>. */
-export const eventRef = (o: Occurrence) => `lv-${o.id}-${stamp(o.occurrence)}`;
 
 export function toCalendarItem(o: Occurrence, tz: string): CalendarItem {
   let startMs: number, endMs: number, zone: string;
@@ -78,81 +63,16 @@ export function diffCalendar(desired: CalendarItem[], managed: ManagedEntry[]): 
   return diff;
 }
 
-const pad = (n: number) => String(n).padStart(2, "0");
-
-function whenText(o: Occurrence): string {
-  const t = parts(o.occurrence);
-  const date = `${pad(t.d)}/${pad(t.mo)}`;
-  return o.all_day ? `${date} cả ngày` : `${pad(t.h)}:${pad(t.mi)} ${date}`;
-}
-
-/** Mốc nhắc của một lần xảy ra. Chép quy tắc service._stages / service._fire_points:
- * mốc gốc là giờ diễn ra (việc cả ngày: 08:00 hôm đó); việc thường nhắc trước remind_before_min;
- * giỗ (lunar_yearly) nhắc thêm trước 7 ngày và 1 ngày.
- * Quy tắc này đang trùng với server; khi tích hợp hệ sinh thái thì chuyển sang GET /v1/reminders/upcoming. */
-export function reminderPointsFor(o: Occurrence): ReminderPoint[] {
-  const base = o.all_day
-    ? Date.parse(`${o.occurrence.slice(0, 10)}T${pad(ALL_DAY_REMIND_HOUR)}:00:00${offsetOf(o.occurrence_iso)}`)
-    : Date.parse(o.occurrence_iso);
-  const ref = eventRef(o);
-  const onTime = { suffix: "", delta: (o.remind_before_min || 0) * MIN, title: o.title };
-  const stages = o.repeat === "lunar_yearly"
-    ? [
-      { suffix: "-7d", delta: 7 * DAY, title: "Còn 7 ngày: " + o.title },
-      { suffix: "-1d", delta: DAY, title: "Ngày mai: " + o.title },
-      onTime,
-    ]
-    : [onTime];
-  const body = [whenText(o), (o.notes ?? "").trim().slice(0, 200)].filter(Boolean).join(" · ");
-  return stages.map((s) => ({ ref: ref + s.suffix, atMs: base - s.delta, title: s.title, body }));
-}
-
-/** Các mốc sẽ hẹn: chưa qua giờ, trong 30 ngày tới, lấy tối đa 200 mốc gần nhất. */
-export function reminderPoints(occs: Occurrence[], nowMs: number): ReminderPoint[] {
-  const end = nowMs + NOTIFY_WINDOW_DAYS * DAY;
-  const seen = new Set<string>();
-  const out: ReminderPoint[] = [];
-  for (const o of occs) {
-    for (const r of reminderPointsFor(o)) {
-      if (r.atMs <= nowMs || r.atMs > end || seen.has(r.ref)) continue;
-      seen.add(r.ref);
-      out.push(r);
-    }
-  }
-  out.sort((a, b) => a.atMs - b.atMs || (a.ref < b.ref ? -1 : 1));
-  return out.slice(0, MAX_NOTIFICATIONS);
-}
-
-/** Gán id thông báo; nếu hai ref trùng id (xác suất cực nhỏ) thì dịch sang số kế tiếp. */
-export function withIds(points: ReminderPoint[]): (ReminderPoint & { id: number })[] {
-  const used = new Set<number>();
-  return points.map((p) => {
-    let id = notificationId(p.ref);
-    while (used.has(id)) id = (id + 1) & 0x7fffffff;
-    used.add(id);
-    return { ...p, id };
-  });
-}
-
-/** Mọi việc trong [hôm nay-7, hôm nay+120]; riêng giỗ (lunar_yearly) lấy tới hôm nay+400 để luôn hiện trước trong lịch. */
-export async function fetchOccurrences(api: SyncApi, info: ServerInfo): Promise<Occurrence[]> {
-  const lo = dayStart(info.now, -PAST_DAYS);
-  // "to" của server là mốc loại trừ: +1 ngày để lấy trọn ngày cuối
-  const [near, far] = await Promise.all([
-    api.events(lo, dayStart(info.now, AHEAD_DAYS + 1)),
-    api.events(lo, dayStart(info.now, LUNAR_AHEAD_DAYS + 1)),
-  ]);
-  const byRef = new Map<string, Occurrence>();
-  for (const o of near) byRef.set(eventRef(o), o);
-  for (const o of far) if (o.repeat === "lunar_yearly") byRef.set(eventRef(o), o);
-  return [...byRef.values()].sort((a, b) => (a.occurrence < b.occurrence ? -1 : a.occurrence > b.occurrence ? 1 : a.id - b.id));
-}
-
 export interface SyncDeps {
   api: SyncApi;
   calendar: CalendarPort;
   notifier: NotifierPort;
   now?: () => number;
+  /** Chia việc với runner nền (xem reminders.ts). Không truyền thì app tự hẹn mọi mốc. */
+  shared?: {
+    bgRefs(): Promise<RefMap>;
+    saveAppRefs(refs: RefMap): Promise<void>;
+  };
 }
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -184,10 +104,14 @@ export function createSync(deps: SyncDeps) {
       res.calendarError = msg(e);
     }
     try {
-      const points = withIds(reminderPoints(occs, now()));
+      const t = now();
+      let points = reminderPoints(occs, t);
+      if (deps.shared) points = withoutTaken(points, pruneRefs(await deps.shared.bgRefs(), t)); // mốc runner nền đã hẹn
+      const withId = withIds(points);
       await deps.notifier.cancelAll();
-      if (points.length) await deps.notifier.schedule(points);
-      res.scheduled = points.length;
+      if (withId.length) await deps.notifier.schedule(withId);
+      if (deps.shared) await deps.shared.saveAppRefs(refMapOf(points));
+      res.scheduled = withId.length;
     } catch (e) {
       res.ok = false;
       res.notifyError = msg(e);

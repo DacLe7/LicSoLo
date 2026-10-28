@@ -6,11 +6,20 @@ Gồm `docker-compose.yml` và `config_options.yml`. Pi Desktop chỉ kéo image
 
 | Service | Image | Ghi chú |
 |---|---|---|
-| `app` | `ghcr.io/dacle7/licsolo:0.5.1` | Lịch, nhắc việc, giao diện, API `/v1` |
-| `stt` | `ghcr.io/dacle7/licsolo-stt:0.5.1` | Chỉ chạy khi bật nhập bằng giọng nói (profile `voice`) |
+| `app` | `ghcr.io/dacle7/licsolo:0.5.2` | Lịch, nhắc việc, giao diện, API `/v1` |
+| `stt` | `ghcr.io/dacle7/licsolo-stt:0.5.2` | Chỉ chạy khi bật nhập bằng giọng nói (profile `voice`) |
 | `llm` | `ghcr.io/ggml-org/llama.cpp:server` | Chỉ chạy khi bật Trợ lý AI (profile `ai`). Tag `server` trôi theo bản mới |
 
 Khi có bản phát hành mới: sửa tag `image:` của `app` và `stt` cùng một phiên bản, rồi `docker compose pull && docker compose up -d`.
+
+## App Android
+
+Kèm theo repo có app Android demo trong `mobile/` (không nằm trong gói SoloHost và không đổi image). App đọc LicSoLo qua API `/v1` của bản `app` đang chạy,
+ghi việc vào lịch điện thoại và hẹn thông báo cục bộ. Build APK bằng workflow `android` trên GitHub (Actions > android, tải ở Artifacts); hướng dẫn ở [`mobile/README.md`](../mobile/README.md).
+
+- URL server là ô cấu hình trong app (mặc định `https://d.taila2d06a.ts.net`).
+- Demo cần Tailscale và `lic_proxy.py` (proxy đổi `Host`, gỡ `Origin`/`Sec-Fetch-*`) trên máy Windows chạy Pi Desktop.
+- Giới hạn: không có khóa API (mọi thiết bị trong tailnet đều vào được), đồng bộ một chiều, chưa có sửa việc đã lưu.
 
 ## Cấu hình
 

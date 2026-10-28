@@ -1,6 +1,9 @@
 import { registerPlugin } from "@capacitor/core";
 import { LocalNotifications } from "@capacitor/local-notifications";
 import { Preferences } from "@capacitor/preferences";
+import { DEFAULT_URL, KEY, RUNNER_LABEL } from "./config";
+import { parseRefMap } from "./reminders";
+import type { RefMap } from "./reminders";
 import type { CalendarDiff, CalendarPort, ManagedEntry, NotifierPort, ReminderPoint } from "./types";
 
 /* Lớp mỏng nối TypeScript với plugin Android. Logic nằm ở sync.ts; ở đây không có quyết định nào. */
@@ -90,13 +93,33 @@ export async function removeEverything(): Promise<void> {
   await notifierPort.cancelAll();
 }
 
-export const DEFAULT_URL = "https://d.taila2d06a.ts.net";
+export { DEFAULT_URL };
+
+/** Kho cấu hình dùng chung với runner nền: Preferences ghi vào SharedPreferences tên RUNNER_LABEL,
+ * đúng nơi CapacitorKV của runner đọc (xem config.ts). */
+let configured: Promise<void> | null = null;
+const ready = () => (configured ??= Preferences.configure({ group: RUNNER_LABEL }));
 
 export const prefs = {
   async get(key: string): Promise<string | null> {
+    await ready();
     return (await Preferences.get({ key })).value;
   },
   async set(key: string, value: string): Promise<void> {
+    await ready();
     await Preferences.set({ key, value });
   },
 };
+
+/** Cổng chia việc với runner nền (sync.ts). */
+export const sharedRefs = {
+  async bgRefs(): Promise<RefMap> {
+    return parseRefMap(await prefs.get(KEY.bgRefs));
+  },
+  async saveAppRefs(refs: RefMap): Promise<void> {
+    await prefs.set(KEY.appRefs, JSON.stringify(refs));
+  },
+};
+
+/** Độ lệch múi giờ của máy (phút, đông UTC là dương) cho runner nền. */
+export const saveDeviceOffset = () => prefs.set(KEY.tzOffsetMin, String(-new Date().getTimezoneOffset()));

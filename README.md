@@ -99,6 +99,28 @@ Nói "cúng rằm mỗi tháng", "ăn chay mùng 1 hàng tháng" hoặc "ngày 1
 - Hạ bậc model khi AI quá chậm là **tạm thời**: sau `AI_RETRY_DAYS` ngày (mặc định 7) không bị xin hạ thêm, container llm tự khởi động lại và thử bậc cao hơn. Biến này không nằm trong form cài đặt SoloHost; muốn đổi phải sửa compose.
 - Tag `server` của llama.cpp trôi theo bản mới nhất. Trên SoloHost không có biến để ghim digest.
 
+## Lịch âm
+
+Đổi âm - dương dùng múi giờ Việt Nam (UTC+7) với thuật toán thiên văn của Hồ Ngọc Đức, không dùng thư viện lịch Trung Quốc (UTC+8)
+vì có năm lệch một ngày so với lịch Việt. Kết quả đã được đối chiếu với tính thiên văn trên 507 tháng, từ năm 2000 đến 2040
+(phép đối chiếu này do người phát triển thực hiện; kịch bản đối chiếu chưa nằm trong repo). Việc lặp theo âm lịch (giỗ, `lunar_yearly`, và `lunar_monthly`) bỏ qua tháng nhuận;
+tháng thiếu không có ngày 30 thì dùng ngày 29.
+
+## App Android
+
+Thư mục `mobile/` là app Android demo (Capacitor + TypeScript): gõ hoặc nói một việc, xem thẻ "Trợ lý hiểu là", lưu vào LicSoLo.
+Việc trong LicSoLo hiện trong lịch hệ thống của điện thoại (lịch riêng "Trợ lý thời gian") và được hẹn thông báo cục bộ,
+nên vẫn nhắc đúng giờ khi khóa màn hình hoặc khi máy tính đã tắt. Khi app mở, app đồng bộ mỗi 60 giây và ngay khi mạng nối lại;
+khi đóng, một tác vụ nền (~15 phút) hẹn thêm thông báo cho việc mới. Chi tiết và cách build: [`mobile/README.md`](mobile/README.md).
+
+- **Build APK**: workflow `android` (`.github/workflows/android.yml`) chạy khi `mobile/**` đổi hoặc chạy tay (Actions > android > Run workflow);
+  APK debug nằm ở mục Artifacts. Bản phát hành gắn APK dùng tag `mobile-v*` (không bắt đầu bằng `v`, nên không chạy workflow đẩy image).
+- **URL server** là ô cấu hình trong app (Cài đặt), mặc định `https://d.taila2d06a.ts.net`, không viết cứng trong mã.
+- **Demo cần Tailscale và proxy**: điện thoại vào LicSoLo qua Tailscale, trỏ tới `lic_proxy.py` trên Windows (đổi `Host`, gỡ `Origin`/`Sec-Fetch-*`)
+  rồi vào app. Đồng bộ cần máy tính bật, app đang chạy và proxy đang mở.
+- **Giới hạn**: không có khóa API hay ghép nối (mọi thiết bị trong tailnet đều vào được); đồng bộ một chiều (LicSoLo -> lịch điện thoại);
+  chưa có sửa việc đã lưu (xóa rồi tạo lại); không có iOS; APK chưa ký. Ghi lịch hệ thống chỉ làm khi app mở; tác vụ nền chỉ hẹn thêm thông báo.
+
 ## Chạy test
 
     python -m unittest discover -s tests

@@ -64,7 +64,7 @@ Pi Desktop đang Running và cửa sổ `lic_proxy.py` đang mở.
 
 ## Quy tắc đồng bộ
 
-- Chạy khi mở app, khi quay lại màn hình chính, sau mỗi lần lưu hoặc xóa, và khi bấm **Đồng bộ ngay**. Không chạy chồng.
+- Chạy khi mở app, khi quay lại màn hình chính, mỗi 60 giây khi app đang mở, ngay khi mạng nối lại, sau mỗi lần lưu hoặc xóa, và khi bấm **Đồng bộ ngay**. Không chạy chồng.
 - Lấy việc từ hôm nay - 7 ngày đến hôm nay + 120 ngày; giỗ (`lunar_yearly`) đến hôm nay + 400 ngày.
 - Lịch: mỗi lần xảy ra có `ref = lv-<id>-<yyyymmddHHMM>` (cùng dạng UID trong `.ics` của server), lưu ở `_SYNC_ID`; mã băm nội dung ở
   `SYNC_DATA1`. Ref mới thì thêm, hash khác thì sửa, ref mất thì xóa. Việc cả ngày: 00:00 UTC, `EVENT_TIMEZONE=UTC`.
@@ -73,6 +73,17 @@ Pi Desktop đang Running và cửa sổ `lic_proxy.py` đang mở.
   việc cả ngày nhắc 08:00; giỗ có ba mốc (−7 ngày, −1 ngày, đúng giờ). Chỉ hẹn mốc trong 30 ngày tới, tối đa 200 mốc.
   Mỗi lần đồng bộ hủy hết rồi hẹn lại. Khi tích hợp hệ sinh thái, chuyển sang `GET /v1/reminders/upcoming`.
 - Lỗi mạng: dừng, giữ nguyên lịch và thông báo cũ.
+
+## Đồng bộ nền (`@capacitor/background-runner`)
+
+- Tác vụ JS (`src/runner.ts`, bó thành `dist/runners/runner.js`) chạy định kỳ ~15 phút kể cả khi đóng app (Android tối thiểu 15 phút, hệ thống có thể hoãn).
+  Môi trường của nó chỉ có `fetch`, `CapacitorKV` và `CapacitorNotifications`; **không gọi được plugin tự viết `LvCalendar`**,
+  nên nền chỉ lấy `/v1/events`, tính mốc nhắc bằng cùng module `src/reminders.ts` với app và **hẹn thêm thông báo**. Lịch hệ thống chỉ cập nhật khi mở app.
+- Thông báo của nền và của app dùng hai bộ hẹn riêng, không hủy lẫn nhau. Để một mốc không nổ hai lần, mỗi bên ghi lại các mốc mình đã hẹn
+  (`appRefs`, `bgRefs`, trong cùng kho SharedPreferences) và bên kia bỏ qua các mốc đó. Hệ quả: nền chỉ **thêm** mốc; việc bị sửa hoặc xóa
+  sau khi nền đã hẹn thì mốc cũ vẫn nổ cho tới khi qua giờ.
+- Công tắc **Đồng bộ nền** (mặc định bật), thời điểm nền chạy gần nhất và nút mở cài đặt pin nằm trong **Cài đặt**.
+- background-runner đọc giờ hẹn bằng `SimpleDateFormat` không đặt múi giờ, nên app lưu độ lệch múi giờ của máy (`tzOffsetMin`) và runner cộng vào giờ hẹn.
 
 ## Giới hạn của bản demo
 
