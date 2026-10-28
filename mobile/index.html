@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <title>Trợ lý thời gian</title>
+</head>
+<body>
+  <div id="app">
+    <header id="top"><div class="brand">Trợ lý thời gian</div><div id="syncline" class="syncline"></div></header>
+    <main>
+      <section id="tab-main">
+        <div class="composer">
+          <textarea id="q" rows="1" placeholder="Nói hoặc gõ việc cần nhớ…"></textarea>
+          <button class="ib" id="mic" type="button" aria-label="Nói">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v4"/></svg>
+          </button>
+          <button class="ib" id="go" type="button" aria-label="Hiểu câu này">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </button>
+        </div>
+        <div class="toast" id="toast"></div>
+        <div id="draft" hidden></div>
+      </section>
+      <section id="tab-upcoming" hidden>
+        <div class="sec"><h2>Sắp tới</h2><span>7 ngày</span></div>
+        <div id="list"></div>
+      </section>
+      <section id="tab-settings" hidden></section>
+    </main>
+    <nav id="nav">
+      <button data-tab="main" class="on">Thêm việc</button>
+      <button data-tab="upcoming">Sắp tới</button>
+      <button data-tab="settings">Cài đặt</button>
+    </nav>
+    <div id="onboard" hidden></div>
+  </div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
