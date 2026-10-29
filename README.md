@@ -65,6 +65,9 @@ Mọi đường dẫn dùng được cả có và không có tiền tố `/v1` (
 | GET | `/v1/info` | Tên app, phiên bản API, múi giờ, giờ hiện tại |
 | GET | `/v1/today` | Ngày dương, âm lịch, năm can chi hôm nay |
 | GET | `/v1/events?from=…&to=…` | Liệt kê việc trong khoảng thời gian (ISO 8601) |
+| POST | `/v1/events` | Tạo việc bằng các trường rõ ràng |
+| PATCH | `/v1/events/<id>` | Sửa một phần việc đã lưu (xóa trạng thái đã nhắc) |
+| POST | `/v1/events/check` | Kiểm tra trùng giờ (cảnh báo, không chặn) |
 | POST | `/v1/parse` | Phân tích câu tiếng Việt, body `{"text": "…", "save": false}` |
 | GET | `/v1/export` | Sao lưu toàn bộ dữ liệu |
 | POST | `/v1/import` | Khôi phục từ tệp sao lưu (gộp thêm) |
@@ -88,7 +91,19 @@ Thời gian trả về là giờ địa phương theo `LICHVIET_TZ`, không kèm
 - Nhắc bù khi máy từng tắt: việc một lần và giỗ được nhắc bù trong `LICHVIET_CATCHUP_DAYS` ngày (mặc định 7); việc lặp ngày/tuần/tháng chỉ nhìn lùi 1 ngày.
 - `GET /v1/reminders/due` (mặc định) và `POST /v1/reminders/fired`: dành cho notifier của hệ sinh thái.
 - `GET /v1/reminders/due?channel=ui` và `POST /v1/reminders/ack`: banner "Đã biết" trong giao diện. Bấm "Đã biết" **không** làm mất thông báo notifier phải gửi, và ngược lại.
+- Giảm nhắc trùng giữa máy tính và điện thoại (mặc định tắt): `due?skip_delivered=1` (giao diện web dùng) và `upcoming?skip_acked=1` (app Android dùng). Đây chỉ giảm trùng giữa các lần đồng bộ;
+  chống trùng đúng lúc thông báo nổ cần push, chưa làm. Chi tiết: [docs/API.md](docs/API.md).
 - Mỗi lần nhắc trả thêm `user_id` (đặt bằng `LICHVIET_USER_ID`, mặc định `default`) và `occurrence_iso` kèm độ lệch múi giờ.
+
+## Lặp hằng năm theo dương lịch
+
+Nói "sinh nhật mẹ 5/3", "kỷ niệm cưới 20/10 hằng năm" hoặc "nộp thuế ngày 31 tháng 3 mỗi năm" sẽ tạo việc `yearly` (không có chữ "âm"; có "âm lịch" thì vẫn là `lunar_yearly`).
+Việc 29/2 rơi vào 28/2 ở năm không nhuận. Chỉ nhắc đúng giờ (không có mốc trước như giỗ). Cả ngày thì nhắc 08:00.
+
+## Ngày trong quá khứ
+
+Hiểu được "hôm qua", "hôm kia", "3 ngày trước", "2 tuần trước", "thứ năm tuần trước" (kèm cảnh báo "thời điểm này đã qua"). Các câu mơ hồ như "bữa hổm", "hồi trước",
+"mấy hôm trước" **không được đoán**: app hỏi lại ngày.
 
 ## Lặp theo âm lịch hằng tháng
 
@@ -121,7 +136,7 @@ khi đóng, một tác vụ nền (~15 phút) hẹn thêm thông báo cho việc
 - **Demo cần Tailscale và proxy**: điện thoại vào LicSoLo qua Tailscale, trỏ tới `lic_proxy.py` trên Windows (đổi `Host`, gỡ `Origin`/`Sec-Fetch-*`)
   rồi vào app. Đồng bộ cần máy tính bật, app đang chạy và proxy đang mở.
 - **Giới hạn**: không có khóa API hay ghép nối (mọi thiết bị trong tailnet đều vào được); đồng bộ một chiều (LicSoLo -> lịch điện thoại);
-  chưa có sửa việc đã lưu (xóa rồi tạo lại); không có iOS; APK chưa ký. Ghi lịch hệ thống chỉ làm khi app mở; tác vụ nền chỉ hẹn thêm thông báo.
+  chưa có giao diện sửa việc đã lưu trong app (server đã có `PATCH /v1/events/<id>` từ bản sau 0.5.2, app mới có hàm gọi); không có iOS; APK chưa ký. Ghi lịch hệ thống chỉ làm khi app mở; tác vụ nền chỉ hẹn thêm thông báo.
 
 ## Chạy test
 

@@ -8,7 +8,8 @@ Bản demo chạy trên điện thoại thật. Gõ hoặc nói một việc, xe
 Mọi việc trong LicSoLo hiện trong **lịch hệ thống** (lịch riêng "Trợ lý thời gian") và được hẹn **thông báo cục bộ**,
 nên vẫn nhắc đúng giờ khi khóa màn hình hoặc khi máy tính đã tắt (miễn là app đã đồng bộ trước đó).
 
-Không sửa server. App dùng các endpoint `/v1` không cần khóa của bản 0.5.2 (`info`, `parse`, `events`, `stt`, `stt/learn`).
+Không sửa server. App dùng các endpoint `/v1` không cần khóa của bản 0.5.2 (`info`, `parse`, `events`, `stt`, `stt/learn`);
+từ nhánh `feat/improvements` app dùng thêm `devices`, `reminders/upcoming`, `reminders/delivered` (có dự phòng khi server cũ không có).
 Chưa có khóa API, ghép nối hay xác thực: đó là việc của lúc tích hợp vào hệ sinh thái Lạc Việt.
 
 ## Cấu trúc
@@ -69,13 +70,17 @@ Pi Desktop đang Running và cửa sổ `lic_proxy.py` đang mở.
 ## Quy tắc đồng bộ
 
 - Chạy khi mở app, khi quay lại màn hình chính, mỗi 60 giây khi app đang mở, ngay khi mạng nối lại, sau mỗi lần lưu hoặc xóa, và khi bấm **Đồng bộ ngay**. Không chạy chồng.
-- Lấy việc từ hôm nay - 7 ngày đến hôm nay + 120 ngày; giỗ (`lunar_yearly`) đến hôm nay + 400 ngày.
+- Lấy việc từ hôm nay - 7 ngày đến hôm nay + 120 ngày; giỗ (`lunar_yearly`) và việc lặp hằng năm dương lịch (`yearly`: sinh nhật, kỷ niệm) đến hôm nay + 400 ngày.
 - Lịch: mỗi lần xảy ra có `ref = lv-<id>-<yyyymmddHHMM>` (cùng dạng UID trong `.ics` của server), lưu ở `_SYNC_ID`; mã băm nội dung ở
   `SYNC_DATA1`. Ref mới thì thêm, hash khác thì sửa, ref mất thì xóa. Việc cả ngày: 00:00 UTC, `EVENT_TIMEZONE=UTC`.
   Sự kiện không gắn báo nhắc của hệ thống (app tự nhắc, tránh nhắc hai lần).
-- Thông báo: chép quy tắc `service._stages` / `_fire_points` của server. Việc thường nhắc trước `remind_before_min`;
-  việc cả ngày nhắc 08:00; giỗ có ba mốc (−7 ngày, −1 ngày, đúng giờ). Chỉ hẹn mốc trong 30 ngày tới, tối đa 200 mốc.
-  Mỗi lần đồng bộ hủy hết rồi hẹn lại. Khi tích hợp hệ sinh thái, chuyển sang `GET /v1/reminders/upcoming`.
+- Thông báo: lấy mốc từ `GET /v1/reminders/upcoming?days=30&device_id=...&skip_acked=1` (app tự đăng ký thiết bị `POST /v1/devices` với `device_id` ổn định).
+  Nếu endpoint lỗi, server cũ hoặc chưa đăng ký được thì **dự phòng**: chép quy tắc `service._stages` / `_fire_points` của server (`reminders.ts`). Việc thường nhắc trước `remind_before_min`;
+  việc cả ngày nhắc 08:00; giỗ có ba mốc (−7 ngày, −1 ngày, đúng giờ); `yearly` chỉ đúng giờ. Chỉ hẹn mốc trong 30 ngày tới, tối đa 200 mốc.
+  Mỗi lần đồng bộ hủy hết rồi hẹn lại.
+- Sau mỗi lần đồng bộ, với các mốc app đã hẹn mà giờ nhắc đã qua, app gọi `POST /v1/reminders/delivered` (lỗi thì giữ lại thử lần sau, bỏ sau 14 ngày) để máy tính (`skip_delivered`)
+  và các lần đồng bộ sau không nhắc lại. Đây chỉ **giảm trùng giữa các lần đồng bộ**; hai thiết bị đã hẹn sẵn cùng mốc thì vẫn cùng nổ (chống trùng đúng lúc cần push, chưa làm).
+  "Đã hiện" là giả định (hệ điều hành đã hẹn thì tới giờ tự hiện).
 - Lỗi mạng: dừng, giữ nguyên lịch và thông báo cũ.
 
 ## Đồng bộ nền (`@capacitor/background-runner`)
@@ -86,6 +91,7 @@ Pi Desktop đang Running và cửa sổ `lic_proxy.py` đang mở.
 - Thông báo của nền và của app dùng hai bộ hẹn riêng, không hủy lẫn nhau. Để một mốc không nổ hai lần, mỗi bên ghi lại các mốc mình đã hẹn
   (`appRefs`, `bgRefs`, trong cùng kho SharedPreferences) và bên kia bỏ qua các mốc đó. Hệ quả: nền chỉ **thêm** mốc; việc bị sửa hoặc xóa
   sau khi nền đã hẹn thì mốc cũ vẫn nổ cho tới khi qua giờ.
+- Runner cũng dùng `/upcoming` và báo `delivered` (bằng `fetch`) khi app đã đăng ký thiết bị với đúng server đó; không tự đăng ký. Chưa thử trên máy thật.
 - Công tắc **Đồng bộ nền** (mặc định bật), thời điểm nền chạy gần nhất và nút mở cài đặt pin nằm trong **Cài đặt**.
 - background-runner đọc giờ hẹn bằng `SimpleDateFormat` không đặt múi giờ, nên app lưu độ lệch múi giờ của máy (`tzOffsetMin`) và runner cộng vào giờ hẹn.
 
@@ -95,4 +101,4 @@ Pi Desktop đang Running và cửa sổ `lic_proxy.py` đang mở.
 - Việc tạo trên máy tính chỉ hiện trên điện thoại sau khi mở app (chưa có đồng bộ nền).
 - Máy tính và điện thoại có thể cùng nhắc một việc.
 - Không có khóa: mọi thiết bị trong tailnet đều vào được app.
-- Chỉ đồng bộ một chiều (LicSoLo -> lịch điện thoại). Không sửa việc đã lưu (xóa rồi tạo lại). Không hỗ trợ iOS.
+- Chỉ đồng bộ một chiều (LicSoLo -> lịch điện thoại). Chưa có giao diện sửa việc đã lưu (`Api.update()` gọi `PATCH /v1/events/<id>` có sẵn, server từ bản sau 0.5.2). Không hỗ trợ iOS.

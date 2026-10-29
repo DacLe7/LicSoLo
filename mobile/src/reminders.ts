@@ -1,4 +1,4 @@
-import type { Occurrence, ReminderPoint, ServerInfo, SyncApi } from "./types";
+import type { Occurrence, PendingDelivery, ReminderPoint, ServerInfo, SyncApi, UpcomingReminder } from "./types";
 import { DAY, MIN, dayStart, offsetOf, parts, stamp } from "./timeutil";
 
 /* Phần dùng chung giữa app (sync.ts) và runner nền (runner.ts): lấy việc từ server và tính mốc nhắc.
@@ -26,7 +26,7 @@ export const eventRef = (o: Occurrence) => `lv-${o.id}-${stamp(o.occurrence)}`;
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
-function whenText(o: Occurrence): string {
+function whenText(o: { occurrence: string; all_day: boolean }): string {
   const t = parts(o.occurrence);
   const date = `${pad(t.d)}/${pad(t.mo)}`;
   return o.all_day ? `${date} cả ngày` : `${pad(t.h)}:${pad(t.mi)} ${date}`;
@@ -35,7 +35,8 @@ function whenText(o: Occurrence): string {
 /** Mốc nhắc của một lần xảy ra. Chép quy tắc service._stages / service._fire_points:
  * mốc gốc là giờ diễn ra (việc cả ngày: 08:00 hôm đó); việc thường nhắc trước remind_before_min;
  * giỗ (lunar_yearly) nhắc thêm trước 7 ngày và 1 ngày.
- * Quy tắc này đang trùng với server; khi tích hợp hệ sinh thái thì chuyển sang GET /v1/reminders/upcoming. */
+ * Đây là đường DỰ PHÒNG: khi server có GET /v1/reminders/upcoming thì app lấy mốc từ đó (choosePoints), và chỉ
+ * dùng quy tắc này khi endpoint lỗi hoặc server cũ. Quy tắc phải giữ trùng với server. */
 export function reminderPointsFor(o: Occurrence): ReminderPoint[] {
   const base = o.all_day
     ? Date.parse(`${o.occurrence.slice(0, 10)}T${pad(ALL_DAY_REMIND_HOUR)}:00:00${offsetOf(o.occurrence_iso)}`)
@@ -44,13 +45,113 @@ export function reminderPointsFor(o: Occurrence): ReminderPoint[] {
   const onTime = { suffix: "", delta: (o.remind_before_min || 0) * MIN, title: o.title };
   const stages = o.repeat === "lunar_yearly"
     ? [
-      { suffix: "-7d", delta: 7 * DAY, title: "Còn 7 ngày: " + o.title },
-      { suffix: "-1d", delta: DAY, title: "Ngày mai: " + o.title },
+      { suffix: "-7d", delta: 7 * DAY, title: STAGE_TITLE.prepare_7d + o.title },
+      { suffix: "-1d", delta: DAY, title: STAGE_TITLE.prepare_1d + o.title },
       onTime,
     ]
     : [onTime];
   const body = [whenText(o), (o.notes ?? "").trim().slice(0, 200)].filter(Boolean).join(" · ");
-  return stages.map((s) => ({ ref: ref + s.suffix, atMs: base - s.delta, title: s.title, body }));
+  return stages.map((s) => ({
+    ref: ref + s.suffix, atMs: base - s.delta, title: s.title, body,
+    eventId: o.id, key: o.occurrence + s.suffix.replace("-", "#"), // cùng dạng "key" của server
+  }));
+}
+
+const STAGE_TITLE: Record<string, string> = { prepare_7d: "Còn 7 ngày: ", prepare_1d: "Ngày mai: " };
+
+/** Mốc nhắc từ GET /v1/reminders/upcoming (server đã tính và đã bỏ các mốc đã biết/đã hiện). Cùng cửa sổ 30 ngày, 200 mốc. */
+export function pointsFromUpcoming(items: UpcomingReminder[], nowMs: number): ReminderPoint[] {
+  const end = nowMs + NOTIFY_WINDOW_DAYS * DAY;
+  const seen = new Set<string>();
+  const out: ReminderPoint[] = [];
+  for (const u of items) {
+    const atMs = Date.parse(u.fire_at_iso);
+    if (!u.ref || Number.isNaN(atMs) || atMs <= nowMs || atMs > end || seen.has(u.ref)) continue;
+    seen.add(u.ref);
+    const body = [whenText(u), (u.notes ?? "").trim().slice(0, 200)].filter(Boolean).join(" · ");
+    out.push({ ref: u.ref, atMs, title: (STAGE_TITLE[u.kind] ?? "") + u.title, body, eventId: u.event_id, key: u.key });
+  }
+  out.sort((a, b) => a.atMs - b.atMs || (a.ref < b.ref ? -1 : 1));
+  return out.slice(0, MAX_NOTIFICATIONS);
+}
+
+const notRegistered = (e: unknown) =>
+  (e as { status?: number } | null)?.status === 400 && /chưa đăng ký/.test((e as Error).message ?? "");
+
+/** Chọn mốc nhắc: ưu tiên server (/upcoming kèm device_id, bỏ mốc đã biết), lỗi hay server cũ thì tự tính từ việc.
+ * `recover` (tùy chọn): gọi khi server báo thiết bị chưa đăng ký (ví dụ server đổi dữ liệu); trả device_id mới để thử lại một lần. */
+export async function choosePoints(
+  api: Pick<SyncApi, "upcoming">, deviceId: string | null, loadOccs: () => Promise<Occurrence[]>, nowMs: number,
+  recover?: () => Promise<string | null>,
+): Promise<{ points: ReminderPoint[]; source: "server" | "local" }> {
+  if (deviceId && api.upcoming) {
+    try {
+      let items: UpcomingReminder[];
+      try {
+        items = await api.upcoming(NOTIFY_WINDOW_DAYS, deviceId);
+      } catch (e) {
+        const again = notRegistered(e) && recover ? await recover() : null;
+        if (!again) throw e;
+        items = await api.upcoming(NOTIFY_WINDOW_DAYS, again);
+      }
+      return { points: pointsFromUpcoming(items, nowMs), source: "server" };
+    } catch {
+      /* dự phòng bên dưới */
+    }
+  }
+  return { points: reminderPoints(await loadOccs(), nowMs), source: "local" };
+}
+
+/* ---------- báo "delivered" ----------
+ * Mốc app/runner đã hẹn: khi giờ nhắc qua, báo POST /v1/reminders/delivered để các lần đồng bộ sau (và máy tính,
+ * qua skip_delivered) không nhắc lại. Đây là GIẢM TRÙNG GIỮA CÁC LẦN ĐỒNG BỘ, không phải chống trùng đúng lúc nổ
+ * thông báo (việc đó cần push). "Đã hiện" là giả định: hệ điều hành đã hẹn và tới giờ thì tự hiện. */
+export const PENDING_KEEP_DAYS = 14;
+export const MAX_REPORTS_PER_RUN = 100;
+
+export const pendingOf = (points: ReminderPoint[]): PendingDelivery[] =>
+  points.flatMap((p) => (p.eventId !== undefined && p.key ? [{ eventId: p.eventId, key: p.key, atMs: p.atMs }] : []));
+
+export function mergePending(...lists: PendingDelivery[][]): PendingDelivery[] {
+  const m = new Map<string, PendingDelivery>();
+  for (const l of lists) for (const p of l) m.set(p.eventId + "|" + p.key, p);
+  return [...m.values()];
+}
+
+export function parsePending(raw: string | null | undefined): PendingDelivery[] {
+  if (!raw) return [];
+  try {
+    const v = JSON.parse(raw);
+    return Array.isArray(v)
+      ? v.filter((p) => p && Number.isInteger(p.eventId) && typeof p.key === "string" && Number.isFinite(p.atMs))
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Báo các mốc đã tới giờ. Trả: reported (đã báo), failed (chưa báo được, giữ lại thử lần sau, bỏ nếu quá 14 ngày),
+ * waiting (chưa tới giờ). Không có device_id hoặc server không có endpoint thì bỏ qua (không có gì để báo). */
+export async function reportDeliveries(
+  api: Pick<SyncApi, "delivered">, deviceId: string | null, pending: PendingDelivery[], nowMs: number,
+): Promise<{ reported: number; failed: PendingDelivery[]; waiting: PendingDelivery[] }> {
+  const waiting = pending.filter((p) => p.atMs > nowMs);
+  if (!deviceId || !api.delivered) return { reported: 0, failed: [], waiting };
+  const keepFrom = nowMs - PENDING_KEEP_DAYS * DAY;
+  const due = pending.filter((p) => p.atMs <= nowMs && p.atMs >= keepFrom).sort((a, b) => a.atMs - b.atMs);
+  const failed: PendingDelivery[] = [];
+  let reported = 0;
+  for (let i = 0; i < due.length; i++) {
+    if (reported >= MAX_REPORTS_PER_RUN) { failed.push(...due.slice(i)); break; }
+    try {
+      await api.delivered(deviceId, due[i].eventId, due[i].key);
+      reported++;
+    } catch {
+      failed.push(...due.slice(i)); // server tắt: dừng, thử lại lần sau
+      break;
+    }
+  }
+  return { reported, failed, waiting };
 }
 
 /** Các mốc sẽ hẹn: chưa qua giờ, trong 30 ngày tới, lấy tối đa 200 mốc gần nhất. */
@@ -80,7 +181,8 @@ export function withIds(points: ReminderPoint[]): (ReminderPoint & { id: number 
   });
 }
 
-/** Mọi việc trong [hôm nay-7, hôm nay+120]; riêng giỗ (lunar_yearly) lấy tới hôm nay+400 để luôn hiện trước trong lịch. */
+/** Mọi việc trong [hôm nay-7, hôm nay+120]; riêng giỗ (lunar_yearly) và việc lặp hằng năm dương lịch (yearly: sinh nhật,
+ * kỷ niệm) lấy tới hôm nay+400 để luôn hiện trước trong lịch. */
 export async function fetchOccurrences(api: SyncApi, info: ServerInfo): Promise<Occurrence[]> {
   const lo = dayStart(info.now, -PAST_DAYS);
   // "to" của server là mốc loại trừ: +1 ngày để lấy trọn ngày cuối
@@ -90,7 +192,7 @@ export async function fetchOccurrences(api: SyncApi, info: ServerInfo): Promise<
   ]);
   const byRef = new Map<string, Occurrence>();
   for (const o of near) byRef.set(eventRef(o), o);
-  for (const o of far) if (o.repeat === "lunar_yearly") byRef.set(eventRef(o), o);
+  for (const o of far) if (o.repeat === "lunar_yearly" || o.repeat === "yearly") byRef.set(eventRef(o), o);
   return [...byRef.values()].sort((a, b) => (a.occurrence < b.occurrence ? -1 : a.occurrence > b.occurrence ? 1 : a.id - b.id));
 }
 

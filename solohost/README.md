@@ -19,7 +19,7 @@ ghi việc vào lịch điện thoại và hẹn thông báo cục bộ. Build A
 
 - URL server là ô cấu hình trong app (mặc định `https://d.taila2d06a.ts.net`).
 - Demo cần Tailscale và `lic_proxy.py` (proxy đổi `Host`, gỡ `Origin`/`Sec-Fetch-*`) trên máy Windows chạy Pi Desktop.
-- Giới hạn: không có khóa API (mọi thiết bị trong tailnet đều vào được), đồng bộ một chiều, chưa có sửa việc đã lưu.
+- Giới hạn: không có khóa API (mọi thiết bị trong tailnet đều vào được), đồng bộ một chiều, sửa việc đã lưu (`PATCH /v1/events/<id>`) chỉ có từ bản server sau 0.5.2.
 
 ## Cấu hình
 

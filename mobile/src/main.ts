@@ -3,7 +3,7 @@ import { Network } from "@capacitor/network";
 import "./style.css";
 import { Api } from "./api";
 import { KEY } from "./config";
-import { DEFAULT_URL, LvSystem, calendarPort, checkPerms, notifierPort, prefs, removeEverything, requestPerms, saveDeviceOffset, sharedRefs } from "./native";
+import { DEFAULT_URL, LvSystem, calendarPort, devicePort, checkPerms, notifierPort, prefs, removeEverything, requestPerms, saveDeviceOffset, sharedRefs } from "./native";
 import type { PermReport, PermState } from "./native";
 import { createSync } from "./sync";
 import type { NewEvent, ParseDraft, ParseResult, SyncResult } from "./types";
@@ -37,7 +37,7 @@ const ICO = {
 let serverUrl = DEFAULT_URL;
 let lastSync: number | null = null;
 const api = new Api(() => serverUrl);
-const runSync = createSync({ api, calendar: calendarPort, notifier: notifierPort, shared: sharedRefs });
+const runSync = createSync({ api, calendar: calendarPort, notifier: notifierPort, shared: sharedRefs, device: devicePort(() => serverUrl) });
 const SYNC_EVERY_MS = 60_000;
 let today = ""; // "2026-10-28" theo server
 

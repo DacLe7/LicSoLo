@@ -1,5 +1,5 @@
 import { CapacitorHttp } from "@capacitor/core";
-import type { NewEvent, Occurrence, ParseResult, ServerInfo, SyncApi } from "./types";
+import type { NewEvent, Occurrence, ParseResult, ServerInfo, SyncApi, UpcomingReminder } from "./types";
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -49,7 +49,27 @@ export class Api implements SyncApi {
     return this.call<{ id: number; start: string; all_day: boolean; duplicate?: boolean }>("POST", "/events", { data: ev });
   }
 
+  /** Sửa một phần việc đã lưu (PATCH /v1/events/<id>); server cũ chưa có thì trả 404/501. */
+  update(id: number, patch: Partial<NewEvent> & { notes?: string | null }) {
+    return this.call<{ id: number; title: string; start: string; all_day: boolean }>("PATCH", `/events/${id}`, { data: patch });
+  }
+
   remove(id: number) { return this.call<unknown>("DELETE", `/events/${id}`); }
+
+  /** Mốc nhắc sắp tới cho thiết bị này; bỏ các mốc đã "Đã biết"/fired và đã delivered trên thiết bị. */
+  upcoming(days: number, deviceId: string) {
+    return this.call<UpcomingReminder[]>(
+      "GET", `/reminders/upcoming?days=${days}&device_id=${encodeURIComponent(deviceId)}&skip_acked=1`);
+  }
+
+  /** Đăng ký thiết bị (đăng ký lại = cập nhật, nên gọi nhiều lần vẫn được). */
+  registerDevice(deviceId: string, platform: string, label?: string) {
+    return this.call<unknown>("POST", "/devices", { data: { device_id: deviceId, platform, ...(label ? { label } : {}) } });
+  }
+
+  delivered(deviceId: string, eventId: number, key: string) {
+    return this.call<unknown>("POST", "/reminders/delivered", { data: { device_id: deviceId, event_id: eventId, key } });
+  }
 
   /** wavBase64: WAV 16 kHz mono 16 bit đã mã hóa base64 (CapacitorHttp gửi dataType "file" dưới dạng byte thô). */
   async stt(wavBase64: string) {

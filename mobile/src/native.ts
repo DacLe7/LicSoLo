@@ -2,6 +2,7 @@ import { registerPlugin } from "@capacitor/core";
 import { LocalNotifications } from "@capacitor/local-notifications";
 import { Preferences } from "@capacitor/preferences";
 import { DEFAULT_URL, KEY, RUNNER_LABEL } from "./config";
+import { makeDevicePort } from "./device";
 import { parseRefMap } from "./reminders";
 import type { RefMap } from "./reminders";
 import type { CalendarDiff, CalendarPort, ManagedEntry, NotifierPort, ReminderPoint } from "./types";
@@ -110,6 +111,9 @@ export const prefs = {
     await Preferences.set({ key, value });
   },
 };
+
+/** Danh tính thiết bị với server (device.ts): device_id ổn định và sổ mốc chờ báo delivered, lưu trong kho chung. */
+export const devicePort = (getUrl: () => string) => makeDevicePort(prefs, getUrl);
 
 /** Cổng chia việc với runner nền (sync.ts). */
 export const sharedRefs = {

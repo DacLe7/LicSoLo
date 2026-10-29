@@ -14,4 +14,8 @@ export const KEY = {
   bgRefs: "bgRefs", // mốc runner đã hẹn
   bgLastRun: "bgLastRun", // ms của lần runner chạy xong gần nhất
   bgLastError: "bgLastError",
+  deviceId: "deviceId", // device_id ổn định gửi cho server
+  deviceRegistered: "deviceRegistered", // URL server mà thiết bị đã đăng ký (đổi server thì đăng ký lại)
+  appPending: "appPending", // mốc app đã hẹn, chờ báo delivered
+  bgPending: "bgPending", // mốc runner đã hẹn, chờ báo delivered
 } as const;
