@@ -36,11 +36,12 @@ class ParseResult:
     start: Optional[datetime] = None
     all_day: bool = False
     duration_min: Optional[int] = None
-    repeat: Optional[str] = None          # daily | weekly | monthly | lunar_yearly
+    repeat: Optional[str] = None          # daily | weekly | monthly | yearly | lunar_yearly | lunar_monthly
     remind_before_min: Optional[int] = None
     warnings: list = field(default_factory=list)
     unsure: bool = False   # còn cụm ngày mà luật không hiểu
     lunar: Optional[tuple] = None   # (ngày, tháng) âm lịch nếu câu nói theo âm lịch
+    vague: bool = False   # ngày nói mơ hồ ("bữa hổm", "hồi trước"): không đoán, để thiếu ngày
 
     @property
     def missing(self):
@@ -93,6 +94,7 @@ def _parse_core(text: str, now: datetime) -> ParseResult:
 
     # 3) lặp lại
     day = None
+    yearly_word = bool(take(r"\b(?:moi|hang)\s+nam\b"))   # chỉ thành yearly khi có ngày-tháng dương nói rõ
     m = take(r"\b(?:moi|hang)\s+ngay\b")
     if m:
         r.repeat = "daily"
@@ -125,6 +127,7 @@ def _parse_core(text: str, now: datetime) -> ParseResult:
 
     # 5) ngày
     d: Optional[date] = None
+    explicit_dm = False
     m = take(r"\b(\d{1,2})\s*/\s*(\d{1,2})(?:\s*/\s*(\d{4}))?\b") or \
         take(r"\b(?:(?:ngay|mung|mong)\s+)?(\d{1,2})\s+thang\s+(\d{1,2})(?:\s+nam\s+(\d{4}))?\b")
     if m:
@@ -133,8 +136,10 @@ def _parse_core(text: str, now: datetime) -> ParseResult:
         d = _valid_date(yy, mm, dd)
         if d is None:
             r.warnings.append("ngày không hợp lệ")
-        elif not m.group(3) and d < now.date():
-            d = _valid_date(yy + 1, mm, dd)
+        else:
+            if not m.group(3) and d < now.date():
+                d = _valid_date(yy + 1, mm, dd)
+            explicit_dm = d is not None
     if d is None and not r.warnings and r.repeat == "monthly":
         m = take(r"\b(?:ngay|mung|mong)\s+(\d{1,2})\b")
         if m and 1 <= int(m.group(1)) <= 31:
@@ -164,6 +169,14 @@ def _parse_core(text: str, now: datetime) -> ParseResult:
             d = now.date() + timedelta(days=2)
         elif take(r"\bhom\s+qua\b"):
             d = now.date() - timedelta(days=1)   # service sẽ cảnh báo "đã qua" khi lưu
+        elif take(r"\bhom\s+kia\b"):
+            d = now.date() - timedelta(days=2)
+        else:
+            # (?<!thu ): "thứ năm tuần trước" là thứ Năm, không phải "5 tuần trước"
+            m = take(r"(?<!thu )\b(\d{1,3}|mot|hai|ba|bon|nam|sau|bay|tam|chin|muoi)\s*(ngay|tuan)\s+truoc\b")
+            if m:
+                n = int(m.group(1)) if m.group(1).isdigit() else NUMW[m.group(1)]
+                d = now.date() - timedelta(days=n * (7 if m.group(2) == "tuan" else 1))
     if d is None and not r.warnings:
         # cụm mơ hồ: "cuối tuần (này/sau)", "đầu tuần sau", "cuối tháng", "đầu tháng sau"
         unit = "tuan"
@@ -190,12 +203,14 @@ def _parse_core(text: str, now: datetime) -> ParseResult:
                 else:
                     d = (base + timedelta(days=32)).replace(day=1) - timedelta(days=1)
     if d is None and not r.warnings:
-        m = take(r"\b(?:thu\s+(hai|bay|ba|tu|nam|sau|[2-7])|(chu\s+nhat))\s*(tuan\s+(?:sau|toi|nay))?")
+        m = take(r"\b(?:thu\s+(hai|bay|ba|tu|nam|sau|[2-7])|(chu\s+nhat))\s*(tuan\s+(?:sau|toi|nay|truoc))?")
         if m or day is not None:
             wd = day if m is None else WEEKDAYS["cn" if m.group(2) else m.group(1)]
             q = (m.group(3) or "") if m else ""
             monday = now.date() - timedelta(days=now.weekday())
-            if "sau" in q or "toi" in q:
+            if "truoc" in q:
+                d = monday + timedelta(days=wd - 7)
+            elif "sau" in q or "toi" in q:
                 d = monday + timedelta(days=7 + wd)
             elif "nay" in q:
                 d = monday + timedelta(days=wd)
@@ -204,6 +219,11 @@ def _parse_core(text: str, now: datetime) -> ParseResult:
         else:
             if take(r"\btuan\s+(?:sau|toi)\b"):
                 d = now.date() + timedelta(days=7)
+    if d is None and not r.warnings:
+        # quá khứ không xác định được ngày: không đoán, để thiếu ngày và hỏi lại
+        if take(r"\b(?:(?:may\s+)?(?:bua|hom)\s+(?:hom|truoc|no|nao)|hoi\s+(?:truoc|nao|do)|lan\s+truoc|(?:tuan|thang|nam)\s+truoc|truoc\s+day|ngay\s+truoc)\b"):
+            r.vague = True
+            r.warnings.append("chưa rõ là ngày nào, bạn nói cụ thể hơn (ví dụ \"hôm qua\", \"3 ngày trước\", \"5/10\")")
 
     # 6) giờ
     hh = mi = None
@@ -258,7 +278,7 @@ def _parse_core(text: str, now: datetime) -> ParseResult:
                 hh = 23
 
     # 7) ghép ngày giờ
-    if "ngày không hợp lệ" in r.warnings:   # "31/4": không đoán ngày, để thiếu ngày và hỏi lại
+    if "ngày không hợp lệ" in r.warnings or r.vague:   # "31/4", "bữa hổm": không đoán ngày, để thiếu ngày và hỏi lại
         r.start, r.all_day = None, False
     elif rel is not None:
         if rel_days and hh is not None:   # "sau 3 ngày lúc 9h": ngày theo N, giờ theo người nói
@@ -287,6 +307,13 @@ def _parse_core(text: str, now: datetime) -> ParseResult:
         cand = now.replace(hour=h, minute=0, second=0, microsecond=0)
         r.start = cand if cand > now else cand + timedelta(days=1)
         r.warnings.append("chỉ nói buổi, tạm đặt %02d:00" % h)
+
+    # lặp hằng năm theo dương lịch: "hằng năm"/"mỗi năm" hoặc sinh nhật/kỷ niệm, kèm ngày-tháng dương nói rõ
+    if r.repeat is None and not r.vague and (yearly_word or re.search(r"\b(?:sinh\s+nhat|ky\s+niem)\b", fold(text))):
+        if explicit_dm and r.start is not None:
+            r.repeat = "yearly"
+        elif yearly_word:
+            r.warnings.append("lặp hằng năm cần ngày-tháng cụ thể (ví dụ 5/3), bạn kiểm tra lại")
 
     # 8) tiêu đề: văn bản gốc trừ phần đã dùng (kể cả từ nối đứng ngay trước), bỏ từ đệm hai đầu
     f0 = fold(text)
@@ -436,9 +463,12 @@ def parse_vi(text: str, now: datetime) -> ParseResult:
     cleaned = _blank(text, dspan)
     if mspan:
         cleaned = _blank(cleaned, mspan)
+    ym = re.search(r"\b(?:moi|hang)\s+nam\b", fold(cleaned))   # "15/8 âm lịch hằng năm": âm ưu tiên, không phải yearly dương
+    if ym:
+        cleaned = _blank(cleaned, ym.span())
     r = _parse_core(cleaned, now)
     r.lunar = (day, month)
-    if year is None and r.repeat is None:
+    if (year is None or ym) and r.repeat is None:
         r.repeat = "lunar_yearly"  # giỗ, sinh nhật âm: không ghi năm nghĩa là năm nào cũng có
     r.warnings = [w for w in r.warnings if w != "ngày không hợp lệ"]
 

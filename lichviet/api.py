@@ -56,6 +56,22 @@ def with_iso(item: dict) -> dict:
     return out
 
 
+def _flag(v) -> bool:
+    return str(v or "").strip().lower() in ("1", "true", "yes")
+
+
+def _event_fields(b: dict) -> dict:
+    """Kiểm tra và đổi trường JSON của việc sang tham số service (dùng chung cho POST và PATCH /events)."""
+    bad = set(b) - EVENT_FIELDS
+    if bad:
+        raise ValueError("trường không hợp lệ: %s" % ", ".join(sorted(bad)))
+    if "start" in b:
+        b["start"] = datetime.fromisoformat(b["start"])
+    if b.get("lunar") is not None:
+        b["lunar"] = tuple(b["lunar"])
+    return b
+
+
 def today_info(now):
     """Hôm nay theo giờ người dùng: dương lịch + âm lịch + năm can chi (cho phần đầu trang)."""
     ld, lm, ly, leap = solar_to_lunar(now.date())
@@ -232,7 +248,8 @@ def make_handler(svc: Service):
                 return self._send(200, {"app": "lichviet", "api": API_VERSION, "tz": str(get_tz()),
                                         "now": svc.clock().isoformat(timespec="seconds"),
                                         "user_id": USER_ID,
-                                        "features": ["changes", "upcoming", "devices", "delivered", "ics"],
+                                        "features": ["changes", "upcoming", "devices", "delivered", "ics", "event_update", "event_check",
+                                                     "repeat_yearly", "skip_acked", "skip_delivered"],
                                         "auth": {"header": "X-Lacviet-Key", "configured": bool(api_key)},
                                         "now_iso": svc.clock().replace(tzinfo=get_tz()).isoformat(timespec="seconds"),
                                         "time_format": "ISO 8601, giờ địa phương của tz (không kèm độ lệch)"})
@@ -256,13 +273,15 @@ def make_handler(svc: Service):
                     return
                 return self._run(lambda: [{**with_iso(d), "fire_at_iso": with_iso({"start": d["fire_at"]})["start_iso"],
                                            "user_id": USER_ID}
-                                          for d in svc.due_reminders(q.get("channel", ""), q.get("device_id") or None)])
+                                          for d in svc.due_reminders(q.get("channel", ""), q.get("device_id") or None,
+                                                     _flag(q.get("skip_delivered")))])
             if u.path == "/reminders/upcoming":
                 if not self._auth(required=True):
                     return
                 return self._run(lambda: [{**with_iso(d), "fire_at_iso": with_iso({"start": d["fire_at"]})["start_iso"],
                                            "user_id": USER_ID}
-                                          for d in svc.upcoming_reminders(int(q.get("days", 14)), q.get("device_id") or None)])
+                                          for d in svc.upcoming_reminders(int(q.get("days", 14)), q.get("device_id") or None,
+                                                         _flag(q.get("skip_acked")))])
             if u.path == "/events/changes":
                 if not self._auth(required=True):
                     return
@@ -318,14 +337,21 @@ def make_handler(svc: Service):
                 return self._run(go)
             if u.path == "/events":
                 def go():
+                    return svc.create(**_event_fields(self._body()))
+                return self._run(go)
+            if u.path == "/events/check":   # cảnh báo trùng giờ cho form Sửa: chỉ đọc, không chặn
+                def go():
                     b = self._body()
-                    bad = set(b) - EVENT_FIELDS
-                    if bad:
-                        raise ValueError("trường không hợp lệ: %s" % ", ".join(sorted(bad)))
-                    b["start"] = datetime.fromisoformat(b["start"])
-                    if b.get("lunar") is not None:
-                        b["lunar"] = tuple(b["lunar"])
-                    return svc.create(**b)
+                    start = datetime.fromisoformat(b["start"])
+                    dur = b.get("duration_min")
+                    if dur is not None and (isinstance(dur, bool) or not isinstance(dur, int) or dur < 1):
+                        raise ValueError("duration_min phải là số nguyên dương hoặc null")
+                    ex = b.get("exclude_id")
+                    if ex is not None and (isinstance(ex, bool) or not isinstance(ex, int)):
+                        raise ValueError("exclude_id phải là số nguyên")
+                    if b.get("all_day"):
+                        return {"conflicts": []}
+                    return {"conflicts": [with_iso(c) for c in svc.conflicts(start, dur, ex)]}
                 return self._run(go)
             if u.path == "/reminders/ack":
                 def go():
@@ -355,6 +381,21 @@ def make_handler(svc: Service):
                     b = self._body()
                     svc.mark_fired(b["event_id"], b["occurrence"])
                     return {"ok": True}
+                return self._run(go)
+            self._send(404, {"error": "không có đường dẫn này"})
+
+        def do_PATCH(self):
+            if not self._guard():
+                return
+            u = self._url()
+            if u.path.startswith("/events/") and u.path.count("/") == 2:
+                def go():
+                    eid = int(u.path.rsplit("/", 1)[1])
+                    b = _event_fields(self._body())
+                    if "lunar" in b:   # [ngày, tháng] hoặc null (bỏ ngày âm)
+                        ld, lm = b.pop("lunar") or (None, None)
+                        b["lunar_day"], b["lunar_month"] = ld, lm
+                    return with_iso(svc.update(eid, **b))
                 return self._run(go)
             self._send(404, {"error": "không có đường dẫn này"})
 

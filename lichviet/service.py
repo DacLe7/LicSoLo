@@ -27,7 +27,7 @@ class CursorTooOld(Exception):
 
 MAX_DEVICES = 20
 PLATFORMS = ("ios", "android", "other")
-REPEATS = (None, "daily", "weekly", "monthly", "lunar_yearly", "lunar_monthly")
+REPEATS = (None, "daily", "weekly", "monthly", "yearly", "lunar_yearly", "lunar_monthly")
 
 
 def _add_months(dt: datetime, n: int) -> datetime:
@@ -93,24 +93,50 @@ class Service:
                          (event_id, op, store.fmt(self.clock())))
 
     def update(self, event_id: int, **fields) -> dict:
+        """Sửa một phần việc đã lưu. Kiểm tra trên trạng thái SAU khi sửa (việc lặp âm lịch phải còn ngày âm;
+        không được trùng việc khác cùng tên, giờ, kiểu lặp). Ghi `changes` (upsert) và xóa trạng thái đã nhắc."""
         allowed = {"title", "start", "duration_min", "all_day", "repeat", "remind_before_min", "notes",
                    "lunar_day", "lunar_month"}
         bad = set(fields) - allowed
         if bad:
             raise ValueError("trường không hợp lệ: %s" % ", ".join(sorted(bad)))
+        cur_ev = self.get(event_id)
+        if cur_ev is None:
+            raise KeyError(event_id)
         if not fields:
-            return self.get(event_id)
+            return cur_ev
+        if "title" in fields:
+            if not isinstance(fields["title"], str) or not fields["title"].strip():
+                raise ValueError("thiếu tiêu đề")
+            fields["title"] = fields["title"].strip()
         if "repeat" in fields and fields["repeat"] not in REPEATS:
             raise ValueError("repeat không hợp lệ")
-        if "start" in fields and isinstance(fields["start"], datetime):
-            fields["start"] = store.fmt(fields["start"])
+        if "start" in fields:
+            st = fields["start"]
+            fields["start"] = store.fmt(st) if isinstance(st, datetime) else store.fmt(store.parse(st))
+        for k in ("duration_min", "remind_before_min"):
+            v = fields.get(k)
+            if k in fields and v is not None and (isinstance(v, bool) or not isinstance(v, int) or v < 0):
+                raise ValueError("%s phải là số nguyên không âm hoặc null" % k)
         if "all_day" in fields:
-            fields["all_day"] = int(fields["all_day"])
+            fields["all_day"] = int(bool(fields["all_day"]))
+        merged = {**cur_ev, **fields}
+        rep = merged["repeat"]
+        if "repeat" in fields and rep not in ("lunar_yearly", "lunar_monthly") and not (
+                {"lunar_day", "lunar_month"} & set(fields)):
+            fields["lunar_day"] = fields["lunar_month"] = None   # đổi sang lặp dương lịch: bỏ ngày âm cũ
+            merged.update(lunar_day=None, lunar_month=None)
+        if rep == "lunar_yearly" and not (merged["lunar_day"] and merged["lunar_month"]):
+            raise ValueError("lặp theo âm lịch hằng năm cần có ngày tháng âm")
+        if rep == "lunar_monthly" and not merged["lunar_day"]:
+            raise ValueError("lặp theo âm lịch hằng tháng cần có ngày âm")
+        for row in self.con.execute("SELECT id,title FROM events WHERE start=? AND COALESCE(repeat,'')=? AND id<>?",
+                                    (merged["start"], rep or "", event_id)):
+            if row["title"].casefold() == merged["title"].casefold():
+                raise ValueError("trùng với việc đã có (#%d: cùng tên, giờ, kiểu lặp)" % row["id"])
         sets = ", ".join("%s=?" % k for k in fields)
-        cur = self.con.execute("UPDATE events SET %s, updated=? WHERE id=?" % sets,
-                               (*fields.values(), store.fmt(self.clock()), event_id))
-        if cur.rowcount == 0:
-            raise KeyError(event_id)
+        self.con.execute("UPDATE events SET %s, updated=? WHERE id=?" % sets,
+                         (*fields.values(), store.fmt(self.clock()), event_id))
         self.con.execute("DELETE FROM fired WHERE event_id=?", (event_id,))
         self.con.execute("DELETE FROM acked WHERE event_id=?", (event_id,))
         self.con.execute("DELETE FROM delivered WHERE event_id=?", (event_id,))
@@ -162,6 +188,12 @@ class Service:
             return
         if rep in ("lunar_yearly", "lunar_monthly"):
             yield from self._lunar_occurrences(ev, s, lo, hi)
+            return
+        if rep == "yearly":   # cùng ngày-tháng và giờ với start; 29/2 thì năm không nhuận dùng 28/2
+            for y in range(max(s.year, lo.year - 1), hi.year + 2):
+                o = s.replace(year=y, day=min(s.day, calendar.monthrange(y, s.month)[1]))
+                if lo <= o < hi:
+                    yield o
             return
         step = {"daily": lambda i: s + timedelta(days=i),
                 "weekly": lambda i: s + timedelta(weeks=i),
@@ -368,7 +400,7 @@ class Service:
         used_ai = False
         ai_note = None
         ex = None
-        if r.missing or r.unsure:  # chỉ gọi AI khi luật chưa hiểu hoặc còn cụm ngày lạ
+        if (r.missing or r.unsure) and not r.vague:  # chỉ gọi AI khi luật chưa hiểu; ngày mơ hồ thì không để AI đoán
             ex = self._ai_extract(text)
             if ex and (ex["title"] or ex["when"]):
                 r2 = parse_vi((ex["title"] + " " + ex["when"]).strip(), self.clock())
@@ -512,13 +544,15 @@ class Service:
                          (store.fmt(self.clock()), device_id))
         self.con.commit()
 
-    def due_reminders(self, channel: str = "", device_id: Optional[str] = None) -> list:
+    def due_reminders(self, channel: str = "", device_id: Optional[str] = None, skip_delivered: bool = False) -> list:
         """Các lần nhắc đã đến giờ mà chưa gửi.
 
         Mặc định (dành cho notifier của hệ sinh thái): loại các lần đã mark_fired().
         channel="ui" (banner trong giao diện): loại các lần người dùng đã bấm "Đã biết" (ack()).
         device_id: loại các lần thiết bị đó đã báo hiển thị (mark_delivered()).
         Các kênh độc lập, không giẫm lên nhau.
+        skip_delivered (mặc định tắt): loại thêm các mốc mà BẤT KỲ thiết bị nào đã báo hiển thị, để máy tính
+        không nhắc lại điều điện thoại đã nhắc (chỉ giảm trùng giữa các lần đồng bộ, không phải lúc nổ thông báo).
 
         Mỗi phần tử có "key": truyền key đó (hoặc "occurrence" với việc thường) vào
         mark_fired() sau khi gửi. Việc thường nhắc đúng giờ (trừ remind_before_min);
@@ -555,13 +589,17 @@ class Service:
                 else:
                     sent = self.con.execute("SELECT 1 FROM fired WHERE event_id=? AND occ_start=?",
                                             (ev["id"], key)).fetchone()
+                if not sent and skip_delivered:
+                    sent = self.con.execute("SELECT 1 FROM delivered WHERE event_id=? AND occ_key=?",
+                                            (ev["id"], key)).fetchone()
                 if not sent:
                     out.append(self._item(ev, o, suffix, kind, fire_at, now))
         return sorted(out, key=lambda x: (x["occurrence"], x["key"]))
 
-    def upcoming_reminders(self, days: int = 14, device_id: Optional[str] = None) -> list:
+    def upcoming_reminders(self, days: int = 14, device_id: Optional[str] = None, skip_acked: bool = False) -> list:
         """Các mốc nhắc SẮP tới (từ bây giờ đến `days` ngày, tối đa 60) để điện thoại tự hẹn thông báo cục bộ.
         Mỗi mốc là một phần tử (giỗ có tới 3 mốc). Có device_id thì bỏ các mốc thiết bị đó đã báo hiển thị.
+        skip_acked (mặc định tắt): bỏ thêm các mốc người dùng đã bấm "Đã biết" (acked) hoặc notifier đã đánh dấu fired.
         iOS chỉ giữ khoảng 64 thông báo cục bộ: app nên lấy mốc gần nhất trước (đã sắp theo fire_at)."""
         days = max(1, min(int(days), 60))
         if device_id:
@@ -575,9 +613,14 @@ class Service:
                 for suffix, kind, fire_at in self._fire_points(ev, o):
                     if not (now <= fire_at <= end):
                         continue
+                    key = store.fmt(o) + suffix
                     if device_id and self.con.execute(
                             "SELECT 1 FROM delivered WHERE device_id=? AND event_id=? AND occ_key=?",
-                            (device_id, ev["id"], store.fmt(o) + suffix)).fetchone():
+                            (device_id, ev["id"], key)).fetchone():
+                        continue
+                    if skip_acked and any(self.con.execute(
+                            "SELECT 1 FROM %s WHERE event_id=? AND occ_start=?" % t, (ev["id"], key)).fetchone()
+                            for t in ("acked", "fired")):
                         continue
                     out.append(self._item(ev, o, suffix, kind, fire_at, now))
         out.sort(key=lambda x: (x["fire_at"], x["key"]))
