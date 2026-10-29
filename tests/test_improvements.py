@@ -393,5 +393,23 @@ class TestCheck(Base):
         self.assertEqual(self.b.svc.con.execute("select count(*) from events").fetchone()[0], n)
 
 
+class TestUiWiring(unittest.TestCase):
+    """Không có trình duyệt trong CI: chỉ kiểm tra trang gọi đúng endpoint mới và còn là JavaScript hợp lệ cú pháp."""
+    def test_page_calls_new_endpoints(self):
+        from lichviet.ui import PAGE
+        self.assertIn("/reminders/due?channel=ui&skip_delivered=1", PAGE)
+        self.assertIn("/events/check", PAGE)
+        self.assertIn("e_conf", PAGE)
+        self.assertIn("['yearly','Mỗi năm']", PAGE)
+        self.assertIn("yearly:'mỗi năm'", PAGE)
+
+    def test_page_served(self):
+        b = Box()
+        self.addCleanup(b.close)
+        c, body = b.call("GET", "/")
+        self.assertEqual(c, 200)
+        self.assertIn("skip_delivered=1", body)
+
+
 if __name__ == "__main__":
     unittest.main()

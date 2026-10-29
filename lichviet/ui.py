@@ -124,7 +124,7 @@ const fmt=iso=>fmtD(iso)+' '+fmtT(iso);
 const when=(iso,allDay)=>allDay?fmtD(iso)+' cả ngày':fmt(iso);
 const whenLong=(iso,allDay)=>{const d=new Date(iso);return WD[d.getDay()]+', '+fmtD(iso)+(allDay?' · cả ngày':' · '+fmtT(iso))};
 const local=d=>d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T00:00:00';
-const REP={daily:'mỗi ngày',weekly:'mỗi tuần',monthly:'mỗi tháng',lunar_yearly:'hằng năm'};
+const REP={daily:'mỗi ngày',weekly:'mỗi tuần',monthly:'mỗi tháng',yearly:'mỗi năm',lunar_yearly:'hằng năm'};
 const repText=(rep,ld,lm)=>!rep?'':rep==='lunar_yearly'?' · âm lịch '+(ld&&lm?p(ld)+'/'+p(lm)+', ':'')+'hằng năm':rep==='lunar_monthly'?' · âm lịch ngày '+(ld||'')+' hằng tháng':' · '+(REP[rep]||rep);
 const svg=d=>'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+d+'</svg>';
 const ICO={cal:svg('<rect x="3" y="4" width="18" height="17" rx="3"/><path d="M8 2v4M16 2v4M3 10h18"/>'),
@@ -226,7 +226,7 @@ async function refresh(){
     await fetch('/events/'+btn.dataset.id,{method:'DELETE'});refresh();});
 }
 async function due(){
-  const d=await j('/reminders/due?channel=ui');
+  const d=await j('/reminders/due?channel=ui&skip_delivered=1');
   const soon=x=>x.kind&&x.kind!=='on_time';
   $('due').innerHTML=d.map(x=>'<div class="banner">'+ICO.bell+'<div class="x">'+(soon(x)?'Còn '+x.days_left+' ngày: ':'Đến giờ: ')+'<b>'+esc(x.title)+'</b> · '+when(x.occurrence,x.all_day)+'</div><button data-e="'+x.event_id+'" data-o="'+esc(x.key||x.occurrence)+'">Đã biết</button></div>').join('');
   document.querySelectorAll('#due button').forEach(btn=>btn.onclick=async()=>{
@@ -240,7 +240,7 @@ function showSaved(ev){
   refresh();due();}
 /* ---- sửa bản nháp trước khi lưu: đi qua POST /events (cùng create() với Lưu, có kiểm tra trùng) ---- */
 const okDate=s=>{const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(s);if(!m)return false;const x=new Date(+m[1],+m[2]-1,+m[3]);return x.getMonth()===+m[2]-1&&x.getDate()===+m[3];};
-const REPOPT=[['','Không lặp'],['daily','Mỗi ngày'],['weekly','Mỗi tuần'],['monthly','Mỗi tháng']];
+const REPOPT=[['','Không lặp'],['daily','Mỗi ngày'],['weekly','Mỗi tuần'],['monthly','Mỗi tháng'],['yearly','Mỗi năm']];
 function openEdit(d,back){
   const lunar=!!d.lunar,st=d.start||'',dateV=st.slice(0,10),timeV=st.slice(11,16);
   const opts=REPOPT.map(([v,l])=>'<option value="'+v+'"'+((d.repeat||'')===v?' selected':'')+'>'+l+'</option>').join('');
@@ -252,11 +252,23 @@ function openEdit(d,back){
     +(lunar?'<p class="ai">Việc theo âm lịch giữ nguyên ngày âm, nên chỉ sửa được tên, giờ và nhắc trước.</p>'
       :'<label class="fl">Lặp<select id="e_r">'+opts+'</select></label>')
     +'<label class="fl">Nhắc trước (phút)<input id="e_m" type="number" min="0" max="10080" step="1" inputmode="numeric" value="'+(d.remind_before_min||'')+'"></label>'
-    +'<div class="note" id="e_err" hidden></div>'
+    +'<div id="e_conf"></div><div class="note" id="e_err" hidden></div>'
     +'<div class="actions"><button class="btn" type="submit">Lưu</button><button class="btn ghost" type="button" id="e_no">Hủy</button></div></form>');
   const f=$('ef'),err=$('e_err'),all=$('e_all'),btn=f.querySelector('button[type=submit]');
   const fail=m=>{err.textContent=m;err.hidden=false;};
-  all.onchange=()=>{$('e_hw').hidden=all.checked;};all.onchange();
+  /* cảnh báo trùng giờ (POST /events/check): chỉ nhắc, không chặn Lưu */
+  let seq=0;
+  const checkConf=async()=>{
+    const n=++seq,box=$('e_conf'),date=lunar?dateV:$('e_d').value,time=all.checked?'00:00':$('e_h').value;
+    if(all.checked||!okDate(date)||!/^\d{2}:\d{2}$/.test(time)){box.innerHTML='';return;}
+    try{
+      const r=await fetch('/events/check',{method:'POST',body:JSON.stringify({start:date+'T'+time+':00',duration_min:d.duration_min||null,all_day:false})});
+      const x=await r.json();if(n!==seq||!r.ok)return;
+      box.innerHTML=(x.conflicts||[]).map(c=>'<div class="note">Trùng giờ với <b>'+esc(c.title)+'</b> ('+fmt(c.occurrence)+')</div>').join('');
+    }catch(e){}
+  };
+  all.onchange=()=>{$('e_hw').hidden=all.checked;checkConf();};all.onchange();
+  $('e_h').oninput=$('e_h').onchange=checkConf;if(!lunar)$('e_d').oninput=$('e_d').onchange=checkConf;
   $('e_no').onclick=back;
   f.onkeydown=e=>{if(e.key==='Escape'){e.preventDefault();back();}};
   f.onsubmit=async e=>{
@@ -272,6 +284,7 @@ function openEdit(d,back){
     const body={title,start:date+'T'+time+':00',all_day:allDay,duration_min:d.duration_min||null,
       repeat:lunar?(d.repeat||null):($('e_r').value||null),remind_before_min:mins,lunar:d.lunar||null};
     btn.disabled=true;
+    await checkConf();
     try{
       const r=await fetch('/events',{method:'POST',body:JSON.stringify(body)});
       const ev=await r.json();

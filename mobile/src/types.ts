@@ -53,10 +53,47 @@ export interface NewEvent {
   lunar: [number, number] | null;
 }
 
-/** Phần của server mà đồng bộ cần. */
+/** Một mốc nhắc từ GET /v1/reminders/upcoming (chỉ các trường app dùng). */
+export interface UpcomingReminder {
+  event_id: number;
+  title: string;
+  occurrence: string;
+  /** khóa mốc: occurrence + "" | "#7d" | "#1d"; truyền lại khi báo delivered */
+  key: string;
+  kind: "on_time" | "prepare_7d" | "prepare_1d" | string;
+  all_day: boolean;
+  notes: string | null;
+  fire_at: string;
+  /** giờ nhắc kèm độ lệch múi giờ */
+  fire_at_iso: string;
+  ref: string;
+}
+
+/** Phần của server mà đồng bộ cần. Ba method sau là CỘNG THÊM (server cũ không có thì app dùng quy tắc tự tính). */
 export interface SyncApi {
   info(): Promise<ServerInfo>;
   events(from: string, to: string): Promise<Occurrence[]>;
+  upcoming?(days: number, deviceId: string): Promise<UpcomingReminder[]>;
+  registerDevice?(deviceId: string, platform: string, label?: string): Promise<unknown>;
+  delivered?(deviceId: string, eventId: number, key: string): Promise<unknown>;
+}
+
+/** Mốc đã hẹn trên máy, chờ báo "delivered" lên server khi giờ nhắc đã qua. */
+export interface PendingDelivery {
+  eventId: number;
+  key: string;
+  atMs: number;
+}
+
+/** Danh tính thiết bị với server và sổ các mốc chờ báo delivered. */
+export interface DevicePort {
+  /** device_id ổn định, tạo một lần rồi nhớ */
+  deviceId(): Promise<string>;
+  /** đã đăng ký với server hiện tại chưa */
+  isRegistered(): Promise<boolean>;
+  setRegistered(v: boolean): Promise<void>;
+  loadPending(): Promise<PendingDelivery[]>;
+  savePending(p: PendingDelivery[]): Promise<void>;
 }
 
 /** Một sự kiện ghi vào lịch hệ thống. Mili giây UTC; việc cả ngày: 00:00 UTC và tz = "UTC". */
@@ -91,6 +128,9 @@ export interface CalendarPort {
 
 export interface ReminderPoint {
   ref: string;
+  /** để báo delivered lên server: việc và khóa mốc (có khi mốc đến từ /upcoming hoặc tự tính từ việc) */
+  eventId?: number;
+  key?: string;
   /** mốc hẹn, mili giây UTC */
   atMs: number;
   title: string;
@@ -112,5 +152,9 @@ export interface SyncResult {
   updated: number;
   deleted: number;
   scheduled: number;
+  /** nguồn mốc nhắc lần này: server (/upcoming) hay tự tính (dự phòng, server cũ hoặc lỗi) */
+  reminderSource?: "server" | "local";
+  /** số mốc đã báo delivered lên server trong lần này */
+  delivered?: number;
   occurrences: Occurrence[];
 }

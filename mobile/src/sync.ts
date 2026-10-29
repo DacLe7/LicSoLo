@@ -1,8 +1,12 @@
 import type {
-  CalendarDiff, CalendarItem, CalendarPort, ManagedEntry, NotifierPort, Occurrence, ServerInfo, SyncApi, SyncResult,
+  CalendarDiff, CalendarItem, CalendarPort, DevicePort, ManagedEntry, NotifierPort, Occurrence, PendingDelivery,
+  ServerInfo, SyncApi, SyncResult,
 } from "./types";
 import { DAY, MIN, parts } from "./timeutil";
-import { eventRef, fetchOccurrences, pruneRefs, refMapOf, reminderPoints, withIds, withoutTaken } from "./reminders";
+import {
+  choosePoints, eventRef, fetchOccurrences, mergePending, pendingOf, pruneRefs, refMapOf, reportDeliveries, withIds,
+  withoutTaken,
+} from "./reminders";
 import type { RefMap } from "./reminders";
 
 /* Đồng bộ một chiều LicSoLo -> lịch hệ thống + thông báo cục bộ. Không chạm vào điện thoại thật:
@@ -68,6 +72,8 @@ export interface SyncDeps {
   calendar: CalendarPort;
   notifier: NotifierPort;
   now?: () => number;
+  /** Danh tính thiết bị: có thì app đăng ký với server, lấy mốc từ /upcoming và báo delivered. Không có = như bản cũ. */
+  device?: DevicePort;
   /** Chia việc với runner nền (xem reminders.ts). Không truyền thì app tự hẹn mọi mốc. */
   shared?: {
     bgRefs(): Promise<RefMap>;
@@ -76,11 +82,31 @@ export interface SyncDeps {
 }
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
+const REGISTER_RETRY_MS = 10 * MIN; // server cũ hoặc đã đủ 20 thiết bị: đừng gọi đăng ký mỗi phút
+
 const empty: SyncResult = { ok: false, inserted: 0, updated: 0, deleted: 0, scheduled: 0, occurrences: [] };
 
 export function createSync(deps: SyncDeps) {
   const now = deps.now ?? Date.now;
   let running: Promise<SyncResult> | null = null;
+  let registerRetryAt = 0;
+
+  /** device_id đã đăng ký với server, hoặc null (không có DevicePort, server cũ, đã đủ thiết bị): khi đó dùng quy tắc tự tính. */
+  async function ensureDevice(force = false): Promise<string | null> {
+    const dev = deps.device;
+    if (!dev || !deps.api.registerDevice || (!force && now() < registerRetryAt)) return null;
+    try {
+      const id = await dev.deviceId();
+      if (force || !(await dev.isRegistered())) {
+        await deps.api.registerDevice(id, "android"); // idempotent: đã đăng ký rồi thì chỉ cập nhật
+        await dev.setRegistered(true);
+      }
+      return id;
+    } catch {
+      registerRetryAt = now() + REGISTER_RETRY_MS;
+      return null;
+    }
+  }
 
   async function once(): Promise<SyncResult> {
     let info: ServerInfo, occs: Occurrence[];
@@ -103,18 +129,33 @@ export function createSync(deps: SyncDeps) {
       res.ok = false;
       res.calendarError = msg(e);
     }
+    const t = now();
+    const deviceId = await ensureDevice();
+    let scheduledNow: PendingDelivery[] = [];
     try {
-      const t = now();
-      let points = reminderPoints(occs, t);
+      const chosen = await choosePoints(deps.api, deviceId, async () => occs, t, () => ensureDevice(true));
+      let points = chosen.points;
+      res.reminderSource = chosen.source;
       if (deps.shared) points = withoutTaken(points, pruneRefs(await deps.shared.bgRefs(), t)); // mốc runner nền đã hẹn
       const withId = withIds(points);
       await deps.notifier.cancelAll();
       if (withId.length) await deps.notifier.schedule(withId);
       if (deps.shared) await deps.shared.saveAppRefs(refMapOf(points));
       res.scheduled = withId.length;
+      scheduledNow = pendingOf(points);
     } catch (e) {
       res.ok = false;
       res.notifyError = msg(e);
+    }
+    if (deps.device) {
+      try {
+        // mốc lần trước đã tới giờ thì báo delivered; mốc chưa tới giờ nằm trong lần hẹn mới (scheduledNow) nếu còn hiệu lực
+        const rep = await reportDeliveries(deps.api, deviceId, await deps.device.loadPending(), t);
+        await deps.device.savePending(mergePending(rep.failed, scheduledNow));
+        res.delivered = rep.reported;
+      } catch {
+        /* báo delivered chỉ là phần thêm, không làm hỏng đồng bộ */
+      }
     }
     return res;
   }
